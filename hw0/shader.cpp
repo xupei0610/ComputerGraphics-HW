@@ -139,7 +139,7 @@ AutoChangeableShader::AutoChangeableShader()
       color(new float[3])
 {
     std::fill_n(des, 3, true);
-    std::fill_n(des, 3, 1.0f);
+    std::fill_n(color, 3, 1.0f);
 }
 
 void AutoChangeableShader::compile()

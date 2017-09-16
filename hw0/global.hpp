@@ -19,4 +19,5 @@
 #define CLASS_TEMPLATE_SPECIFICATION_HELPER(class_name, ...) \
     template class class_name<__VA_ARGS__>;
 
+#define PI 3.141592653589793238462643383279502884L
 #endif // GLOBAL_HPP

@@ -1,6 +1,16 @@
 #include "shape.hpp"
 #include "app.hpp"
 
+#include <cmath>
+
+// solve `constexpr static` bug of clang
+template<typename T>
+constexpr std::size_t Triangle<T>::NUM_VERTICES;
+template<typename T>
+constexpr std::size_t Square<T>::NUM_VERTICES;
+template<typename T>
+constexpr T Point<T>::CLOSE_THRESHOLD;
+
 template<typename T>
 BasicShape<T>::BasicShape(std::size_t const &num_vertices,
                           T const &x, T const &y, T const &size, T const &angle)
@@ -90,6 +100,12 @@ Square<T>::Square(T const &x, T const &y, T const &size, T const &angle)
 {}
 
 template<typename T>
+SHAPE_PROTOTYPE Square<T>::getProperty() const
+{
+    return SQUARE_SHAPE;
+}
+
+template<typename T>
 void Square<T>::updateVertices(T const &aspect_ratio)
 {
     auto c = std::cos(BasicShape<T>::angle);
@@ -115,19 +131,16 @@ void Square<T>::updateVertices(T const &aspect_ratio)
     BasicShape<T>::vert_data[7] = BasicShape<T>::y
             + s * (-BasicShape<T>::size) + c * (-BasicShape<T>::size);
 
-    if (aspect_ratio != 1)
-    {
-        if (aspect_ratio > 1)
-        {
-            for (auto i = 0; i < 4; ++i)
-                BasicShape<T>::vert_data[i*2] /= aspect_ratio;
-        }
-        else
-        {
-            for (auto i = 0; i < 4; ++i)
-                BasicShape<T>::vert_data[i*2+1] *= aspect_ratio;
-        }
-    }
+	if (aspect_ratio > 1)
+	{
+		for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
+			BasicShape<T>::vert_data[i * 2] /= aspect_ratio;
+	}
+	else if (aspect_ratio < 1)
+	{
+		for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
+			BasicShape<T>::vert_data[i * 2 + 1] *= aspect_ratio;
+	}
 }
 
 template<typename T>
@@ -138,9 +151,18 @@ Square<T>::create(const T &x, const T &y, const T &size, const T &angle)
 }
 
 template<typename T>
+const T Triangle<T>::SQRT_3 = std::sqrt(3);
+
+template<typename T>
 Triangle<T>::Triangle(T const &x, T const &y, T const &size, T const &angle)
     : BasicShape<T>(NUM_VERTICES, x, y, size, angle)
 {}
+
+template<typename T>
+SHAPE_PROTOTYPE Triangle<T>::getProperty() const
+{
+    return TRIANGLE_SHAPE;
+}
 
 template<typename T>
 void Triangle<T>::updateVertices(T const &aspect_ratio)
@@ -161,18 +183,15 @@ void Triangle<T>::updateVertices(T const &aspect_ratio)
     BasicShape<T>::vert_data[4] = BasicShape<T>::x + c * l - s * b;
     BasicShape<T>::vert_data[5] = BasicShape<T>::y + s * l + c * b;
 
-    if (aspect_ratio != 1)
+    if (aspect_ratio > 1)
     {
-        if (aspect_ratio > 1)
-        {
-            for (auto i = 0; i < 3; ++i)
-                BasicShape<T>::vert_data[i*2] /= aspect_ratio;
-        }
-        else
-        {
-            for (auto i = 0; i < 3; ++i)
-                BasicShape<T>::vert_data[i*2+1] *= aspect_ratio;
-        }
+		for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
+			BasicShape<T>::vert_data[i*2] /= aspect_ratio;
+    }
+    else if (aspect_ratio < 1)
+    {
+		for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
+			BasicShape<T>::vert_data[i*2+1] *= aspect_ratio;
     }
 }
 
@@ -196,14 +215,14 @@ Point<T>::Point(T const &x, T const &y)
 {}
 
 template<typename T>
-RelativePos Point<T>::relativeTo(const BasicShape<T> * const &shape) const
+RelativePos Point<T>::relativeTo(const BasicShape<T> * const &shape, T const &aspect_ratio) const
 {
     switch (shape->getProperty())
     {
     case SQUARE_SHAPE:
-        return relate(*this, *dynamic_cast<const Square<T> *>(shape));
+        return relate(*this, *dynamic_cast<const Square<T> *>(shape), aspect_ratio);
     case TRIANGLE_SHAPE:
-        return relate(*this, *dynamic_cast<const Triangle<T> *>(shape));
+        return relate(*this, *dynamic_cast<const Triangle<T> *>(shape), aspect_ratio);
     default:
         return RelativePos::Outer;
     }
@@ -215,42 +234,72 @@ std::ostream &operator <<(std::ostream &os, Point<T> const &p)
     return os << p.x << ", " << p.y;
 }
 
-CLASS_TEMPLATE_SPECIFICATION_HELPER(Square, float)
-CLASS_TEMPLATE_SPECIFICATION_HELPER(Triangle, float)
-CLASS_TEMPLATE_SPECIFICATION_HELPER(Point, float)
-template std::ostream &operator <<(std::ostream &, Point<float> const &);
-
-
 template<typename T>
-RelativePos relate(Point<T> const &point, Square<T> const &square)
+RelativePos relate(Point<T> const &point, Square<T> const &square, T const &aspect_ratio)
 {
+	T px, py;
+
+	if (aspect_ratio == 1)
+	{
+		px = point.x;
+		py = point.y;
+	}
+	else if (aspect_ratio > 1)
+	{
+		px = point.x * aspect_ratio;
+		py = point.y;
+	}
+	else
+	{
+		px = point.x;
+		py = point.y / aspect_ratio;
+	}
+
     auto c = std::cos(square.angle);
     auto s = std::sin(square.angle);
 
-    auto org_x = std::abs( c * (point.x-square.x) + s * (point.y-square.y));
-    auto org_y = std::abs(-s * (point.x-square.x) + c * (point.y-square.y));
+    auto org_x = std::abs( c * (px-square.x) + s * (py-square.y));
+    auto org_y = std::abs(-s * (px-square.x) + c * (py-square.y));
 
     auto gap_x = std::abs(org_x - square.size);
     auto gap_y = std::abs(org_y - square.size);
 
-    if (gap_x < point.CLOSE_THRESHOLD and gap_y < point.CLOSE_THRESHOLD)
+    if (gap_x < point.CLOSE_THRESHOLD && gap_y < point.CLOSE_THRESHOLD)
         return RelativePos::Corner;
-    else if ((gap_x < point.CLOSE_THRESHOLD and org_y < square.size) or
-             (gap_y < point.CLOSE_THRESHOLD and org_x < square.size))
+    else if ((gap_x < point.CLOSE_THRESHOLD && org_y < square.size) ||
+             (gap_y < point.CLOSE_THRESHOLD && org_x < square.size))
         return RelativePos::Border;
-    else if (org_x < square.size and org_y < square.size)
+    else if (org_x < square.size && org_y < square.size)
         return RelativePos::Inner;
     return RelativePos::Outer;
 }
 
 template<typename T>
-RelativePos relate(Point<T> const &point, Triangle<T> const &triangle)
+RelativePos relate(Point<T> const &point, Triangle<T> const &triangle, T const &aspect_ratio)
 {
+	T px, py;
+
+	if (aspect_ratio == 1)
+	{
+		px = point.x;
+		py = point.y;
+	}
+	else if (aspect_ratio > 1)
+	{
+		px = point.x * aspect_ratio;
+		py = point.y;
+	}
+	else
+	{
+		px = point.x;
+		py = point.y / aspect_ratio;
+	}
+
     auto c = std::cos(triangle.angle);
     auto s = std::sin(triangle.angle);
 
-    auto org_x =  c * (point.x-triangle.x) + s * (point.y-triangle.y);
-    auto org_y = -s * (point.x-triangle.x) + c * (point.y-triangle.y);
+    auto org_x =  c * (px-triangle.x) + s * (py-triangle.y);
+    auto org_y = -s * (px-triangle.x) + c * (py-triangle.y);
 
 
 
@@ -270,7 +319,7 @@ RelativePos relate(Point<T> const &point, Triangle<T> const &triangle)
         {
             if (std::abs(org_x - l) < point.CLOSE_THRESHOLD)
                 return RelativePos::Corner;
-            else if (org_x > l and org_x < -l)
+            else if (org_x > l && org_x < -l)
                 return RelativePos::Border;
         }
         else if (above)
@@ -294,3 +343,11 @@ RelativePos relate(Point<T> const &point, Triangle<T> const &triangle)
 
     return RelativePos::Outer;
 }
+
+
+CLASS_TEMPLATE_SPECIFICATION_HELPER(Square, float)
+CLASS_TEMPLATE_SPECIFICATION_HELPER(Triangle, float)
+CLASS_TEMPLATE_SPECIFICATION_HELPER(Point, float)
+template std::ostream &operator <<(std::ostream &, Point<float> const &);
+template RelativePos relate(Point<float> const &, Triangle<float> const &, float const &);
+template RelativePos relate(Point<float> const &, Square<float> const &, float const &);

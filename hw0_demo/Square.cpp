@@ -25,7 +25,7 @@ float vertices[] = {  //These values should be updated to match the square's sta
 int screen_width = 800;
 int screen_height = 800;
 
-float g_mouse_down = false;
+bool g_mouse_down = false;
 
 void mouseClicked(float mx, float my);
 void mouseDragged(float mx, float my);
@@ -62,12 +62,12 @@ RELATIVE_POS getCursorRelativePos(float const &m_x, float const &m_y)
     float gap_x = std::abs(org_x - g_size);
     float gap_y = std::abs(org_y - g_size);
 
-    if (gap_x < CLOSE_THRESHOLD and gap_y < CLOSE_THRESHOLD)
+    if (gap_x < CLOSE_THRESHOLD && gap_y < CLOSE_THRESHOLD)
         return RELATIVE_POS_CORNER;
-    else if ((gap_x < CLOSE_THRESHOLD and org_y < g_size) or
-             (gap_y < CLOSE_THRESHOLD and org_x < g_size))
+    else if ((gap_x < CLOSE_THRESHOLD && org_y < g_size) ||
+             (gap_y < CLOSE_THRESHOLD && org_x < g_size))
         return RELATIVE_POS_BORDER;
-    else if (org_x < g_size and org_y < g_size)
+    else if (org_x < g_size && org_y < g_size)
         return RELATIVE_POS_INNER;
     return RELATIVE_POS_OUTER;
 }

@@ -4,7 +4,6 @@
 #include "global.hpp"
 
 #include <vector>
-#include <cmath>
 #include <iostream>
 
 template<typename T>
@@ -14,7 +13,7 @@ class Square;
 template<typename T>
 class Point;
 
-#define SHAPE_PROPERTY int
+#define SHAPE_PROTOTYPE int
 #define SQUARE_SHAPE   1
 #define TRIANGLE_SHAPE 2
 
@@ -22,7 +21,6 @@ template<typename T>
 class BasicShape
 {
 public:
-    constexpr static T PI = std::acos(-1);
 
     std::vector<T> const &vertices;
 
@@ -38,7 +36,7 @@ public:
     virtual void move(T const &offset_x, T const &offset_y);
     virtual void scaleTo(T const &new_size);
     virtual void scale(T const &scale);
-    virtual constexpr SHAPE_PROPERTY getProperty() const { return -1; }
+    virtual SHAPE_PROTOTYPE getProperty() const { return -1; }
     virtual void updateVertices(T const &aspect_ratio) = 0;
     virtual void reset();
 
@@ -66,10 +64,7 @@ class Square : public BasicShape<T>
 public:
     constexpr static std::size_t NUM_VERTICES = 4;
 
-    constexpr SHAPE_PROPERTY getProperty() const override
-    {
-        return SQUARE_SHAPE;
-    }
+    SHAPE_PROTOTYPE getProperty() const override;
     void updateVertices(T const &aspect_ratio) override;
 
     static BasicShape<T> *create(T const &x,
@@ -89,12 +84,9 @@ class Triangle : public BasicShape<T>
 {
 public:
     constexpr static std::size_t NUM_VERTICES = 3;
-    constexpr static T SQRT_3 = std::sqrt(3);
+    const static T SQRT_3; // TODO compile-time sqrt
 
-    constexpr SHAPE_PROPERTY getProperty() const override
-    {
-        return TRIANGLE_SHAPE;
-    }
+    SHAPE_PROTOTYPE getProperty() const override;
     void updateVertices(T const &aspect_ratio) override;
 
     static BasicShape<T> *create(T const &x,
@@ -126,7 +118,7 @@ public:
 
     constexpr static T CLOSE_THRESHOLD = 0.015;
 
-    virtual RelativePos relativeTo(const BasicShape<T> * const &shape) const;
+    virtual RelativePos relativeTo(const BasicShape<T> * const &shape, T const &aspect_ratio) const;
 
     Point();
     Point(T const &x, T const &y);
@@ -135,9 +127,9 @@ public:
 };
 
 template<typename T>
-RelativePos relate(Point<T> const &point, Square<T> const &square);
+RelativePos relate(Point<T> const &point, Square<T> const &square, T const &aspect_ratio);
 template<typename T>
-RelativePos relate(Point<T> const &point, Triangle<T> const &triangle);
+RelativePos relate(Point<T> const &point, Triangle<T> const &triangle, T const &aspect_ratio);
 
 template<typename T>
 std::ostream &operator <<(std::ostream &os, Point<T> const &p);

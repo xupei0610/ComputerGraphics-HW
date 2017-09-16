@@ -16,10 +16,10 @@ App* App::getAppInstance()
 }
 
 App::App()
-    : shader_programs{AutoChangeableShader::create(),
+    : shader_programs{{AutoChangeableShader::create(),
                       LocationBasedShader::create(),
                       TextureShader::create(),
-                      UniformShader::create()},
+                      UniformShader::create()}},
       action(Action::None),
       selected(-1),
       clicked_pos(0, 0),
@@ -76,7 +76,7 @@ void App::init()
                               WIN_INIT_POS_X, WIN_INIT_POS_Y,
                               screen_width, screen_height,
                               SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
-    if (not window)
+    if (!window)
         err("Failed to create window");
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -143,7 +143,7 @@ bool App::run()
     delta_time = current_time - last_time;
     last_time  = current_time;
 
-    if (not processInput())
+    if (!processInput())
         return false;
 
     processAction();
@@ -161,15 +161,15 @@ bool App::processInput()
     auto new_selected = selected;
     while (SDL_PollEvent(&event))
     {
-        if (event.type == SDL_QUIT or
-                (event.type == SDL_KEYUP and
+        if (event.type == SDL_QUIT ||
+                (event.type == SDL_KEYUP &&
                  event.key.keysym.sym == SDLK_ESCAPE))
         {
             over();
             return false;
         }
-        if (event.type == SDL_KEYUP and
-               (event.key.keysym.sym == SDLK_f or
+        if (event.type == SDL_KEYUP &&
+               (event.key.keysym.sym == SDLK_f ||
                 event.key.keysym.sym == SDLK_F11))
         {
             fullscreen();
@@ -242,7 +242,7 @@ bool App::processInput()
             cursor_pos.x = static_cast<decltype(cursor_pos.x)>(2.0)*event.motion.x/screen_width - 1;
             cursor_pos.y = 1 - static_cast<decltype(cursor_pos.y)>(2.0)*event.motion.y/screen_height;
         }
-        else if (event.type == SDL_WINDOWEVENT and event.window.event == SDL_WINDOWEVENT_RESIZED)
+        else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED)
         {
             updateScreenSize(event.window.data1, event.window.data2);
             updateVertices();
@@ -279,8 +279,8 @@ void App::processAction()
     {
         if (selected >= 0)
         {
-            if (shapes.at(selected)->x != clicked_pos.x
-             or shapes.at(selected)->y != clicked_pos.y)
+            if (shapes.at(selected)->x != clicked_pos.x ||
+				shapes.at(selected)->y != clicked_pos.y)
             {
 
                 auto displacement = delta_time /
@@ -316,7 +316,7 @@ void App::processAction()
             bool finished = true;
             for (auto & s: shapes)
             {
-                if (s->x != clicked_pos.x or s->y != clicked_pos.y)
+                if (s->x != clicked_pos.x || s->y != clicked_pos.y)
                 {
                     finished = false;
                     AUTO_DRIFT_HELPER(s)
@@ -330,7 +330,7 @@ void App::processAction()
                              "FPS: " << 1000/delta_time << std::endl;
         }
     }
-    else if (mouse_down == false and action != Action::None)
+    else if (mouse_down == false && action != Action::None)
     {
         if (selected > 0)
             shapes.at(selected)->updateVertices(aspect);
@@ -488,10 +488,10 @@ void App::keyPressed()
         KEYBOARD_ACTION_HELPER(move, displacement, 0);
         break;
     case Action::RotateLeft:
-        KEYBOARD_ACTION_HELPER(rotate, BasicShape<Precision>::PI*displacement);
+        KEYBOARD_ACTION_HELPER(rotate, PI*displacement);
         break;
     case Action::RotateRight:
-        KEYBOARD_ACTION_HELPER(rotate, -BasicShape<Precision>::PI*displacement);
+        KEYBOARD_ACTION_HELPER(rotate, -PI*displacement);
         break;
     case Action::ZoomIn:
         KEYBOARD_ACTION_HELPER(scale, displacement);
@@ -517,7 +517,6 @@ void App::updateScreenSize(std::size_t const &width, std::size_t const &height)
     glViewport(0, 0, screen_width, screen_height);
     aspect = static_cast<decltype(aspect)>(screen_width) / screen_height;
     std::cout << "Window resized to (" << screen_width << ", " << screen_height << ")" << std::endl;
-
 }
 
 void App::updateVertices()
@@ -525,31 +524,31 @@ void App::updateVertices()
     FOR_EACH_SHAPE(updateVertices, aspect);
 }
 
-#define APP_GET_ACTION_HELPER(injection_cmd)            \
-    auto act = Action::AutoDrift;                       \
-    Precision z = 1.1;                                  \
-    for (std::size_t i = 0; i < depth.size(); ++i)      \
-    {                                                   \
-        if (depth[i] < z)                               \
-        {                                               \
-            switch (cursor_pos.relativeTo(shapes[i]))   \
-            {                                           \
-            case RelativePos::Corner:                   \
-                act = Action::Rotate;                   \
-                break;                                  \
-            case RelativePos::Inner:                    \
-                act = Action::Trans;                    \
-                break;                                  \
-            case RelativePos::Border:                   \
-                act = Action::Scale;                    \
-                break;                                  \
-            default:                                    \
-                continue;                               \
-            }                                           \
-            z = depth[i];                               \
-            injection_cmd                               \
-        }                                               \
-    }                                                   \
+#define APP_GET_ACTION_HELPER(injection_cmd)					\
+    auto act = Action::AutoDrift;								\
+    Precision z = 1.1;											\
+    for (std::size_t i = 0; i < depth.size(); ++i)				\
+    {															\
+        if (depth[i] < z)										\
+        {														\
+            switch (cursor_pos.relativeTo(shapes[i], aspect))	\
+            {													\
+            case RelativePos::Corner:							\
+                act = Action::Rotate;							\
+                break;											\
+            case RelativePos::Inner:							\
+                act = Action::Trans;							\
+                break;											\
+            case RelativePos::Border:							\
+                act = Action::Scale;							\
+                break;											\
+            default:											\
+                continue;										\
+            }													\
+            z = depth[i];										\
+            injection_cmd										\
+        }														\
+    }															\
     return act;
 
 App::Action App::getAvailableAction(Point<Precision> const &cursor_pos,
@@ -560,7 +559,7 @@ App::Action App::getAvailableAction(Point<Precision> const &cursor_pos,
 
 App::Action App::getAvailableAction(Point<Precision> const &cursor_pos) const
 {
-    APP_GET_ACTION_HELPER()
+	APP_GET_ACTION_HELPER({})
 }
 
 std::string App::getActionName(Action const &action) const
