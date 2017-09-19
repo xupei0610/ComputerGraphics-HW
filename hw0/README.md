@@ -69,14 +69,17 @@ Keyboard events: (Extra Feature 1)
 + `Esc`: quit
 
 ## Troubles during coding
-This is my first time to write OpenGL code. Benefiting from the courses related to computer vision, it was not a problem to consider the rotation problem. However, it took me some time to adapt the programming style of OpenGL, which is designed as a huge state machine and is much different to most libraries I met before.  A characteristic of OpenGL is that it is a huge state machine, which is different to most libraries I met before. It took me some time to adapt its programming style.  
+This is my first time to write OpenGL code. Benefiting from the courses related to computer vision, it was not a problem to consider the rotation problem. However, it took me some time to adapt the programming style of OpenGL, which is designed as a huge state machine and is much different to most libraries I met before.
 
 ## Interesting Image
 
 Twirling Shapes
 
-<img src="./doc/interest.gif" width="200px" />
+<img src="./interest.gif" width="200px" />
 
 <https://github.com/xupei0610/ComputerGraphics-HW/tree/master/hw0/interest.gif>
+
+These twirling shapes were caused by a bug when doing rotation.
+
 
 
