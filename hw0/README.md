@@ -1,4 +1,4 @@
-##HW0                                                                                    
+## HW0                                                                                    
 
 This is the code for HW0 of CSci 5607 Fundamentals of Computer Graphics, UMN. This is a improved version of code for HW0, which implements all requried and extra features.                                                                      
 
@@ -6,7 +6,7 @@ A basic version, which is obtained by directly adding code the specified locatio
 
 <https://github.com/xupei0610/ComputerGraphics-HW/tree/master/hw0_demo>
 
-##Description                                                                            
+## Description                                                                            
 
 This code implements a basic interactive GUI using SDL2 and OpenGL.
 
@@ -21,10 +21,13 @@ It draws 4 basic 2D shapes (Extra Feature 3 and 6), and supports 3 kinds of inte
 Mouse cursor changes when different interaction is available. (Extra Feature 4)
 
 + Mouse at corner (`SDL_SYSTEM_CURSOR_CROSSHAIR`)
+
   <img src="./doc/trans.png" width="100px" />
 + Mouse on the edge (`SDL_SYSTEM_CURSOR_HAND`)
+
   <img src="./doc/scal.png"  width="100px" />
 + Mouse at the interior (`SDL_SYSTEM_CURSOR_SIZEALL`) 
+
   <img src="./doc/rot.png"   width="100px" />
 
 Some margin is considered when checking the location of mouse cursor relative to a shape so that the user does not need to put the mouse cursor on the edge or at the corner exactly.
@@ -37,12 +40,15 @@ Each shape has its own fragment shader:
 + For the bottom-right square, it has a uniform color with auto changeable transparancy. (Extra Feature 5)   
 
 Shapes will not change their aspect ratio when that of the window changes. (Extra Feature 7)
+
 <img src="./doc/aspect1.png" width="200px" /> <img src="./doc/aspect2.png" width="100px" />
 
 When clicked, a shape will be selected and become the one on the top most.
+
 <img src="./doc/select.png" width="200px" />
 
 When the user clicks on any empty space, the selected shape will move toward the clicked position automatically.
+
 <img src="./doc/auto_drift.gif" width="200px" />
 
 Keyboard events: (Extra Feature 1)
@@ -70,6 +76,7 @@ This is my first time to write OpenGL code. Benefiting from the courses related 
 Twirling Shapes
 
 <img src="./doc/interest.gif" width="200px" />
-<https://github.com/xupei0610/ComputerGraphics-HW/tree/hw0/doc/interest.gif>
+
+<https://github.com/xupei0610/ComputerGraphics-HW/tree/master/hw0/interest.gif>
 
 
