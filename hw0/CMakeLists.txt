@@ -9,8 +9,8 @@ set(EXE_NAME ${PROJECT_NAME})
 
 find_package(OpenGL REQUIRED)
 #find_package(GLUT REQUIRED)
-INCLUDE(FindPkgConfig)
-PKG_SEARCH_MODULE(SDL2 REQUIRED sdl2)
+include(FindPkgConfig)
+pkg_search_module(SDL2 REQUIRED sdl2)
 include_directories(
     ${OPENGL_INCLUDE_DIRS}
     ${GLUT_INCLUDE_DIRS}
@@ -18,15 +18,15 @@ include_directories(
     )
 
 file(GLOB EXE_SRC_FILES
-    glad/glad.c
-    shape.cpp
-    shader.cpp
-    app.cpp
+    src/glad/glad.c
+    src/shape.cpp
+    src/shader.cpp
+    src/app.cpp
     )
 
 add_executable(${EXE_NAME}
     ${EXE_SRC_FILES}
-    main.cpp)
+    src/main.cpp)
 
 target_link_libraries(${EXE_NAME}
     ${OPENGL_LIBRARIES}
