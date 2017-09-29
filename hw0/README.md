@@ -6,6 +6,14 @@ A basic version, which is obtained by directly adding code the specified locatio
 
 <https://github.com/xupei0610/ComputerGraphics-HW/tree/master/hw0_demo>
 
+## Usage
+
+    mkdir build
+    cd build
+    cmake ..
+    make
+    ./hw0
+
 ## Description                                                                            
 
 This code implements a basic interactive GUI using SDL2 and OpenGL.

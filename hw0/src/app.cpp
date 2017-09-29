@@ -280,7 +280,7 @@ void App::processAction()
         if (selected >= 0)
         {
             if (shapes.at(selected)->x != clicked_pos.x ||
-				shapes.at(selected)->y != clicked_pos.y)
+                shapes.at(selected)->y != clicked_pos.y)
             {
 
                 auto displacement = delta_time /
@@ -559,7 +559,7 @@ App::Action App::getAvailableAction(Point<Precision> const &cursor_pos,
 
 App::Action App::getAvailableAction(Point<Precision> const &cursor_pos) const
 {
-	APP_GET_ACTION_HELPER({})
+    APP_GET_ACTION_HELPER({})
 }
 
 std::string App::getActionName(Action const &action) const

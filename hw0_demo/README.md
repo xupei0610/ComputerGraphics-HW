@@ -9,7 +9,10 @@ A complete version, which implements all requried and extra features, can be fou
 ## Usage
 
     mkdir build
+    cd build
     cmake ..
+    make
+    ./hw0
 
 ## Description
 

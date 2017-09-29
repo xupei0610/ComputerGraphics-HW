@@ -131,16 +131,16 @@ void Square<T>::updateVertices(T const &aspect_ratio)
     BasicShape<T>::vert_data[7] = BasicShape<T>::y
             + s * (-BasicShape<T>::size) + c * (-BasicShape<T>::size);
 
-	if (aspect_ratio > 1)
-	{
-		for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
-			BasicShape<T>::vert_data[i * 2] /= aspect_ratio;
-	}
-	else if (aspect_ratio < 1)
-	{
-		for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
-			BasicShape<T>::vert_data[i * 2 + 1] *= aspect_ratio;
-	}
+    if (aspect_ratio > 1)
+    {
+        for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
+            BasicShape<T>::vert_data[i * 2] /= aspect_ratio;
+    }
+    else if (aspect_ratio < 1)
+    {
+        for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
+            BasicShape<T>::vert_data[i * 2 + 1] *= aspect_ratio;
+    }
 }
 
 template<typename T>
@@ -185,13 +185,13 @@ void Triangle<T>::updateVertices(T const &aspect_ratio)
 
     if (aspect_ratio > 1)
     {
-		for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
-			BasicShape<T>::vert_data[i*2] /= aspect_ratio;
+        for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
+            BasicShape<T>::vert_data[i*2] /= aspect_ratio;
     }
     else if (aspect_ratio < 1)
     {
-		for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
-			BasicShape<T>::vert_data[i*2+1] *= aspect_ratio;
+        for (std::remove_const<decltype(NUM_VERTICES)>::type i = 0; i < NUM_VERTICES; ++i)
+            BasicShape<T>::vert_data[i*2+1] *= aspect_ratio;
     }
 }
 
@@ -237,23 +237,23 @@ std::ostream &operator <<(std::ostream &os, Point<T> const &p)
 template<typename T>
 RelativePos relate(Point<T> const &point, Square<T> const &square, T const &aspect_ratio)
 {
-	T px, py;
+    T px, py;
 
-	if (aspect_ratio == 1)
-	{
-		px = point.x;
-		py = point.y;
-	}
-	else if (aspect_ratio > 1)
-	{
-		px = point.x * aspect_ratio;
-		py = point.y;
-	}
-	else
-	{
-		px = point.x;
-		py = point.y / aspect_ratio;
-	}
+    if (aspect_ratio == 1)
+    {
+        px = point.x;
+        py = point.y;
+    }
+    else if (aspect_ratio > 1)
+    {
+        px = point.x * aspect_ratio;
+        py = point.y;
+    }
+    else
+    {
+        px = point.x;
+        py = point.y / aspect_ratio;
+    }
 
     auto c = std::cos(square.angle);
     auto s = std::sin(square.angle);
@@ -277,23 +277,23 @@ RelativePos relate(Point<T> const &point, Square<T> const &square, T const &aspe
 template<typename T>
 RelativePos relate(Point<T> const &point, Triangle<T> const &triangle, T const &aspect_ratio)
 {
-	T px, py;
+    T px, py;
 
-	if (aspect_ratio == 1)
-	{
-		px = point.x;
-		py = point.y;
-	}
-	else if (aspect_ratio > 1)
-	{
-		px = point.x * aspect_ratio;
-		py = point.y;
-	}
-	else
-	{
-		px = point.x;
-		py = point.y / aspect_ratio;
-	}
+    if (aspect_ratio == 1)
+    {
+        px = point.x;
+        py = point.y;
+    }
+    else if (aspect_ratio > 1)
+    {
+        px = point.x * aspect_ratio;
+        py = point.y;
+    }
+    else
+    {
+        px = point.x;
+        py = point.y / aspect_ratio;
+    }
 
     auto c = std::cos(triangle.angle);
     auto s = std::sin(triangle.angle);
@@ -301,11 +301,8 @@ RelativePos relate(Point<T> const &point, Triangle<T> const &triangle, T const &
     auto org_x =  c * (px-triangle.x) + s * (py-triangle.y);
     auto org_y = -s * (px-triangle.x) + c * (py-triangle.y);
 
-
-
     auto b = -triangle.size / 2;
     auto l = triangle.SQRT_3 * b;
-
 
     c = -0.5; // cos(2*PI/3)
     s = triangle.SQRT_3 / 2; // sin(2*PI/3)
