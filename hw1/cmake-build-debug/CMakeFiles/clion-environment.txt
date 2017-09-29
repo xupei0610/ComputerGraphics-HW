@@ -1,2 +1,0 @@
-Options: 
-CMake: 3.8.2@/home/xupei0610/clion-2017.2/bin/cmake/bin/cmake

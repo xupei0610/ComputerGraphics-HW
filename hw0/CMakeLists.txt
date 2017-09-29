@@ -34,5 +34,3 @@ target_link_libraries(${EXE_NAME}
     ${SDL2_LIBRARIES}
     ${CMAKE_DL_LIBS}
     )
-
-install(TARGETS ${EXE_NAME} DESTINATION ${PROJECT_SOURCE_DIR}/bin)

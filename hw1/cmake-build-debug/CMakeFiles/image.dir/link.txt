@@ -1,1 +1,0 @@
-/usr/bin/c++  -Wall -Og -g  -rdynamic CMakeFiles/image.dir/pixel.cpp.o CMakeFiles/image.dir/image.cpp.o CMakeFiles/image.dir/main.cpp.o  -o image 
