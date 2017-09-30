@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <vector>
 #include <random>
 #include <cmath>
@@ -852,7 +853,7 @@ void meanShift(const T_IN * const &src,
                 for (std::size_t ch = 0; ch < channel; ++ch)
                     color[ch] = sum.at(ch) / count;
 
-                if (std::abs(y - y0) < eps && std::abs(x - x0) < eps)
+                if (std::fabs(y - y0) < eps && std::fabs(x - x0) < eps)
                     break;
             }
 
@@ -882,7 +883,7 @@ void watercolor(T_IN *org_im, // must be rgb
     };
 
     auto lab = new float[height*width*3];
-    std::array<float, 3> mean{0,0,0}, stddev{0,0,0};
+    std::array<float, 3> mean{{0,0,0}}, stddev{{0,0,0}};
     auto tot = static_cast<int>(height*width);
     for (auto i = 0, s = 0, t = 0; i < tot; ++i, s+=stride, t+=3)
     {

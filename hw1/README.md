@@ -35,7 +35,7 @@ Adjust brightness in HSL color space.
 Usage example:
 
     ./image -input ../sample/millcity.jpg -brightness 0.8 -output out.png
-    
+
 Effect: `-brightness` `-0.2`, `0.2`, `0.5`
 
 <img src="./doc/brightness_-.2.png" width="250px" /> <img src="./doc/brightness_+.2.png" width="250px" /> <img src="./doc/brightness_+.5.png" width="250px" />
@@ -240,7 +240,7 @@ Process:
 + Pigment Dispersion: use Gaussian noise to simulate the effect of pigment dispersion.
 + Texture: merge the processed picture with a watercolor canvas texture.
 
-The above process is a little time-consuming.
+The above process is a little **time-consuming**.
 
 References:
 
