@@ -119,7 +119,7 @@ std::string px(const unsigned char *const &data,
     res.append(reinterpret_cast<char *>(dim), sizeof(dim));
 
     std::uint64_t tot = w*h;
-    std::uint8_t raw_data[(tot+2)*comp];
+    auto raw_data = new std::uint8_t[(tot+2)*comp];
     auto img_data = raw_data + 2*comp;
     auto tar = -1;
 
@@ -169,7 +169,7 @@ std::string px(const unsigned char *const &data,
     }
 
     res.append(reinterpret_cast<char *>(raw_data), sizeof(std::uint8_t)*(2*comp+1+tar));
-
+    delete [] raw_data;
     return res;
 }
 } // pcv::serialize
@@ -721,7 +721,7 @@ double * canny(const T * const &im, // must be grayscale
     const double one_by_256 = 0.00390625;
     for (auto i = 0; i < im_size; ++i)
     {
-        if (grad_mag[i] < min and grad_mag[i] > one_by_256)
+        if (grad_mag[i] < min && grad_mag[i] > one_by_256)
             min = grad_mag[i];
         if (grad_mag[i] > max)
             max = grad_mag[i];
@@ -789,8 +789,9 @@ void meanShift(const T_IN * const &src,
     for (auto i = 0; i < 256; ++i)
         dist_map[i] = i*i;
 
+    auto int_height = static_cast<int>(height); // ms visual only support signed integer used for omp for-loop
 #pragma omp parallel for num_threads(8)
-    for (std::size_t r = 0; r < height; ++r)
+    for (auto r = 0; r < int_height; ++r)
     {
         std::vector<double> sum(channel, 0);
         std::vector<double> color(channel, 0);
@@ -919,20 +920,22 @@ void watercolor(T_IN *org_im, // must be rgb
     auto abstract = new float[tot*3];
     meanShift(lab, height, width, 3, 3, 20, 20, meanshift);
     std::vector<double> sum(3, 0);
-    std::size_t abstract_size = 5;
+    auto abstract_size = 5;
+    auto int_height = static_cast<int>(height);
+    auto int_width = static_cast<int>(width);
 #pragma omp parallel for num_threads(8)
-    for (std::size_t r=0; r < height; ++r)
+    for (auto r=0; r < int_height; ++r)
     {
-        for (std::size_t c = 0; c < width; ++c)
+        for (auto c = 0; c < int_width; ++c)
         {
             std::fill_n(sum.begin(), 3, 0);
             auto count = 0;
             auto s = (r*width + c)*3;
 
-            for (std::size_t h = r > abstract_size ? r-abstract_size : 0, h_end = std::min(r+abstract_size+1, height);
+            for (auto h = r > abstract_size ? r-abstract_size : 0, h_end = std::min(r+abstract_size+1, int_height);
                  h < h_end; ++h)
             {
-                for (std::size_t w = c > abstract_size ? c-abstract_size : 0, w_end = std::min(c+abstract_size+1, width);
+                for (auto w = c > abstract_size ? c-abstract_size : 0, w_end = std::min(c+abstract_size+1, int_width);
                      w < w_end; ++w)
                 {
                     auto t = 3*(h*width+w);
@@ -1000,13 +1003,13 @@ void watercolor(T_IN *org_im, // must be rgb
     };
     auto perlin = new float[tot];
 #pragma omp parallel for num_threads(8)
-    for (std::size_t r = 1; r < height; ++r)
+    for (auto r = 1; r < int_height; ++r)
     {
         for (std::size_t c = 1; c < width; ++c)
             perlin[r*width+c] = get_noise(c, r);
     }
-    auto h_m_1 = static_cast<int>(height-1);
-    auto w_m_1 = static_cast<int>(width-1);
+    auto h_m_1 = int_height-1;
+    auto w_m_1 = int_width-1;
 #pragma omp parallel for num_threads(8)
     for (auto r = 1; r < h_m_1; ++r)
     {

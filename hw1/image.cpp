@@ -736,11 +736,7 @@ Image* Image::Scale(double sx, double sy)
     for (decltype(Height()) h = 0; h < new_im->Height(); ++h)
     {
         for (decltype(Width()) w = 0; w < new_im->Width(); ++w)
-        {
             new_im->GetPixel(w, h) = Sample(w/sx, h/sy);
-            if (h == 0)
-            std::cout << (w+1)/sx-1 << std::endl;
-        }
     }
 
 #ifndef NDEBUG
