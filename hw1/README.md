@@ -234,7 +234,7 @@ Effect: `-fun`
 
 Opt: `-watercolor`
 
-Watercolor painting effect. By default, the program uses openMP to accelerate meanshift filtering, abstraction and adding Perlin noise.
+Watercolor painting effect. By default, the program uses OpenMP for meanshfit filtering and Perline noise generation.
 
 Process:
 + Color Adjustment: adjust the whole picture's color mean and std. deviation in Lab color space.
