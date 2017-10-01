@@ -100,6 +100,10 @@ Effect: `-blur` `3`, `7`, `11`
 
 <img src="./doc/blur_3.png" width="250px" /> <img src="./doc/blur_7.png" width="250px" /> <img src="./doc/blur_11.png" width="250px" />
 
+with `-crop 300 200 250 100`
+
+<img src="./doc/blur_3_crop_300_200_250_100.png" /> <img src="./doc/blur_7_crop_300_200_250_100.png" /> <img src="./doc/blur_11_crop_300_200_250_100.png" />
+
 ### Sharpening
 
 Opt: `-sharpen <maskSize>` Arg Range: positive, odd integer
