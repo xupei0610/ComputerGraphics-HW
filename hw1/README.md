@@ -297,11 +297,11 @@ Size reduces from `1819854` (BMP format) to `530012` bytes.
 
 <img src="./interest.png" />
 
-Watercolor painting stylization transfer. See the [orignal picture](doc/interest_org_picture.jpg).
+Watercolor painting stylization transfer. See the [original picture](doc/interest_org_picture.jpg).
 
 ## Summaries
 
-This homework is a fantastic experience. I, once again, saw the magic of using numerical operation to process image, which is usually thought of as abstract. I did something about image processing and computer vision in C++. Therefore, most parts fo this homework is not much hard for me. The really difficult one is to implement the extra feather -- nonphotorealistic rendering. It took me lots of time to explore how to transfer an image into the watercolor painting style and to test the proper value of each parameter. In order to realize this feature, I implement meanshift filtering, Perlin noise generation and RGB-Lab color space conversion, which I usually use through calling corresponding functions from the libraries like OpenCV. The final result is not perfect but still satisfactory.
+This homework is a fantastic experience. I, once again, saw the magic of using numerical operation to process image, which is usually thought of as abstract. I did something about image processing and computer vision in C++. Therefore, most parts of this homework is not much hard for me. The really difficult one is to implement the extra feather -- nonphotorealistic rendering. It took me lots of time to explore how to transfer an image into the watercolor painting style and to test the proper value of each parameter. In order to realize this feature, I implement meanshift filtering, Perlin noise generation and RGB-Lab color space conversion, which I usually use through calling corresponding functions from the libraries like OpenCV. The final result is not perfect but still satisfactory.
 
 
 
