@@ -26,8 +26,8 @@ if (USE_OPENMP)
 endif()
 
 file(GLOB EXE_SRC_FILES
-    pixel.cpp
-    image.cpp
+    src/pixel.cpp
+    src/image.cpp
     )
 
 add_executable(${EXE_NAME}
