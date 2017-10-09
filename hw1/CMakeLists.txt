@@ -32,7 +32,7 @@ file(GLOB EXE_SRC_FILES
 
 add_executable(${EXE_NAME}
     ${EXE_SRC_FILES}
-    main.cpp)
+    src/main.cpp)
 
 target_link_libraries(${EXE_NAME})
 
