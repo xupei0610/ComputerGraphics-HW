@@ -19,9 +19,9 @@ A new supported property in scene files is added to set sampling radius for supe
 
 When the parameter is 0, no supersampling will by performed.
 
-To use Jitter supersampling, use `-DJITTER=<positive integer>` when in the `cmake` command. Then `<positive integer>` represents all many samples will be collected in a subspace whose size is decided by the sampling radius.
+To use Jitter supersampling, use `-DUSE_JITTER=<positive integer>` when in the `cmake` command. Then `<positive integer>` represents all many samples will be collected in a subspace whose size is decided by the sampling radius.
 
-To use Adapative supersampling, use `-DADAPTIVE`. If no `JITTER` is defined, `ADAPTIVE` will perform Jitter sampling 5 times in a sub sampling space.
+To use Adapative supersampling, use `-DUSE_ADAPTIVE`. If no `USE_JITTER` is defined, `USE_ADAPTIVE` will perform Jitter sampling 5 times in a sub sampling space.
 
 Set `-DUSE_GUI=OFF` or close the option in the `CMakeLists.txt` file to disable GUI, if it is a trouble to use SDL2 with CMake.
 
