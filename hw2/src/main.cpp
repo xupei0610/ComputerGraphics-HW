@@ -1,6 +1,8 @@
 #include "object.hpp"
 #include "scene.hpp"
-#include "window.hpp"
+#ifdef USE_GUI
+  #include "window.hpp"
+#endif
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -71,10 +73,12 @@ int main(int argc, char *argv[])
 
     auto s = std::make_shared<Scene>();
     auto outputs = parse(f, s);
-
+#ifdef USE_GUI
     auto w = px::Window::getInstance(s);
     w->render();
-
+#else
+	s->render();
+#endif
     if (outputs.empty())
     {
         stbi_write_bmp("raytraced.bmp", s->width, s->height, 3, s->pixels.data);
@@ -98,11 +102,16 @@ int main(int argc, char *argv[])
                     stbi_write_png(o.first.data(), s->width, s->height, 3, s->pixels.data, s->width*3);
                     break;
             }
+			std::cout << "Write image into " << o.first << std::endl;
         }
     }
-
+#ifdef USE_GUI
     while (w->run());
+#else
+	std::cout << "Enter any key to exit. ";
+	std::cin.ignore();
 
+#endif
     return 0;
 }
 

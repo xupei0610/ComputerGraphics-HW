@@ -3,8 +3,9 @@ cmake_minimum_required(VERSION 3.2)
 project(hw2)
 
 option(USE_OPENMP "Use OpenMP or not." ON)
-option(JITTER "Use Jitter Sampling" OFF)
-option(ADAPTIVE "Use Jitter Sampling" OFF)
+option(USE_GUI "Use GUI or not" OFF)
+option(USE_JITTER "Use Jitter Sampling" OFF)
+option(USE_ADAPTIVE "Use Jitter Sampling" OFF)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
@@ -12,8 +13,11 @@ set(CMAKE_CXX_FLAGS "-Wall -O3")
 set(CMAKE_C_FLAGS "-Wall -O3")
 set(EXE_NAME ${PROJECT_NAME})
 
-include(FindPkgConfig)
-pkg_search_module(SDL2 REQUIRED sdl2)
+if (USE_GUI)
+    add_definitions("-DUSE_GUI=${USE_GUI}")
+	include(FindPkgConfig)
+	pkg_search_module(SDL2 REQUIRED sdl2)
+endif()
 
 if (USE_OPENMP)
     find_package(OpenMP)
@@ -26,11 +30,11 @@ if (USE_OPENMP)
     endif()
 endif()
 
-if (JITTER)
-    add_definitions("-DJITTER_SAMPLING=${JITTER}")
+if (USE_JITTER)
+    add_definitions("-DJITTER_SAMPLING=${USE_JITTER}")
 endif()
-if (ADAPTIVE)
-    add_definitions("-DADAPTIVE_SAMPLING=${ADAPTIVE}")
+if (USE_ADAPTIVE)
+    add_definitions("-DADAPTIVE_SAMPLING=${USE_ADAPTIVE}")
 endif()
 
 include_directories(
@@ -40,8 +44,10 @@ include_directories(
 file(GLOB EXE_SRC_FILES
      src/object.cpp
      src/scene.cpp
-     src/window.cpp
     )
+if (USE_GUI)
+	list(APPEND ${EXE_SRC_FILES} src/window.cpp)
+endif()
 
 add_executable(${EXE_NAME}
     ${EXE_SRC_FILES}
