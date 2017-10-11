@@ -1,0 +1,14 @@
+material 1 1 1 1 1 1 1 1 1 32 0 0 0 0
+sphere 0 -500 8 500
+
+spot_light 10 0 0  5 1 0   0 -1 0 30 70
+spot_light 0 10 0  3 1 0   0 -1 0 30 70
+spot_light 0 0 10  4 1 2 0 -1 0 30 70
+
+spot_light -5 0 0  -5 1 0   0 -1 0 40 70
+spot_light 0 -5 0  -3 1 0   0 -1 0 40 70
+spot_light 0 0 -5  -4 1 2 0 -1 0 40 70
+
+ambient_light .5 .5 .5
+
+camera 0 6 0.7 0 -1 0 0 0 1 45
