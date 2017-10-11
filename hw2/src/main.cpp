@@ -16,6 +16,7 @@
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
+#include <vector>
 
 using namespace px;
 
@@ -295,13 +296,6 @@ std::unordered_map<std::string, IMAGE_FORMAT> parse(
         {
             throw std::invalid_argument("Failed to parse script with an unsupported property `" + param[0] + "`.");
         }
-
-//        std::cout << ln << ": " << line << std::endl;
-//        for (auto & s : param)
-//        {
-//            std::cout << s << " ";
-//        }
-//        std::cout << std::endl;
     }
 
     return outputs;

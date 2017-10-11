@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.2)
 project(hw2)
 
 option(USE_OPENMP "Use OpenMP or not." ON)
-option(USE_GUI "Use GUI or not" OFF)
+option(USE_GUI "Use GUI or not" ON)
 option(USE_JITTER "Use Jitter Sampling" OFF)
 option(USE_ADAPTIVE "Use Jitter Sampling" OFF)
 
@@ -41,12 +41,17 @@ include_directories(
     ${SDL2_INCLUDE_DIRS}
     )
 
-file(GLOB EXE_SRC_FILES
+if (USE_GUI)
+  file(GLOB EXE_SRC_FILES
+     src/object.cpp
+     src/scene.cpp
+     src/window.cpp
+    )
+else()
+  file(GLOB EXE_SRC_FILES
      src/object.cpp
      src/scene.cpp
     )
-if (USE_GUI)
-	list(APPEND ${EXE_SRC_FILES} src/window.cpp)
 endif()
 
 add_executable(${EXE_NAME}

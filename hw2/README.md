@@ -9,9 +9,9 @@ The code implements all the requried basic features and most extra features, exc
     mkdir build
     cmake ..
     make
-    ./ray
+    ./hw2
 
-The program `ray` accepts one argument to load a specific scene file. By default, without any argument, the program will load the scene defiend in `./scenes/spheres1.scn`.
+The program `hw2` accepts one argument to load a specific scene file. By default, without any argument, the program will load the scene defiend in `./scenes/spheres1.scn`.
 
 A new supported property in scene files is added to set sampling radius for supersampling.
 
@@ -22,6 +22,8 @@ When the parameter is 0, no supersampling will by performed.
 To use Jitter supersampling, use `-DJITTER=<positive integer>` when in the `cmake` command. Then `<positive integer>` represents all many samples will be collected in a subspace whose size is decided by the sampling radius.
 
 To use Adapative supersampling, use `-DADAPTIVE`. If no `JITTER` is defined, `ADAPTIVE` will perform Jitter sampling 5 times in a sub sampling space.
+
+Set `-DUSE_GUI=OFF` or close the option in the `CMakeLists.txt` file to disable GUI, if it is a trouble to use SDL2 with CMake.
 
 ## Demos
 The follwing shows demos from scenes in the `sences` folder.
