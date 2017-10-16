@@ -30,7 +30,7 @@ enum class IMAGE_FORMAT
 
 void help(const char* const &exe_name)
 {
-    std::cout << "This is a ray tracing program using only CPU developed by Pei Xu.\n\n"
+    std::cout << "This is a ray tracing program developed by Pei Xu.\n\n"
                  "Usage:\n"
                  "  " << exe_name << " <scene_file>" << std::endl;
 }
@@ -49,13 +49,13 @@ int main(int argc, char *argv[])
     if (argc == 1)
     {
         f = DEFAULT_SCENE;
-        std::cout << "Default scene loaded." << std::endl;
+        std::cout << "[Info] Default scene loaded." << std::endl;
     }
     else if (argc == 2)
     {
         std::ifstream file(argv[1]);
         if (!file.is_open())
-            throw std::invalid_argument("Failed to open scene file `" + std::string(argv[1]) + "`.");
+            throw std::invalid_argument("[Error] Failed to open scene file `" + std::string(argv[1]) + "`.");
         try
         {
             f.resize(file.seekg(0, std::ios::end).tellg());
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
         }
         catch (std::exception)
         {
-            throw std::invalid_argument("Failed to read scene file `" + std::string(argv[1]) + "`.");
+            throw std::invalid_argument("[Error] Failed to read scene file `" + std::string(argv[1]) + "`.");
         }
     }
     else
@@ -83,6 +83,7 @@ int main(int argc, char *argv[])
     if (outputs.empty())
     {
         stbi_write_bmp("raytraced.bmp", s->width, s->height, 3, s->pixels.data);
+        std::cout << "[Info] Write image into raytraced.bmp" << std::endl;
     }
     else
     {
@@ -103,7 +104,7 @@ int main(int argc, char *argv[])
                     stbi_write_png(o.first.data(), s->width, s->height, 3, s->pixels.data, s->width*3);
                     break;
             }
-			std::cout << "Write image into " << o.first << std::endl;
+			std::cout << "[Info] Write image into " << o.first << std::endl;
         }
     }
 #ifdef USE_GUI
@@ -134,11 +135,11 @@ std::unordered_map<std::string, IMAGE_FORMAT> parse(
 #define S2I(var) std::stoi(var)
 #define PARAM_CHECK(name, param_size, param)                                                \
     if (param.size() != param_size + 1)                                                     \
-        throw std::invalid_argument("Failed to parse `"                                     \
+        throw std::invalid_argument("[Error] Failed to parse `"                             \
                                     name                                                    \
                                     "` (" +                                                 \
                                     std::to_string(param_size) + " parameters expected, " + \
-                                    std::to_string(param.size()-1) + "provided.");
+                                    std::to_string(param.size()-1) + " provided.");
 
     while (std::getline(buffer, line, '\n'))
     {
@@ -157,7 +158,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> parse(
                 std::back_inserter(param));
 
         if (param[0].size() > 17)
-            throw std::invalid_argument("Failed to parse script with an unsupported property `" + param[0] + "`.");
+            throw std::invalid_argument("[Error] Failed to parse script with an unsupported property `" + param[0] + "`.");
 
         std::transform(param[0].begin(), param[0].end(), param[0].begin(), tolower); // case non-sensitive
 
@@ -178,7 +179,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> parse(
         else if (param[0] == "vertex")
         {
             PARAM_CHECK("vertex", 3, param)
-            vertices.emplace_back(S2D(param[0]), S2D(param[1]), S2D(param[2]));
+            vertices.emplace_back(S2D(param[1]), S2D(param[2]), S2D(param[3]));
         }
         else if (param[0] == "triangle")
         {
@@ -191,7 +192,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> parse(
         else if (param[0] == "normal")
         {
             PARAM_CHECK("normal", 3, param)
-            normals.emplace_back(S2D(param[0]), S2D(param[1]), S2D(param[2]));
+            normals.emplace_back(S2D(param[1]), S2D(param[2]), S2D(param[3]));
         }
         else if (param[0] == "normal_triangle")
         {
@@ -294,7 +295,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> parse(
         }
         else
         {
-            throw std::invalid_argument("Failed to parse script with an unsupported property `" + param[0] + "`.");
+            throw std::invalid_argument("[Error] Failed to parse script with an unsupported property `" + param[0] + "`.");
         }
     }
 

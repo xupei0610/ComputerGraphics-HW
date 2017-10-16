@@ -323,7 +323,7 @@ Light Scene::trace(Ray const & ray,
         // reflect
         auto tmp = obj->specular(intersect);
         if (tmp.x != 0 || tmp.y != 0 || tmp.z != 0)
-            L += tmp * trace({intersect-d*1e-6, r}, refractive_index, depth+1);
+            L += tmp * trace({intersect+r*hit_min_tol, r}, refractive_index, depth+1);
 
         // refract
         tmp = obj->transmissive(intersect);
@@ -333,11 +333,11 @@ Light Scene::trace(Ray const & ray,
 
             if (cos_theta == 0 )
             {
-                L += tmp * trace({obj->contain(ray.original) ? intersect+n*1e-6 : intersect-n*1e-6, d}, depth+1);
+                L += tmp * trace({obj->contain(ray.original) ? intersect+n*hit_min_tol : intersect-n*hit_min_tol, d}, refractive_index, depth+1);
             }
             else
             {
-                auto nt = obj->contain(ray.original) ? obj->material->refractiveIndex() : (cos_theta *= -1, 1.0);
+                auto nt = obj->contain(ray.original) ? 1.0 : (cos_theta *= -1, obj->material->refractiveIndex());
                 auto n_ratio = refractive_index / nt;
 
                 auto cos_phi_2 = 1 - n_ratio*n_ratio*(1-cos_theta*cos_theta);
@@ -346,9 +346,10 @@ Light Scene::trace(Ray const & ray,
                     auto t = (d + n * cos_theta)*n_ratio;
                     if (cos_phi_2 != 0)
                         t -= n * std::sqrt(cos_phi_2);
-                    L += tmp * trace({intersect+t*1e-6, t}, nt, depth+1);
+                    L += tmp * trace({intersect+t*hit_min_tol, t}, nt, depth+1);
                 }
             }
+
         }
     }
 
