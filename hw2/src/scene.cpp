@@ -177,7 +177,6 @@ void Scene::render()
         {
             for (auto k1 = -sampling_d + 1; k1 < sampling_d; k1 += 2)
             {
-
 #if defined(ADAPTIVE_SAMPLING) || !defined(JITTER_SAMPLING)
                 auto v = v0 + k0  * sampling_offset;
                 auto u = u0 + k1  * sampling_offset;
@@ -321,37 +320,37 @@ Light Scene::trace(Ray const & ray,
     if (depth < recursion_depth)
     {
         // reflect
-        auto tmp = obj->specular(intersect);
-        if (tmp.x != 0 || tmp.y != 0 || tmp.z != 0)
-            L += tmp * trace({intersect+r*hit_min_tol, r}, refractive_index, depth+1);
+        auto ref = obj->specular(intersect);
+        if (ref.x != 0 || ref.y != 0 || ref.z != 0)
+//        if (ref.norm2() > 1e-5)
+        {
+            ref *= trace({intersect+r*hit_min_tol, r}, refractive_index, depth+1);
+            L += ref;
+        }
 
         // refract
-        tmp = obj->transmissive(intersect);
-        if (tmp.x != 0 || tmp.y != 0 || tmp.z != 0)
+        ref = obj->transmissive(intersect);
+        if (ref.x != 0 || ref.y != 0 || ref.z != 0)
+//        if (ref.norm2() > 1e-5)
         {
             auto cos_theta = d.dot(n);
+            auto nt = cos_theta > 0 ? (n *= -1, 1.0)
+                                    : (cos_theta *= -1, obj->material->refractiveIndex());
 
-            if (cos_theta == 0 )
+            auto n_ratio = refractive_index / nt;
+            auto cos_phi_2 =
+                    1 - n_ratio * n_ratio * (1 - cos_theta * cos_theta);
+            if (cos_phi_2 >= 0)
             {
-                L += tmp * trace({obj->contain(ray.original) ? intersect+n*hit_min_tol : intersect-n*hit_min_tol, d}, refractive_index, depth+1);
+                auto t = n * cos_theta;
+                t += d;
+                t *= n_ratio;
+                if (cos_phi_2 != 0)
+                    t -= n * std::sqrt(cos_phi_2);
+                ref *= trace({intersect+t*hit_min_tol, t}, nt, depth + 1);
+                L += ref;
             }
-            else
-            {
-                auto nt = obj->contain(ray.original) ? 1.0 : (cos_theta *= -1, obj->material->refractiveIndex());
-                auto n_ratio = refractive_index / nt;
-
-                auto cos_phi_2 = 1 - n_ratio*n_ratio*(1-cos_theta*cos_theta);
-                if (cos_phi_2 >= 0)
-                {
-                    auto t = (d + n * cos_theta)*n_ratio;
-                    if (cos_phi_2 != 0)
-                        t -= n * std::sqrt(cos_phi_2);
-                    L += tmp * trace({intersect+t*hit_min_tol, t}, nt, depth+1);
-                }
-            }
-
         }
     }
-
     return L;
 }

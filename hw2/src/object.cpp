@@ -71,9 +71,7 @@ double PointLight::attenuate(double const &x, double const &y, double const &z)
     auto nrm2 = (position.x - x)*(position.x - x) +
                 (position.y - y)*(position.y - y) +
                 (position.z - z)*(position.z - z);
-    if (nrm2 == 0)
-        return MAX_LIGHT;
-    return 1.0 / nrm2;
+    return nrm2 == 0 ? MAX_LIGHT : 1.0 / nrm2;
 }
 
 std::shared_ptr<BaseLight> SpotLight::create(Light const &light,

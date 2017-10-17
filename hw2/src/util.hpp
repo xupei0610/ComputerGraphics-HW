@@ -60,6 +60,40 @@ public:
     }
 
     template<typename T_IN>
+    Vec3<T> &operator*=(Vec3<T_IN> const &v)
+    {
+        x *= v.x;
+        y *= v.y;
+        z *= v.z;
+        return *this;
+    }
+
+    template<typename T_IN>
+    Vec3<T> &operator/=(Vec3<T_IN> const &v)
+    {
+        x /= v.x;
+        y /= v.y;
+        z /= v.z;
+        return *this;
+    }
+
+    Vec3<T> &operator*=(double const &v)
+    {
+        x *= v;
+        y *= v;
+        z *= v;
+        return *this;
+    }
+
+    Vec3<T> &operator/=(double const &v)
+    {
+        x /= v;
+        y /= v;
+        z /= v;
+        return *this;
+    }
+
+    template<typename T_IN>
     Vec3<T> cross(Vec3<T_IN> const &v) const noexcept
     {
         return Vec3<T>(y * v.z - z * v.y,
@@ -87,6 +121,10 @@ public:
     double norm()
     {
         return std::sqrt(x*x + y*y + z*z);
+    }
+    double norm2()
+    {
+        return x*x + y*y + z*z;
     }
 };
 
@@ -138,6 +176,12 @@ template<typename T_IN>
 px::Vec3<double> operator-(px::Vec3<T_IN> const &v1, px::Vec3<T_IN> const &v2)
 {
     return px::Vec3<double>(v1.x-v2.x, v1.y-v2.y, v1.z-v2.z);
+};
+
+template<typename T_IN>
+px::Vec3<double> operator-(double const &factor, px::Vec3<T_IN> const &v)
+{
+    return px::Vec3<double>(factor-v.x, factor-v.y, factor-v.z);
 };
 
 #endif // PX_CG_UTIL_HPP
