@@ -1,7 +1,6 @@
 #include "object.hpp"
 
-#include <cmath>
-#include <cassert>
+#include <limits>
 
 using namespace px;
 
@@ -35,115 +34,160 @@ Ray::Ray(Point const &o, Direction const &d)
     : original(o), direction(d)
 {}
 
-BaseLight::BaseLight(Light const &light, Point const &pos)
-        : light(light), position(pos)
+    BaseLight::BaseLight(Light const &light)
+    : light(light)
 {}
 
 std::shared_ptr<BaseLight> DirectionalLight::create(Light const &light,
-                                              Point const &pos)
+                                                Direction const &dir)
 {
-    return std::shared_ptr<BaseLight>(new DirectionalLight(light, pos));
+return std::shared_ptr<BaseLight>(new DirectionalLight(light, dir));
 }
 
-DirectionalLight::DirectionalLight(Light const &light, Point const &pos)
-    : BaseLight(light, pos)
+DirectionalLight::DirectionalLight(Light const &light, Direction const &dir)
+    : BaseLight(light),
+      direction(_dir),
+      _dir(dir),
+      _neg_dir(dir * -1)
 {}
 
 double DirectionalLight::attenuate(double const &x,
-                                   double const &y,
-                                   double const &z)
+                               double const &y,
+                               double const &z)
 {
-    return 1.0;
+return 1.0;
+}
+
+Direction DirectionalLight::dirFrom(double const &x,
+                                double const &y,
+                                double const &z)
+{
+return _neg_dir;
+}
+
+double DirectionalLight::distTo(double const &x, double const &y, double const &z)
+{
+return std::numeric_limits<double>::max();
+}
+
+void DirectionalLight::setDirection(Direction const &dir)
+{
+_dir = dir;
+_neg_dir = dir * -1;
 }
 
 std::shared_ptr<BaseLight> PointLight::create(Light const &light,
-                                               Point const &pos)
+                                          Point const &pos)
 {
-    return std::shared_ptr<BaseLight>(new PointLight(light, pos));
+return std::shared_ptr<BaseLight>(new PointLight(light, pos));
 }
 
 PointLight::PointLight(Light const &light, Point const &pos)
-    : BaseLight(light, pos)
+    : BaseLight(light),
+      position(pos)
+
 {}
 
 double PointLight::attenuate(double const &x, double const &y, double const &z)
 {
-    auto nrm2 = (position.x - x)*(position.x - x) +
-                (position.y - y)*(position.y - y) +
-                (position.z - z)*(position.z - z);
-    return nrm2 == 0 ? MAX_LIGHT : 1.0 / nrm2;
+auto nrm2 = (position.x - x)*(position.x - x) +
+            (position.y - y)*(position.y - y) +
+            (position.z - z)*(position.z - z);
+return nrm2 < MAX_LIGHT_INV ? MAX_LIGHT : 1.0 / nrm2;
+}
+
+Direction PointLight::dirFrom(double const &x, double const &y, double const &z)
+{
+return Direction(position.x-x, position.y-y, position.z-z);
+}
+
+double PointLight::distTo(double const &x, double const &y, double const &z)
+{
+return std::sqrt((position.x-x)*(position.x-x) + (position.y-y)*(position.y-y) + (position.z-z)*(position.z-z));
 }
 
 std::shared_ptr<BaseLight> SpotLight::create(Light const &light,
-                                             Point const &pos,
-                                             Direction const &direction,
-                                             double const &half_angle1,
-                                             double const &half_angle2,
-                                             double const &falloff)
+                                         Point const &pos,
+                                         Direction const &direction,
+                                         double const &half_angle1,
+                                         double const &half_angle2,
+                                         double const &falloff)
 {
-    return std::shared_ptr<BaseLight>(new SpotLight(light, pos, direction,
-                                                    half_angle1, half_angle2,
-                                                    falloff));
+return std::shared_ptr<BaseLight>(new SpotLight(light, pos, direction,
+                                                half_angle1, half_angle2,
+                                                falloff));
 }
 
 SpotLight::SpotLight(Light const &light,
-                     Point const &pos,
-                     Direction const &direction,
-                     double const &half_angle1,
-                     double const &half_angle2,
-                     double const &falloff)
-    : BaseLight(light, pos),
+                 Point const &pos,
+                 Direction const &direction,
+                 double const &half_angle1,
+                 double const &half_angle2,
+                 double const &falloff)
+    : BaseLight(light),
+      position(pos),
       direction(direction),
       inner_half_angle(_inner_ha),
       outer_half_angle(_outer_ha),
       falloff(falloff)
 {
-    setAngles(half_angle1, half_angle2);
+setAngles(half_angle1, half_angle2);
 }
 
 void SpotLight::setAngles(double const &half_angle1, double const &half_angle2)
 {
-    _inner_ha = half_angle1 < 0 ?
-        std::fmod(half_angle1, PI2) + PI2 : std::fmod(half_angle1, PI2);
-    _outer_ha = half_angle2 < 0 ?
-        std::fmod(half_angle2, PI2) + PI2 : std::fmod(half_angle2, PI2);
+_inner_ha = half_angle1 < 0 ?
+            std::fmod(half_angle1, PI2) + PI2 : std::fmod(half_angle1, PI2);
+_outer_ha = half_angle2 < 0 ?
+            std::fmod(half_angle2, PI2) + PI2 : std::fmod(half_angle2, PI2);
 
-    if (_inner_ha_cosine > PI)
-        _inner_ha_cosine = PI;
-    if (_outer_ha_cosine > PI)
-        _outer_ha_cosine = PI;
+if (_inner_ha_cosine > PI)
+    _inner_ha_cosine = PI;
+if (_outer_ha_cosine > PI)
+    _outer_ha_cosine = PI;
 
-    if (_outer_ha < _inner_ha)
-        std::swap(_outer_ha, _inner_ha);
+if (_outer_ha < _inner_ha)
+    std::swap(_outer_ha, _inner_ha);
 
-    _inner_ha_cosine = std::cos(_inner_ha);
-    _outer_ha_cosine = std::cos(_outer_ha);
-    _multiplier = 1.0 / (_outer_ha_cosine - _inner_ha_cosine);
+_inner_ha_cosine = std::cos(_inner_ha);
+_outer_ha_cosine = std::cos(_outer_ha);
+_multiplier = 1.0 / (_outer_ha_cosine - _inner_ha_cosine);
 }
+
 double SpotLight::attenuate(double const &x,
-                            double const &y,
-                            double const &z)
+                        double const &y,
+                        double const &z)
 {
-    double dx = x-position.x;
-    double dy = y-position.y;
-    double dz = z-position.z;
-    double nrm2 = dx*dx + dy*dy + dz*dz;
-    if (nrm2 == 0)
-        return MAX_LIGHT;
+double dx = x-position.x;
+double dy = y-position.y;
+double dz = z-position.z;
+double nrm2 = dx*dx + dy*dy + dz*dz;
+if (nrm2 == 0)
+    return MAX_LIGHT;
 
-    double nrm = std::sqrt(nrm2);
+double nrm = std::sqrt(nrm2);
 
-    dx /= nrm;
-    dy /= nrm;
-    dz /= nrm;
+dx /= nrm;
+dy /= nrm;
+dz /= nrm;
 
-    double cosine = direction.x * dx + direction.y * dy + direction.z * dz;
+double cosine = direction.x * dx + direction.y * dy + direction.z * dz;
 
-    if (cosine >= _inner_ha_cosine)
-        return 1.0/nrm2;
-    if (cosine > _outer_ha_cosine)
-        return std::pow(((_outer_ha_cosine-cosine)*_multiplier), falloff)/nrm2;
-    return 0;
+if (cosine >= _inner_ha_cosine)
+    return 1.0/nrm2;
+if (cosine > _outer_ha_cosine)
+    return std::pow(((_outer_ha_cosine-cosine)*_multiplier), falloff)/nrm2;
+return 0;
+}
+
+Direction SpotLight::dirFrom(double const &x, double const &y, double const &z)
+{
+return Direction(position.x-x, position.y-y, position.z-z);
+}
+
+double SpotLight::distTo(double const &x, double const &y, double const &z)
+{
+return std::sqrt((position.x-x)*(position.x-x) + (position.y-y)*(position.y-y) + (position.z-z)*(position.z-z));
 }
 
 std::shared_ptr<BaseMaterial> UniformMaterial::create(Light const &ambient,

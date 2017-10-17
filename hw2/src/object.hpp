@@ -89,25 +89,35 @@ public:
     }
 };
 
-
 class px::BaseLight
 {
 public:
     double static constexpr MAX_LIGHT = 10000000;
+    double static constexpr MAX_LIGHT_INV = 1.0/MAX_LIGHT;
 
     Light light;
-    Point position;
 
     virtual double attenuate(double const &x, double const &y, double const &z) = 0;
+    virtual Direction dirFrom(double const &x, double const &y, double const &z) = 0;
+    virtual double distTo(double const &x, double const &y, double const &z) = 0;
 
     inline double attenuate(Point const & p)
     {
         return attenuate(p.x, p.y, p.z);
     }
+    inline Direction dirFrom(Point const &p)
+    {
+        return dirFrom(p.x, p.y, p.z);
+    }
+    inline double distTo(Point const &p)
+    {
+        return distTo(p.x, p.y, p.z);
+    }
+
     virtual ~BaseLight() = default;
 
 protected:
-    BaseLight(Light const &light, Point const &pos);
+    BaseLight(Light const &light);
     BaseLight &operator=(BaseLight const &) = delete;
     BaseLight &operator=(BaseLight &&) = delete;
 };
@@ -115,23 +125,32 @@ protected:
 class px::DirectionalLight : public BaseLight
 {
 public:
+    Direction const &direction;
+    static std::shared_ptr<BaseLight> create(Light const &light, Direction const &dir);
 
-    static std::shared_ptr<BaseLight> create(Light const &light, Point const &pos);
+    double attenuate(double const &x, double const &y, double const &z) override;
+    Direction dirFrom(double const &x, double const &y, double const &z) override;
+    double distTo(double const &x, double const &y, double const &z) override;
 
-    double attenuate(double const &x, double const &y, double const &z);
-
+    void setDirection(Direction const &dir);
     ~DirectionalLight() = default;
 protected:
-    DirectionalLight(Light const &light, Point const &pos);
+    Direction _dir;
+    Direction _neg_dir;
+
+    DirectionalLight(Light const &light, Direction const &dir);
 };
 
 class px::PointLight : public BaseLight
 {
 public:
+    Point position;
 
     static std::shared_ptr<BaseLight> create(Light const &light, Point const &pos);
 
-    double attenuate(double const &x, double const &y, double const &z);
+    double attenuate(double const &x, double const &y, double const &z) override;
+    Direction dirFrom(double const &x, double const &y, double const &z) override;
+    double distTo(double const &x, double const &y, double const &z) override;
 
     ~PointLight() = default;
 protected:
@@ -141,6 +160,7 @@ protected:
 class px::SpotLight : public BaseLight
 {
 public:
+    Point position;
     Direction direction;
     double const &inner_half_angle;
     double const &outer_half_angle;
@@ -153,7 +173,9 @@ public:
                                              double const &half_angle2,
                                              double const &falloff);
 
-    double attenuate(double const &x, double const &y, double const &z);
+    double attenuate(double const &x, double const &y, double const &z) override;
+    Direction dirFrom(double const &x, double const &y, double const &z) override;
+    double distTo(double const &x, double const &y, double const &z) override;
 
     void setAngles(double const &half_angle1, double const &half_angle2);
 

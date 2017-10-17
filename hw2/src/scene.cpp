@@ -32,7 +32,7 @@ Scene::Scene()
       _bg(DEFAULT_SCENE_BG),
       _ambient(DEFAULT_SCENE_BG),
       _sampling_radius(DEFAULT_SAMPLING_RADIUS),
-      _recursion_depth(DEFAULT_RECURSION_DEPTH),
+      _recursion_depth(5),
       _hit_min_tol(DEFAULT_HIT_MIN_TOL),
       _hit_max_tol(DEFAULT_HIT_MAX_TOL),
       _cam(Camera::create())
@@ -77,7 +77,7 @@ void Scene::setCamera(std::shared_ptr<Camera> const &cam)
     _cam = cam;
 }
 
-void Scene::setAmbientLight(Vec3<double> const &c)
+void Scene::setAmbientLight(Light const &c)
 {
     _ambient = c;
 }
@@ -118,7 +118,9 @@ Light Scene::diffuseReflect(Light const &light,
                             Direction const &norm_vec)
 {
     auto cosine = to_light_vec.dot(norm_vec);
-    return cosine > 0 ? light * material * cosine : Light(0, 0, 0);
+    if (cosine < 0)
+        cosine *= - 1;
+    return light * material * cosine;
 }
 
 Light Scene::specularReflect(Light const &light,
@@ -128,7 +130,9 @@ Light Scene::specularReflect(Light const &light,
                              int const &specular_exponent)
 {
     auto f = to_light_vec.dot(reflect_vec);
-    return f > 0 ? light*material*std::pow(f, specular_exponent) : Light(0, 0, 0);
+    if (f < 0)
+        return Light(0,0,0);
+    return light*material*std::pow(f, specular_exponent);
 }
 
 void Scene::render()
@@ -275,25 +279,24 @@ Light Scene::trace(Ray const & ray,
 
     auto intersect = ray[t];
     auto n = obj->normVec(intersect); // norm vector at the hit point
-    auto &d = ray.direction;          // ray/view direction
     Ray I(intersect, {0, 0, 0});      // from hit point to light source
-    auto &l = I.direction;            // light direction
 //    Direction h(0, 0, 0);             // half vector
-    Direction r = d-n*2*d.dot(n);     // reflect vector
+    Direction r = ray.direction-n*2*ray.direction.dot(n);     // reflect vector
 
     double attenuate;
-
     auto L = ambientReflect(ambient, obj->ambient(intersect));
     for (const auto & light : lights)
     {
-        l = light->position - intersect;
-//        h = l - d;
+        I.direction = light->dirFrom(intersect);
+        attenuate = light->distTo(intersect); // distance from intersect point to the light
+
+//        h = I.direction - ray.direction;
 
         bool shadow = false;
 
         for (auto const &o: objects)
         {
-            if (o->hit(I, hit_min_tol, hit_max_tol, t))
+            if (o->hit(I, hit_min_tol, attenuate, t))
             {
                 shadow = true;
                 break;
@@ -308,13 +311,14 @@ Light Scene::trace(Ray const & ray,
 
             L += diffuseReflect(light->light,
                                 obj->diffuse(intersect),
-                                l, n) * attenuate;
+                                I.direction, n) * attenuate;
             L += specularReflect(light->light,
                                  obj->specular(intersect),
 //                                 h, n, // Blinn Phong model
-                                 l, r, // Phong model
+                                 I.direction, r, // Phong model
                                  obj->material->specularExponent()) * attenuate;
         }
+
     }
 
     if (depth < recursion_depth)
@@ -333,7 +337,7 @@ Light Scene::trace(Ray const & ray,
         if (ref.x != 0 || ref.y != 0 || ref.z != 0)
 //        if (ref.norm2() > 1e-5)
         {
-            auto cos_theta = d.dot(n);
+            auto cos_theta = ray.direction.dot(n);
             auto nt = cos_theta > 0 ? (n *= -1, 1.0)
                                     : (cos_theta *= -1, obj->material->refractiveIndex());
 
@@ -343,7 +347,7 @@ Light Scene::trace(Ray const & ray,
             if (cos_phi_2 >= 0)
             {
                 auto t = n * cos_theta;
-                t += d;
+                t += ray.direction;
                 t *= n_ratio;
                 if (cos_phi_2 != 0)
                     t -= n * std::sqrt(cos_phi_2);

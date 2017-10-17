@@ -7,6 +7,7 @@ The code implements all the requried basic features and most extra features, exc
 ## Usage
 
     mkdir build
+    cd build
     cmake ..
     make
     ./hw2

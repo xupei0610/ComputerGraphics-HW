@@ -91,7 +91,7 @@ public:
 
     void setCamera(std::shared_ptr<Camera> const &cam);
 
-    void setAmbientLight(Vec3<double> const &light);
+    void setAmbientLight(Light const &light);
 
     void setSamplingRadius(int const &radius);
     void setRecursionDepth(int const &depth);
