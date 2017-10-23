@@ -1,0 +1,5 @@
+#This is a sphere lit by a green spot light pointing from right to left.
+#The background is 50% gray.
+sphere 0 0 2 1
+spot_light 0 .5 0 1 0 1 0 1 2 45 90
+background .5 .5 .5

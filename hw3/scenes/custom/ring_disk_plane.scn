@@ -1,0 +1,31 @@
+#Simple Sphere Sceen
+camera -6 2 -4 .77 0 .64 0 1 0 35
+output_image C:\raytracer\spheres1.bmp
+
+#"ground" plane
+material .75 .75 .75 .75 .75 .75 .3 .3 .3 32 .2 .2 .2 1.5
+plane 0 0 0 0 1 0
+
+#red sphere
+material 1 0 0 1 0 0 .3 .3 .3 32 .2 .2 .2 1.5
+sphere -3 1.6 0 .75
+
+#blue sphere
+material 0 0 1 0 0 1 0 0 0 16 0 0 0 1.0
+sphere 3 2 0 1.25
+
+#ring of red sphere
+material 0 0 0 1 0 1 .5 .5 .5 100 .3 .3 .3 1
+ring -3 1.6 0 0 1 0 0.8 1.2
+material 0 0 0 1 0 1 .5 .5 .5 100 0 0 0 1
+disk -3 0.6 0 0 1 0 1.2
+
+#ring of blue sphere
+ring 3 2 0 .77 0 .64 1.5 2
+
+#white overhad light
+point_light 10 10 10 0 5 0
+ambient_light .25 .25 .25
+background .05 .05 .05
+
+max_depth 5

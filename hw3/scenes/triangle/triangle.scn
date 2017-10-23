@@ -1,0 +1,7 @@
+background 0 .25 0
+max_vertices 3
+vertex 0 0 2
+vertex 0 1 2
+vertex 1 0 2
+
+triangle 0 1 2

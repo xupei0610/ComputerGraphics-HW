@@ -1,0 +1,23 @@
+background 1 1 1
+
+
+max_vertices 3
+vertex -1 0 2
+vertex 0 1.73205081 2
+vertex 1 0 2
+
+
+checkerboard_material 1 0.3 1 0 0 1 0 0 0 0 0 1 0 0 0 1
+triangle 0 1 2
+
+checkerboard_material 2 0.5 0 1 0 0 1 0 0 0 0 1 0 0 0 1
+sphere 0 -0.75 2 0.45
+
+checkerboard_material 3 1.2 0 0 1 0 0 1 0 0 0 1 0 0 0 1
+ring -1.2 -0.75 2 0 0 1 0.2 0.5
+disk 1.2 -0.75 2 0 0 1 0.5
+
+checkerboard_material 4 0 1 1 1 1 1 1 0 0 0 1 0 0 0 1
+plane 0 -1.5 0 0 1 0
+
+directional_light 1 1 1 0 -1 1.73205081
