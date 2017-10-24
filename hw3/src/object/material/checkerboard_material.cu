@@ -108,6 +108,13 @@ CheckerboardMaterial::CheckerboardMaterial(Light const &ambient,
           _need_upload(true)
 {}
 
+CheckerboardMaterial::~CheckerboardMaterial()
+{
+#ifdef USE_CUDA
+    clearGpuData();
+#endif
+}
+
 BaseMaterial* CheckerboardMaterial::up2Gpu()
 {
 #ifdef USE_CUDA
@@ -137,6 +144,9 @@ void CheckerboardMaterial::clearGpuData()
 #ifdef USE_CUDA
     if (_dev_ptr == nullptr)
         return;
+
+    if (_bump_mapping_ptr.use_count() == 1)
+        _bump_mapping_ptr->clearGpu();
 
     PX_CUDA_CHECK(cudaFree(_dev_ptr))
     _dev_ptr = nullptr;

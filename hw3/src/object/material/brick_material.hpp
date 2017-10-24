@@ -20,6 +20,7 @@ public:
     PX_CUDA_CALLABLE
     double refractiveIndex(double const &u, double const &v, double const &w) const override;
 
+    PX_CUDA_CALLABLE
     bool onEdge(double const &u, double const &v, double const &w) const noexcept;
 
 protected:
@@ -88,7 +89,6 @@ public:
                                                 double const &edge_width,
                                                 double const &edge_height,
                                                 std::shared_ptr<BumpMapping> const &bump_mapping=nullptr);
-    ~BrickMaterial() = default;
 
     BaseMaterial *up2Gpu() override;
     void clearGpuData() override ;
@@ -109,6 +109,8 @@ public:
     void setScale(double const &scale);
     void setEdgeWidth(double const &width);
     void setEdgeHeight(double const &height);
+
+    ~BrickMaterial();
 
 protected:
     BrickMaterial(Light const &ambient,

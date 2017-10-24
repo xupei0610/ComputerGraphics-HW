@@ -1,6 +1,7 @@
 #include "trace.hpp"
 
 using namespace px;
+#include <stdio.h>
 
 __device__
 Light RayTrace::traceGpu(const Scene::Param *const &scene,
@@ -8,25 +9,33 @@ Light RayTrace::traceGpu(const Scene::Param *const &scene,
                          double const &refractive_index,
                          int const &depth)
 {
-////    if (stop_rendering)
-////        return bg;
-//
-//    auto end_range = scene->hit_max_tol;
-//    double t;
-//    BaseGeometry *obj = nullptr, *tmp_obj;
-//
-//    for (auto i = 0; i < scene->n_geometries; ++i)
-//    {
-//        tmp_obj = scene->geometries[i]->hit(ray, 0, end_range, t);
-//        if (tmp_obj == nullptr)
-//            continue;
-//
-//        end_range = t;
-//        obj = tmp_obj;
-//    }
-//
+
+//    if (stop_rendering)
+//        return bg;
+
+    // this function is basically the same to the GPU one but the following function
+#define CPU_FN_LIGHT_DIR(p,d) dirFromDevice(p,d)
+#define CPU_FN_RND RND::rnd_gpu()
+#define CPU_FN_TRACE traceGpu
+
+
+    auto end_range = scene->hit_max_tol;
+    double t;
+    const BaseGeometry *obj = nullptr, *tmp_obj;
+
+    for (auto i = 0; i < scene->n_geometries; ++i)
+    {
+        tmp_obj = scene->geometries[i]->hit(ray, 0, end_range, t);
+        if (tmp_obj == nullptr)
+            continue;
+        end_range = t;
+        obj = tmp_obj;
+    }
+//    printf("Hello thread %d, p = %p\n", scene->n_geometries, scene->geometries[0]);
+    return {1, 1, 1};
 //    if (obj == nullptr)
 //        return scene->bg;
+//
 //
 //    auto intersect = ray[t];
 //    auto n = obj->normVec(intersect); // norm vector at the hit point
@@ -35,12 +44,12 @@ Light RayTrace::traceGpu(const Scene::Param *const &scene,
 //    Direction r = ray.direction-n*2*ray.direction.dot(n);     // reflect vector
 //
 //    auto texture_coord = obj->textureCoord(intersect);
-//    auto diffuse = obj->material->diffuse(texture_coord);
-//    auto specular = obj->material->specular(texture_coord);
-//    auto specular_exp = obj->material->specularExp(texture_coord);
+//    auto diffuse = obj->material()->diffuse(texture_coord);
+//    auto specular = obj->material()->specular(texture_coord);
+//    auto specular_exp = obj->material()->specularExp(texture_coord);
 //
 //    double attenuate;
-//    auto L = ambientReflect(scene->ambient, obj->material->ambient(texture_coord));
+//    auto L = ambientReflect(scene->ambient, obj->material()->ambient(texture_coord));
 //    for (auto j = 0; j < scene->n_lights; ++j)
 //    {
 //        // soft shadow for area light
@@ -49,7 +58,7 @@ Light RayTrace::traceGpu(const Scene::Param *const &scene,
 //
 //        for (auto i = 0; i < sampling; ++i)
 //        {
-//            I.direction = scene->lights[j]->dirFrom(intersect, attenuate);
+//            I.direction = scene->lights[j]->CPU_FN_LIGHT_DIR(intersect, attenuate);
 //            // attenuate represents distance from intersect point to the light here
 //
 ////        h = I.direction - ray.direction;
@@ -70,10 +79,10 @@ Light RayTrace::traceGpu(const Scene::Param *const &scene,
 //            if (attenuate == 0)
 //                continue;
 //
-//            L += diffuseReflect(scene->lights[j]->light, diffuse,
+//            L += diffuseReflect(scene->lights[j]->light(), diffuse,
 //                                I.direction, n) * attenuate;
 //
-//            L += specularReflect(scene->lights[j]->light, specular,
+//            L += specularReflect(scene->lights[j]->light(), specular,
 ////                                 h, n, // Blinn Phong model
 //                                 I.direction, r, // Phong model
 //                                 specular_exp) * attenuate;
@@ -82,7 +91,7 @@ Light RayTrace::traceGpu(const Scene::Param *const &scene,
 //
 //    if (depth < scene->recursion_depth)
 //    {
-//        auto ref = obj->material->transmissive(texture_coord);
+//        auto ref = obj->material()->transmissive(texture_coord);
 //        if (ref.x != 0 || ref.y != 0 || ref.z != 0)
 ////        if (ref.norm2() > 1e-5)
 //        {
@@ -101,19 +110,19 @@ Light RayTrace::traceGpu(const Scene::Param *const &scene,
 //                t *= n_ratio;
 //                if (cos_phi_2 != 0)
 //                    t -= n * std::sqrt(cos_phi_2);
-//                ref *= trace(scene,
-//                             {intersect+t*scene->hit_min_tol, t}, nt, depth + 1);
+//                ref *= CPU_FN_TRACE(scene,
+//                                    {intersect+t*scene->hit_min_tol, t}, nt, depth + 1);
 //                L += ref;
 //            }
 //        }
 //
 //        // reflect
-//        ref = obj->material->specular(texture_coord);
+//        ref = obj->material()->specular(texture_coord);
 //        if (ref.x != 0 || ref.y != 0 || ref.z != 0)
 ////        if (ref.norm2() > 1e-5)
 //        {
-//            ref *= trace(scene,
-//                         {intersect+r*scene->hit_min_tol, r}, refractive_index, depth+1);
+//            ref *= CPU_FN_TRACE(scene,
+//                                {intersect+r*scene->hit_min_tol, r}, refractive_index, depth+1);
 //            L += ref;
 //        }
 //    }
@@ -127,8 +136,8 @@ Light RayTrace::traceGpu(const Scene::Param *const &scene,
 //            Light indirect_diffuse(0, 0, 0);
 //            for (auto i = 0; i < N; ++i)
 //            {
-//                auto r1 = std::abs(rnd());
-//                auto r2 = std::abs(rnd());
+//                auto r1 = std::abs(CPU_FN_RND);
+//                auto r2 = std::abs(CPU_FN_RND);
 //
 //                auto s = std::sqrt(1 - r1 * r1);
 //                auto phi = 2 * PI * r2;
@@ -151,16 +160,15 @@ Light RayTrace::traceGpu(const Scene::Param *const &scene,
 //                                 x * Nb.y + r1 * n.y + z * Nt.y,
 //                                 x * Nb.z + r1 * n.z + z * Nt.z);
 //
-//                indirect_diffuse +=
-//                        trace(scene,
-//                              {intersect + sample * scene->hit_min_tol, sample},
-//                              refractive_index,
-//                              depth + 1) * r1;
+//                indirect_diffuse += CPU_FN_TRACE(
+//                        scene,
+//                        {intersect + sample * scene->hit_min_tol, sample},
+//                        refractive_index,
+//                        depth + 1) * r1;
 //            }
 //            indirect_diffuse *= diffuse * 2 / (PI * N);
 //            L += indirect_diffuse;
 //        }
 //    }
 //    return L;
-    return {0, 0, 0};
 }

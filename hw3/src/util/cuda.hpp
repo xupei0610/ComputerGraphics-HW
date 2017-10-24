@@ -43,7 +43,8 @@ protected:
             throw px::CUDAError(std::string(                                \
                                   "CUDA runtime error at " __FILE__         \
                                   " (line " _PX_CUDA_CHECK_STR(__LINE__)    \
-                                  ") with message: \n    ") +               \
+                                  ") code " + std::to_string(res) +         \
+                                  " with message: \n    ") +               \
                                   cudaGetErrorString(res),                  \
                                   static_cast<int>(res));                   \
     }                                                                       \
@@ -51,7 +52,7 @@ protected:
 
 
 #define PX_CUDA_THREADS_PER_BLOCK     512
-#define PX_CUDA_MIN_BLOCKS_PER_KERNEL 3
+#define PX_CUDA_MIN_BLOCKS_PER_KERNEL 5
 
 #define PX_CUDA_LOOP(index_var, total)                                          \
     for (int index_var = blockIdx.x * blockDim.x + threadIdx.x;                 \
@@ -78,6 +79,7 @@ inline int blocks(const int &num)
 
 #define __device__
 #define __host__
+#define __global__
 
 #endif
 

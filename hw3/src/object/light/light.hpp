@@ -16,6 +16,8 @@ class AreaLight;
 
 class px::BaseLight
 {
+protected:
+    BaseLight *dev_ptr;
 public:
     enum class Type
     {
@@ -24,7 +26,8 @@ public:
         AreaLight
     };
 
-    virtual BaseLight *up2Gpu() = 0;
+    inline BaseLight *devPtr() { return dev_ptr; }
+    virtual void up2Gpu() = 0;
     virtual void clearGpuData() = 0;
 
     PX_CUDA_CALLABLE
@@ -49,16 +52,19 @@ public:
     {
         return dirFromHost(p.x, p.y, p.z, dist);
     }
-
+    PX_CUDA_CALLABLE
     inline Light const &light() const noexcept { return _light; }
+
     void setLight(Light const &light);
 
+    PX_CUDA_CALLABLE
     virtual ~BaseLight() = default;
 protected:
     Light _light;
 
     bool need_upload;
 
+    PX_CUDA_CALLABLE
     BaseLight(Light const &light);
     BaseLight &operator=(BaseLight const &) = delete;
     BaseLight &operator=(BaseLight &&) = delete;
@@ -84,21 +90,22 @@ public:
         return TYPE;
     }
 
-    BaseLight *up2Gpu() override;
+    void up2Gpu() override;
     void clearGpuData() override;
 
     inline Direction const & direction() const noexcept { return _dir; }
     void setDirection(Direction const &dir);
 
+    PX_CUDA_CALLABLE
     ~DirectionalLight();
+    PX_CUDA_CALLABLE
+    DirectionalLight(Light const &light, Direction const &dir);
 protected:
     Direction _dir;
     Direction _neg_dir;
 
-    BaseLight *_dev_ptr;
     bool _need_upload;
 
-    DirectionalLight(Light const &light, Direction const &dir);
 };
 
 class px::PointLight : public BaseLight
@@ -107,6 +114,7 @@ public:
     Type const TYPE;
 
     static std::shared_ptr<BaseLight> create(Light const &light, Point const &pos);
+
     PX_CUDA_CALLABLE
     double attenuate(double const &x, double const &y, double const &z) const override;
     __device__
@@ -120,20 +128,20 @@ public:
         return TYPE;
     }
 
-    BaseLight *up2Gpu() override;
+    void up2Gpu() override;
     void clearGpuData() override;
 
     inline Point const & position() const noexcept { return _position;}
     void setPosition(Point const &p);
 
+    PX_CUDA_CALLABLE
     ~PointLight();
+    PX_CUDA_CALLABLE
+    PointLight(Light const &light, Point const &pos);
 protected:
     Point _position;
 
-    BaseLight *_dev_ptr;
     bool _need_upload;
-
-    PointLight(Light const &light, Point const &pos);
 };
 
 class px::SpotLight : public BaseLight
@@ -147,7 +155,6 @@ public:
                                              double const &half_angle1,
                                              double const &half_angle2,
                                              double const &falloff);
-
     PX_CUDA_CALLABLE
     double attenuate(double const &x, double const &y, double const &z) const override;
     __device__
@@ -161,11 +168,12 @@ public:
         return TYPE;
     }
 
-    BaseLight *up2Gpu() override;
+    void up2Gpu() override;
     void clearGpuData() override;
 
     void setPosition(Point const &pos);
     void setDirection(Direction const &direction);
+    PX_CUDA_CALLABLE
     void setAngles(double const &half_angle1, double const &half_angle2);
     void setFalloff(double const &falloff);
 
@@ -175,7 +183,15 @@ public:
     inline double const & outerHalfAngle() const noexcept { return _outer_ha; }
     inline double const & falloff() const noexcept { return _falloff; }
 
+    PX_CUDA_CALLABLE
     ~SpotLight();
+    PX_CUDA_CALLABLE
+    SpotLight(Light const &light,
+              Point const &pos,
+              Direction const &direction,
+              double const &half_angle1,
+              double const &half_angle2,
+              double const &falloff);
 protected:
     Point _position;
     Direction _direction;
@@ -186,15 +202,7 @@ protected:
     double _outer_ha_cosine;
     double _multiplier; // 1.0 / (_outer_ha_cosine - inner_ha_cosine)
 
-    BaseLight *_dev_ptr;
     bool _need_upload;
-
-    SpotLight(Light const &light,
-              Point const &pos,
-              Direction const &direction,
-              double const &half_angle1,
-              double const &half_angle2,
-              double const &falloff);
 };
 
 class px::AreaLight : public BaseLight
@@ -217,7 +225,7 @@ public:
         return TYPE;
     }
 
-    BaseLight *up2Gpu() override;
+    void up2Gpu() override;
     void clearGpuData() override;
 
     inline Point const & center() const noexcept {return _center;}
@@ -226,17 +234,18 @@ public:
     void setCenter(Point const &center);
     void setRadius(double const &radius);
 
+    PX_CUDA_CALLABLE
     ~AreaLight();
+    PX_CUDA_CALLABLE
+    AreaLight(Light const &light,
+              Point const &center,
+              double const &radius);
 protected:
     Point _center;
     double _radius;
 
-    BaseLight *_dev_ptr;
     bool _need_upload;
-
-    AreaLight(Light const &light,
-              Point const &center,
-              double const &radius);
 };
+
 
 #endif // PX_CG_OBJECT_LIGHT_LIGHT_HPP

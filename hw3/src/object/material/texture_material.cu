@@ -2,9 +2,9 @@
 
 #include "util/stb_image.h"
 #include "util/stb_image_write.h"
+#include <cstring>
 
 using namespace px;
-
 
 std::shared_ptr<Texture> Texture::create(std::uint8_t * const &texture,
                                          int const &height,
@@ -45,8 +45,6 @@ Texture::Texture(std::uint8_t * const &texture,
           _height(height), _width(width), _comp(format == Format::RGB ? 3 : 4),
           _texture(texture), _dev_ptr(nullptr), _texture_gpu(nullptr),
           _need_upload(true), _gpu_data(false)
-
-
 {}
 
 std::uint8_t * Texture::loadTexture(std::string const &file,
@@ -74,7 +72,7 @@ void Texture::setTexture(const std::uint8_t * const &texture,
     _comp = format == Format::RGB ? 3 : 4;
 
     delete [] _texture;
-    memcpy(_texture, texture, sizeof(std::uint8_t)*_height*_width*_comp);
+    std::memcpy(_texture, texture, sizeof(std::uint8_t)*_height*_width*_comp);
 
 #ifdef USE_CUDA
     _need_upload = true;
@@ -194,12 +192,11 @@ void Texture::clearGpuData()
 
 Texture::~Texture()
 {
+#ifdef USE_CUDA
     clearGpuData();
     if (_gpu_data == false)
-        PX_CUDA_CHECK(cudaFree(_texture))
-    else
-        delete [] _texture;
-    _texture = nullptr;
+#endif
+    delete [] _texture;
 }
 
 BaseTextureMaterial::BaseTextureMaterial(Light const &ambient,
@@ -294,6 +291,13 @@ TextureMaterial::TextureMaterial(Light const &ambient,
           _need_upload(true)
 {}
 
+TextureMaterial::~TextureMaterial()
+{
+#ifdef USE_CUDA
+    clearGpuData();
+#endif
+}
+
 BaseMaterial* TextureMaterial::up2Gpu()
 {
 #ifdef USE_CUDA
@@ -326,6 +330,12 @@ void TextureMaterial::clearGpuData()
 #ifdef USE_CUDA
     if (_dev_ptr == nullptr)
         return;
+
+    if (_bump_mapping_ptr.use_count() == 1)
+        _bump_mapping_ptr->clearGpu();
+
+    if (_texture_ptr.use_count() == 1)
+        _texture_ptr->clearGpuData();
 
     PX_CUDA_CHECK(cudaFree(_dev_ptr));
     _dev_ptr = nullptr;

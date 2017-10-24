@@ -1,4 +1,5 @@
 #include "parser.hpp"
+#include "object.hpp"
 
 #include <vector>
 #include <sstream>
@@ -16,7 +17,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
     std::vector<Point> vertices;
     std::vector<Direction> normals;
 
-    auto bvh = new BVH;
+//    auto bvh = new BVH;
     std::vector<BoundBox *> bound_box;
     std::vector<std::shared_ptr<Transformation>> transform{nullptr};
     std::shared_ptr<BumpMapping> bump_mapping = nullptr;
@@ -50,8 +51,8 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
 
     auto addObj = [&](std::shared_ptr<BaseGeometry> const &obj) {
         if (bound_box.empty())
-            bvh->addObj(obj);
-            //            scene->geometries.insert(obj);
+//            bvh->addObj(obj);
+            scene->geometries.insert(obj);
         else
             bound_box.back()->addObj(obj);
     };
@@ -480,11 +481,9 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                 }
                 else
                 {
-                    if (s > 1)
-                        bound_box.at(s - 2)->addObj(std::shared_ptr<BaseGeometry>(bound_box.at(s - 1)));
-                    else
-                        bvh->addObj(std::shared_ptr<BaseGeometry>(bound_box.at(s - 1)));
+                    auto bb = std::shared_ptr<BaseGeometry>(bound_box.at(s - 1));
                     bound_box.pop_back();
+                    addObj(bb);
                 }
             }
             else
@@ -523,7 +522,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         throw std::invalid_argument("[Error] Failed to parse unmatched `transform` parameter at line " +
                                     std::to_string(ln));
 
-    scene->geometries.insert(std::shared_ptr<BaseGeometry>(bvh));
+//    scene->geometries.insert(std::shared_ptr<BaseGeometry>(bvh));
 
     return outputs;
 }

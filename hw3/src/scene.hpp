@@ -39,9 +39,9 @@ public:
         double hit_max_tol;
 
         int n_geometries;
-        BaseGeometry *geometries[];
+        BaseGeometry **geometries;
         int n_lights;
-        BaseLight *lights[];
+        BaseLight **lights;
 
         Param(int const &width, int const &height,
               int const &dimension,

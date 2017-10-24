@@ -1,10 +1,13 @@
 #include <cfloat>
 #include "object/light/light.hpp"
+#ifdef USE_CUDA
+#  include "gpu_creator.hpp"
+#endif
 
 using namespace px;
 
 BaseLight::BaseLight(Light const &light)
-        : _light(light), need_upload(true)
+        : dev_ptr(nullptr), _light(light), need_upload(true)
 {}
 
 void BaseLight::setLight(Light const &light)
@@ -26,13 +29,13 @@ DirectionalLight::DirectionalLight(Light const &light, Direction const &dir)
           TYPE(Type::DirectionalLight),
           _dir(dir),
           _neg_dir(dir * -1),
-          _dev_ptr(nullptr),
           _need_upload(true)
 {}
 
+PX_CUDA_CALLABLE
 DirectionalLight::~DirectionalLight()
 {
-    clearGpuData();
+
 }
 
 PX_CUDA_CALLABLE
@@ -66,33 +69,28 @@ Direction DirectionalLight::dirFrom(double const &x,
     return _neg_dir;
 }
 
-BaseLight* DirectionalLight::up2Gpu()
+void DirectionalLight::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload || BaseLight::need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(DirectionalLight)));
+        GpuCreator::DirectionalLight(dev_ptr, _light, _dir);
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr, this, sizeof(DirectionalLight),
-                                 cudaMemcpyHostToDevice));
         BaseLight::need_upload = false;
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
 void DirectionalLight::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
+    if (dev_ptr == nullptr)
         return;
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
-    _dev_ptr = nullptr;
+    GpuCreator::destroy(dev_ptr);
+
+    dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
@@ -120,9 +118,9 @@ PointLight::PointLight(Light const &light, Point const &pos)
 
 {}
 
+PX_CUDA_CALLABLE
 PointLight::~PointLight()
 {
-    clearGpuData();
 }
 
 PX_CUDA_CALLABLE
@@ -158,33 +156,28 @@ Direction PointLight::dirFrom(double const &x, double const &y, double const &z,
     return Direction(dx, dy, dz);
 }
 
-BaseLight* PointLight::up2Gpu()
+void PointLight::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload || BaseLight::need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(PointLight)));
-
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr, this, sizeof(PointLight),
-                                 cudaMemcpyHostToDevice));
+        GpuCreator::PointLight(dev_ptr, _light, _position);
+        
         BaseLight::need_upload = false;
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
 void PointLight::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
+    if (dev_ptr == nullptr)
         return;
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
-    _dev_ptr = nullptr;
+    GpuCreator::destroy(dev_ptr);
+    
+    dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
@@ -224,9 +217,9 @@ SpotLight::SpotLight(Light const &light,
     setAngles(half_angle1, half_angle2);
 }
 
+PX_CUDA_CALLABLE
 SpotLight::~SpotLight()
 {
-    clearGpuData();
 }
 
 PX_CUDA_CALLABLE
@@ -280,33 +273,30 @@ Direction SpotLight::dirFrom(double const &x, double const &y, double const &z, 
     return Direction(dx, dy, dz);
 }
 
-BaseLight* SpotLight::up2Gpu()
+void SpotLight::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload || BaseLight::need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(SpotLight)));
+        GpuCreator::SpotLight(dev_ptr,
+                              _light, _position, _direction,
+                              _inner_ha, _outer_ha, _falloff);
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr, this, sizeof(SpotLight),
-                                 cudaMemcpyHostToDevice));
         BaseLight::need_upload = false;
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
 void SpotLight::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
+    if (dev_ptr == nullptr)
         return;
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
-    _dev_ptr = nullptr;
+    GpuCreator::destroy(dev_ptr);
+
+    dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
@@ -327,6 +317,7 @@ void SpotLight::setDirection(Direction const &direction)
 #endif
 }
 
+PX_CUDA_CALLABLE
 void SpotLight::setAngles(double const &half_angle1, double const &half_angle2)
 {
     _inner_ha = half_angle1 < 0 ?
@@ -340,7 +331,11 @@ void SpotLight::setAngles(double const &half_angle1, double const &half_angle2)
         _outer_ha_cosine = PI;
 
     if (_outer_ha < _inner_ha)
-        std::swap(_outer_ha, _inner_ha);
+    {
+        auto tmp = _inner_ha;
+        _inner_ha = _outer_ha;
+        _outer_ha = tmp;
+    }
 
     _inner_ha_cosine = std::cos(_inner_ha);
     _outer_ha_cosine = std::cos(_outer_ha);
@@ -367,6 +362,7 @@ std::shared_ptr<BaseLight> AreaLight::create(Light const &light,
     return std::shared_ptr<BaseLight>(new AreaLight(light, center, radius));
 }
 
+PX_CUDA_CALLABLE
 AreaLight::AreaLight(Light const &light,
                      Point const &center,
                      double const &radius)
@@ -377,9 +373,9 @@ AreaLight::AreaLight(Light const &light,
           _need_upload(true)
 {}
 
+PX_CUDA_CALLABLE
 AreaLight::~AreaLight()
 {
-    clearGpuData();
 }
 
 PX_CUDA_CALLABLE
@@ -420,33 +416,28 @@ Direction AreaLight::dirFromDevice(double const &x, double const &y, double cons
     return Direction(dx, dy, dz);
 }
 
-BaseLight* AreaLight::up2Gpu()
+void AreaLight::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload || BaseLight::need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(AreaLight)));
+        GpuCreator::AreaLight(dev_ptr, _light, _center, _radius);
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr, this, sizeof(AreaLight),
-                                 cudaMemcpyHostToDevice));
         BaseLight::need_upload = false;
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
 void AreaLight::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
+    if (dev_ptr == nullptr)
         return;
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
-    _dev_ptr = nullptr;
+    GpuCreator::destroy(dev_ptr);
+
+    dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }

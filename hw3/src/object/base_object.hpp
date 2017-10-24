@@ -1,5 +1,5 @@
-#ifndef PX_CG_OBJECT_HPP
-#define PX_CG_OBJECT_HPP
+#ifndef PX_CG_OBJECT_BASE_OBJECT_HPP
+#define PX_CG_OBJECT_BASE_OBJECT_HPP
 
 #include <exception>
 #include <memory>
@@ -17,8 +17,6 @@ class Direction;
 class Ray;
 
 class Camera;
-
-class AbstractBox;
 
 class Transformation;
 }
@@ -86,7 +84,6 @@ public:
                      original.y + direction.y*t,
                      original.z + direction.z*t);
     }
-
     PX_CUDA_CALLABLE
     Ray &operator=(Ray const &r)
     {
@@ -112,69 +109,27 @@ public:
     void setPosition(Point const &pos);
     void setDirection(Direction const &d, Direction const &u);
     void setHalfAngle(double const ha);
-    inline void setAs(Camera const &c)
+    inline void setAs(const Camera *const &c)
     {
-        setPosition(c.position);
-        setDirection(c.direction, c.up_vector);
-        setHalfAngle(c.half_angle);
+        setPosition(c->position);
+        setDirection(c->direction, c->up_vector);
+        setHalfAngle(c->half_angle);
     }
 
     ~Camera() = default;
 
-    Camera &operator=(Camera const &c)
-    {
-        setAs(c);
-        return *this;
-    }
 protected:
     Camera(Point const &pos,
            Direction const &d,
            Direction const &u,
            double const &ha);
 
+    Camera &operator=(Camera const &c) = delete;
+    Camera &operator=(Camera &&c) = delete;
 private:
     Direction _d;
     Direction _u;
     Direction _r;
-};
-
-class px::AbstractBox
-{
-public:
-    AbstractBox();
-    AbstractBox(Point const &v);
-    AbstractBox(double const &x, double const &y, double const &z);
-
-    bool hit(Ray const &ray,
-             double const &range_start,
-             double const &range_end,
-             double &hit_at);
-
-    void addVertex(double const &x, double const &y, double const &z);
-    inline void addVertex(Point const &v)
-    {
-        addVertex(v.x, v.y, v.z);
-    }
-    void addVertex(std::vector<Point> const &v);
-
-    bool onForwardFace(double const &x, double const &y, double const &z) const;
-    bool onBackwardFace(double const &x, double const &y, double const &z) const;
-    bool onTopFace(double const &x, double const &y, double const &z) const;
-    bool onBottomFace(double const &x, double const &y, double const &z) const;
-    bool onLeftFace(double const &x, double const &y, double const &z) const;
-    bool onRightFace(double const &x, double const &y, double const &z) const;
-
-    void updateVertices();
-
-    ~AbstractBox() = default;
-protected:
-    Point _vertex_min;
-    Point _vertex_max;
-
-    Point _center;
-    Vec3<double> _side;
-
-    std::vector<Point> _vertices;
 };
 
 class px::Transformation
@@ -192,24 +147,24 @@ public:
                                                   std::shared_ptr<Transformation> const &parent = nullptr);
 
     PX_CUDA_CALLABLE
-    Point point(double const &x, double const &y, double const &z);
+    Point point(double const &x, double const &y, double const &z) const noexcept;
     PX_CUDA_CALLABLE
-    Direction direction(Direction const &d);
+    Direction direction(Direction const &d) const noexcept;
     PX_CUDA_CALLABLE
-    Direction normal(Direction const &n);
+    Direction normal(Direction const &n) const noexcept;
 
     PX_CUDA_CALLABLE
-    inline Point point(Point const &p)
+    inline Point point(Point const &p) const noexcept
     {
         return point(p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
-    inline Direction direction(double const &x, double const &y, double const &z)
+    inline Direction direction(double const &x, double const &y, double const &z) const noexcept
     {
         return direction(Direction(x, y, z));
     }
     PX_CUDA_CALLABLE
-    inline Direction normal(double const &x, double const &y, double const &z)
+    inline Direction normal(double const &x, double const &y, double const &z) const noexcept
     {
         return direction(Direction(x, y, z));
     }
@@ -258,4 +213,4 @@ protected:
 };
 
 
-#endif // PX_CG_OBJECT_HPP
+#endif // PX_CG_OBJECT_BASE_OBJECT_HPP

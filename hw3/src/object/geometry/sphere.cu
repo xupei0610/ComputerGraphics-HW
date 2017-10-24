@@ -13,10 +13,10 @@ BaseSphere::BaseSphere(Point const &pos,
 {}
 
 PX_CUDA_CALLABLE
-BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
+const BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
                                   double const &t_start,
                                   double const &t_end,
-                                  double &hit_at)
+                                  double &hit_at) const
 {
     auto oc = Vec3<double>(ray.original.x - _center.x,
                            ray.original.y - _center.y,
@@ -49,14 +49,14 @@ BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseSphere::normalVec(double const &x, double const &y, double const &z)
+Direction BaseSphere::normalVec(double const &x, double const &y, double const &z) const
 {
     return {x - _center.x, y - _center.y, z - _center.z};
 }
 
 PX_CUDA_CALLABLE
 Vec3<double> BaseSphere::getTextureCoord(double const &x, double const &y,
-                                       double const &z)
+                                       double const &z) const
 {
     return {(1 + std::atan2(z - _center.z, x - _center.x) / PI) * 0.5,
             std::acos((y - _center.y) / _radius2) / PI,
@@ -98,16 +98,16 @@ BaseGeometry *Sphere::up2Gpu()
         if (_dev_ptr == nullptr)
             PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseSphere)));
 
-        material = _material_ptr->up2Gpu();
-        transformation = _transformation_ptr->up2Gpu();
+        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
+        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
 
         PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
                                  dynamic_cast<BaseSphere*>(this),
                                  sizeof(BaseSphere),
                                  cudaMemcpyHostToDevice));
 
-        material = _material_ptr.get();
-        transformation = _transformation_ptr.get();
+        _material = _material_ptr.get();
+        _transformation = _transformation_ptr.get();
 
         _need_upload = false;
     }
@@ -122,6 +122,11 @@ void Sphere::clearGpuData()
 #ifdef USE_CUDA
     if (_dev_ptr == nullptr)
         return;
+
+    if (_transformation_ptr.use_count() == 1)
+        _transformation_ptr->clearGpuData();
+    if (_material_ptr.use_count() == 1)
+        _material_ptr->clearGpuData();
 
     PX_CUDA_CHECK(cudaFree(_dev_ptr));
     _dev_ptr = nullptr;

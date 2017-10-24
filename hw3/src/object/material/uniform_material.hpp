@@ -61,7 +61,6 @@ public:
                                                 Light const &transmissive ={0, 0, 0},
                                                 double const &refractive_index = 1.0,
                                                 std::shared_ptr<BumpMapping> const &bump_mapping=nullptr);
-    ~UniformMaterial() = default;
 
     BaseMaterial *up2Gpu() override;
     void clearGpuData() override ;
@@ -74,6 +73,7 @@ public:
     void setRefractiveIndex(double const &ior);
     void setBumpMapping(std::shared_ptr<BumpMapping> const &bump_mapping);
 
+    ~UniformMaterial();
 protected:
     UniformMaterial(Light const &ambient,
                     Light const &diffuse,

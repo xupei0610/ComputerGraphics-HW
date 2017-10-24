@@ -63,7 +63,6 @@ public:
                                                 double const &dim_scale,
                                                 double const &color_scale,
                                                 std::shared_ptr<BumpMapping> const &bump_mapping=nullptr);
-    ~CheckerboardMaterial() = default;
 
     BaseMaterial *up2Gpu() override;
     void clearGpuData() override ;
@@ -78,6 +77,7 @@ public:
     void setDimScale(double const &dim_scale);
     void setColorScale(double const &color_scale);
 
+    ~CheckerboardMaterial();
 protected:
     CheckerboardMaterial(Light const &ambient,
                          Light const &diffuse,

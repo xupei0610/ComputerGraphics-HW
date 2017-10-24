@@ -13,16 +13,16 @@ class px::BaseTriangle : public BaseGeometry
 {
 protected:
     PX_CUDA_CALLABLE
-    BaseGeometry * hitCheck(Ray const &ray,
-                            double const &range_start,
-                            double const &range_end,
-                            double &hit_at) override;
+    const BaseGeometry * hitCheck(Ray const &ray,
+                                  double const &range_start,
+                                  double const &range_end,
+                                  double &hit_at) const override;
     PX_CUDA_CALLABLE
     Vec3<double> getTextureCoord(double const &x,
                                  double const &y,
-                                 double const &z) override;
+                                 double const &z) const override;
     PX_CUDA_CALLABLE
-    Direction normalVec(double const &x, double const &y, double const &z) override;
+    Direction normalVec(double const &x, double const &y, double const &z) const override;
 
     ~BaseTriangle() = default;
 protected:

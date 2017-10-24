@@ -84,6 +84,7 @@ double BaseBrickMaterial::refractiveIndex(double const &u, double const &v, doub
     return _refractive_index;
 }
 
+PX_CUDA_CALLABLE
 bool BaseBrickMaterial::onEdge(double const &u,
                                double const &v,
                                double const &w) const noexcept
@@ -157,6 +158,13 @@ BrickMaterial::BrickMaterial(Light const &ambient,
           _need_upload(true)
 {}
 
+BrickMaterial::~BrickMaterial()
+{
+#ifdef USE_CUDA
+    clearGpuData();
+#endif
+}
+
 BaseMaterial* BrickMaterial::up2Gpu()
 {
 #ifdef USE_CUDA
@@ -186,6 +194,9 @@ void BrickMaterial::clearGpuData()
 #ifdef USE_CUDA
     if (_dev_ptr == nullptr)
         return;
+
+    if (_bump_mapping_ptr.use_count() == 1)
+        _bump_mapping_ptr->clearGpu();
 
     PX_CUDA_CHECK(cudaFree(_dev_ptr))
     _dev_ptr = nullptr;

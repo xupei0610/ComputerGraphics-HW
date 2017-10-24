@@ -2,6 +2,7 @@
 
 using namespace px;
 
+#include <iostream>
 Light RayTrace::traceCpu(const Scene *const &scene,
                          Ray const & ray,
                          double const &refractive_index,
@@ -17,7 +18,7 @@ Light RayTrace::traceCpu(const Scene *const &scene,
 
     auto end_range = scene->hit_max_tol;
     double t;
-    BaseGeometry *obj = nullptr, *tmp_obj;
+    const BaseGeometry *obj = nullptr, *tmp_obj;
 
     for (const auto &g : scene->geometries)
     {
@@ -32,6 +33,7 @@ Light RayTrace::traceCpu(const Scene *const &scene,
     if (obj == nullptr)
         return scene->bg;
 
+
     auto intersect = ray[t];
     auto n = obj->normVec(intersect); // norm vector at the hit point
     Ray I(intersect, {0, 0, 0});      // from hit point to light source
@@ -39,12 +41,12 @@ Light RayTrace::traceCpu(const Scene *const &scene,
     Direction r = ray.direction-n*2*ray.direction.dot(n);     // reflect vector
 
     auto texture_coord = obj->textureCoord(intersect);
-    auto diffuse = obj->material->diffuse(texture_coord);
-    auto specular = obj->material->specular(texture_coord);
-    auto specular_exp = obj->material->specularExp(texture_coord);
+    auto diffuse = obj->material()->diffuse(texture_coord);
+    auto specular = obj->material()->specular(texture_coord);
+    auto specular_exp = obj->material()->specularExp(texture_coord);
 
     double attenuate;
-    auto L = ambientReflect(scene->ambient, obj->material->ambient(texture_coord));
+    auto L = ambientReflect(scene->ambient, obj->material()->ambient(texture_coord));
     for (const auto &light : scene->lights)
     {
         // soft shadow for area light
@@ -74,10 +76,10 @@ Light RayTrace::traceCpu(const Scene *const &scene,
             if (attenuate == 0)
                 continue;
 
-            L += diffuseReflect(light->light, diffuse,
+            L += diffuseReflect(light->light(), diffuse,
                                 I.direction, n) * attenuate;
 
-            L += specularReflect(light->light, specular,
+            L += specularReflect(light->light(), specular,
 //                                 h, n, // Blinn Phong model
                                  I.direction, r, // Phong model
                                  specular_exp) * attenuate;
@@ -86,7 +88,7 @@ Light RayTrace::traceCpu(const Scene *const &scene,
 
     if (depth < scene->recursion_depth)
     {
-        auto ref = obj->material->transmissive(texture_coord);
+        auto ref = obj->material()->transmissive(texture_coord);
         if (ref.x != 0 || ref.y != 0 || ref.z != 0)
 //        if (ref.norm2() > 1e-5)
         {
@@ -112,7 +114,7 @@ Light RayTrace::traceCpu(const Scene *const &scene,
         }
 
         // reflect
-        ref = obj->material->specular(texture_coord);
+        ref = obj->material()->specular(texture_coord);
         if (ref.x != 0 || ref.y != 0 || ref.z != 0)
 //        if (ref.norm2() > 1e-5)
         {

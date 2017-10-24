@@ -46,7 +46,7 @@ public:
     PX_CUDA_CALLABLE
     double alpha(double const &u, double const &v) const;
 
-    ~Texture() = default;
+    ~Texture();
 
     Texture *up2Gpu();
     void clearGpuData();
@@ -137,7 +137,6 @@ public:
                                                 double const &refractive_index,
                                                 std::shared_ptr<Texture> const & texture,
                                                 std::shared_ptr<BumpMapping> const &bump_mapping=nullptr);
-    ~TextureMaterial() = default;
 
     BaseMaterial *up2Gpu() override;
     void clearGpuData() override ;
@@ -151,6 +150,7 @@ public:
     void setBumpMapping(std::shared_ptr<BumpMapping> const &bump_mapping);
     void setTexture(std::shared_ptr<Texture> const &texture);
 
+    ~TextureMaterial();
 protected:
 
     TextureMaterial(Light const &ambient,

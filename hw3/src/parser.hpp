@@ -5,11 +5,6 @@
 #include <string>
 #include <memory>
 
-#include <vector>
-#include <sstream>
-#include <iostream>
-#include <iterator>
-#include <algorithm>
 
 #include "scene.hpp"
 

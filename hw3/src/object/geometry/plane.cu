@@ -12,29 +12,24 @@ BasePlane::BasePlane(Point const &pos,
 {}
 
 PX_CUDA_CALLABLE
-BaseGeometry * BasePlane::hitCheck(Ray const &ray,
+const BaseGeometry * BasePlane::hitCheck(Ray const &ray,
                                    double const &t_start,
                                    double const &t_end,
-                                   double &hit_at)
+                                   double &hit_at) const
 {
     auto tmp = (_p_dot_n - ray.original.dot(_norm_vec)) / ray.direction.dot(_norm_vec);
-    if (tmp > t_start && tmp < t_end)
-    {
-        hit_at = tmp;
-        return this;
-    }
-    return nullptr;
+    return (tmp > t_start && tmp < t_end) ? (hit_at = tmp, this) : nullptr;
 }
 
 PX_CUDA_CALLABLE
-Direction BasePlane::normalVec(double const &x, double const &y, double const &z)
+Direction BasePlane::normalVec(double const &x, double const &y, double const &z) const
 {
     return _norm_vec;
 }
 
 PX_CUDA_CALLABLE
 Vec3<double> BasePlane::getTextureCoord(double const &x, double const &y,
-                                    double const &z)
+                                    double const &z) const
 {
     return {x - _position.x,
             -_norm_vec.z*(y - _position.y) + _norm_vec.y*(z - _position.z),
@@ -75,16 +70,16 @@ BaseGeometry *Plane::up2Gpu()
         if (_dev_ptr == nullptr)
             PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BasePlane)));
 
-        material = _material_ptr->up2Gpu();
-        transformation = _transformation_ptr->up2Gpu();
+        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
+        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
 
         PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
                                  dynamic_cast<BasePlane*>(this),
                                  sizeof(BasePlane),
                                  cudaMemcpyHostToDevice));
 
-        material = _material_ptr.get();
-        transformation = _transformation_ptr.get();
+        _material = _material_ptr.get();
+        _transformation = _transformation_ptr.get();
 
         _need_upload = false;
     }
@@ -99,6 +94,11 @@ void Plane::clearGpuData()
 #ifdef USE_CUDA
     if (_dev_ptr == nullptr)
         return;
+
+    if (_transformation_ptr.use_count() == 1)
+        _transformation_ptr->clearGpuData();
+    if (_material_ptr.use_count() == 1)
+        _material_ptr->clearGpuData();
 
     PX_CUDA_CHECK(cudaFree(_dev_ptr));
     _dev_ptr = nullptr;

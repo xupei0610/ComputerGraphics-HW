@@ -5,7 +5,7 @@ project(hw3)
 option(USE_OPENMP "Use OpenMP or not." ON)
 option(USE_GUI "Use GUI or not" ON)
 option(USE_CUDA "Use CUDA or not" ON)
-
+set(USE_CUDA OFF)
 option(USE_JITTER "Use Jitter Sampling" OFF)
 option(USE_ADAPTIVE "Use Adaptive Sampling" OFF)
 
@@ -54,6 +54,9 @@ file(GLOB HEADER_FILES
      ${PROJECT_SOURCE_DIR}/src/object/light/light.hpp
      ${PROJECT_SOURCE_DIR}/src/object/material/*.hpp
      ${PROJECT_SOURCE_DIR}/src/object/geometry/*.hpp
+     ${PROJECT_SOURCE_DIR}/src/object/structure/*.hpp
+     ${PROJECT_SOURCE_DIR}/src/object/*.hpp
+     ${PROJECT_SOURCE_DIR}/src/*.hpp
      )
 
 file(GLOB EXE_COMMON_SRC_FILES
@@ -62,6 +65,7 @@ file(GLOB EXE_COMMON_SRC_FILES
      ${PROJECT_SOURCE_DIR}/src/object/light/*.cu
      ${PROJECT_SOURCE_DIR}/src/object/material/*.cu
      ${PROJECT_SOURCE_DIR}/src/object/geometry/*.cu
+     ${PROJECT_SOURCE_DIR}/src/object/structure/*.cu
      )
 
 file(GLOB EXE_CUDA_SRC_FILES

@@ -10,10 +10,10 @@ BaseQuadric::BaseQuadric(Point const &center,
 {}
 
 PX_CUDA_CALLABLE
-BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
+const BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
                                      double const &t_start,
                                      double const &t_end,
-                                     double &hit_at)
+                                     double &hit_at) const
 {
     auto xo = ray.original.x - _center.x;
     auto yo = ray.original.y - _center.y;
@@ -79,7 +79,11 @@ BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
     auto tmp1 = (-B - discriminant)/ (2.0 * A);
     auto tmp2 = (-B + discriminant)/ (2.0 * A);
     if (tmp1 > tmp2)
-        std::swap(tmp1, tmp2);
+    {
+        auto tmp = tmp1;
+        tmp1 = tmp2;
+        tmp2 = tmp;
+    }
 
     if (tmp1 > t_start && tmp1 < t_end)
     {
@@ -120,7 +124,7 @@ BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseQuadric::normalVec(double const &x, double const &y, double const &z)
+Direction BaseQuadric::normalVec(double const &x, double const &y, double const &z) const
 {
     auto dx = x - _center.x;
     auto dy = y - _center.y;
@@ -133,7 +137,7 @@ Direction BaseQuadric::normalVec(double const &x, double const &y, double const 
 
 PX_CUDA_CALLABLE
 Vec3<double> BaseQuadric::getTextureCoord(double const &x, double const &y,
-                                       double const &z)
+                                       double const &z) const
 {
     // FIXME better way for quadric surface texture mapping
 
@@ -276,16 +280,16 @@ BaseGeometry *Quadric::up2Gpu()
         if (_dev_ptr == nullptr)
             PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseQuadric)));
 
-        material = _material_ptr->up2Gpu();
-        transformation = _transformation_ptr->up2Gpu();
+        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
+        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
 
         PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
                                  dynamic_cast<BaseQuadric*>(this),
                                  sizeof(BaseQuadric),
                                  cudaMemcpyHostToDevice));
 
-        material = _material_ptr.get();
-        transformation = _transformation_ptr.get();
+        _material = _material_ptr.get();
+        _transformation = _transformation_ptr.get();
 
         _need_upload = false;
     }
@@ -300,6 +304,11 @@ void Quadric::clearGpuData()
 #ifdef USE_CUDA
     if (_dev_ptr == nullptr)
         return;
+
+    if (_transformation_ptr.use_count() == 1)
+        _transformation_ptr->clearGpuData();
+    if (_material_ptr.use_count() == 1)
+        _material_ptr->clearGpuData();
 
     PX_CUDA_CHECK(cudaFree(_dev_ptr));
     _dev_ptr = nullptr;

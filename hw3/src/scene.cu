@@ -22,39 +22,42 @@ PX_CUDA_KERNEL rayCast(const int width,
                        Scene::Param *scene,
                        const int size)
 {
-    PX_CUDA_LOOP(index, size)
-    {
-        auto h = index / width;
-        auto w = index % width;
-        auto v0 = (height - 1) * 0.5 - h;
-        auto u0 = (width - 1) * 0.5 - w;
 
-        Light light(0, 0, 0);
-        Ray ray(cam_pos, Direction(0, 0, 0));
-
-        for (auto k0 = -sampling_r + 1; k0 < sampling_r; k0 += 2)
-        {
-            for (auto k1 = -sampling_r + 1; k1 < sampling_r; k1 += 2)
-            {
-
-                auto v = v0 + k0  * sampling_offset;
-                auto u = u0 + k1  * sampling_offset;
-
-                auto x = u * cam_right_vector.x + v * cam_up_vector.x +
-                         cam_dist * cam_dir.x;
-                auto y = u * cam_right_vector.y + v * cam_up_vector.y +
-                         cam_dist * cam_dir.y;
-                auto z = u * cam_right_vector.z + v * cam_up_vector.z +
-                         cam_dist * cam_dir.z;
-
-                ray.direction.set(x, y, z);
-
-                light += RayTrace::traceGpu(scene, ray);
-            }
-        }
-
-        pixels[index] = light * sampling_weight;
-    }
+//    PX_CUDA_LOOP(index, size)
+//    {
+//        auto h = index / width;
+//        auto w = index % width;
+//        auto v0 = (height - 1) * 0.5 - h;
+//        auto u0 = (width - 1) * 0.5 - w;
+//
+//        Light light(0, 0, 0);
+//        Ray ray(cam_pos, Direction(0, 0, 0));
+//
+//        for (auto k0 = -sampling_r + 1; k0 < sampling_r; k0 += 2)
+//        {
+//            for (auto k1 = -sampling_r + 1; k1 < sampling_r; k1 += 2)
+//            {
+//
+//                auto v = v0 + k0  * sampling_offset;
+//                auto u = u0 + k1  * sampling_offset;
+//
+//                auto x = u * cam_right_vector.x + v * cam_up_vector.x +
+//                         cam_dist * cam_dir.x;
+//                auto y = u * cam_right_vector.y + v * cam_up_vector.y +
+//                         cam_dist * cam_dir.y;
+//                auto z = u * cam_right_vector.z + v * cam_up_vector.z +
+//                         cam_dist * cam_dir.z;
+//
+//                ray.direction.set(x, y, z);
+//
+//                light += RayTrace::traceGpu(scene, ray);
+//            }
+//        }
+//
+//        pixels[index] = light * sampling_weight;
+//    }
+    printf("Hello thread %d, f=%f\n", scene->n_lights, scene->lights[0]->attenuate(1, 2, 3));
+    __syncthreads();
 }
 
 void Scene::renderGpu(int const &width, int const &height,
@@ -63,9 +66,8 @@ void Scene::renderGpu(int const &width, int const &height,
                       double const &sampling_offset,
                       double const &sampling_weight)
 {
-
-    if (_need_upload_gpu_param)
-    {
+//    if (_need_upload_gpu_param)
+//    {
         if (_param_host != nullptr)
             clearGpuData();
 
@@ -75,35 +77,41 @@ void Scene::renderGpu(int const &width, int const &height,
         _param_host->n_geometries = geometries.size();
         _param_host->n_lights = lights.size();
 
+//        for (const auto &g : geometries)
+//            g->up2Gpu();
+
+        for (const auto &l : lights)
+            l->up2Gpu();
+
+        cudaDeviceSynchronize();
+
         auto i = 0;
-        BaseGeometry* geo[_param_host->n_geometries];
-        for (const auto &g : geometries)
-            geo[i++] = g->up2Gpu();
-
+//        BaseGeometry* geo[_param_host->n_geometries];
+//        for (const auto &g : geometries)
+//            g->up2Gpu();
         i = 0;
-        BaseGeometry* lig[_param_host->n_geometries];
-        for (const auto &l : lig)
-            lig[i++] = l->up2Gpu();
+        BaseLight* lig[_param_host->n_geometries];
+        for (const auto &l : lights)
+            lig[i++] = l->devPtr();
 
+//        PX_CUDA_CHECK(cudaMalloc(&(_param_host->geometries),
+//                                 sizeof(BaseGeometry*)*_param_host->n_geometries));
+//        PX_CUDA_CHECK(cudaMemcpy(_param_host->geometries, &geo,
+//                                 sizeof(BaseGeometry*)*_param_host->n_geometries,
+//                                 cudaMemcpyHostToDevice));
 
-        PX_CUDA_CHECK(cudaMalloc(&(_param_host->geometries),
-                                 sizeof(BaseGeometry*)*_param_host->n_geometries));
         PX_CUDA_CHECK(cudaMalloc(&(_param_host->lights),
                                  sizeof(BaseLight*)*_param_host->n_lights));
-
-        PX_CUDA_CHECK(cudaMemcpy(_param_host->geometries, &geo,
-                                 sizeof(BaseGeometry*)*_param_host->n_geometries,
-                                 cudaMemcpyHostToDevice));
-        PX_CUDA_CHECK(cudaMemcpy(_param_host->geometries, &lig,
+        PX_CUDA_CHECK(cudaMemcpy(_param_host->lights, &lig,
                                  sizeof(BaseLight*)*_param_host->n_lights,
                                  cudaMemcpyHostToDevice));
 
         PX_CUDA_CHECK(cudaHostGetDevicePointer(&_param_dev, _param_host, 0))
 
         _need_upload_gpu_param = false;
-    }
+//    }
 
-    PX_CUDA_LAUNCH_KERNEL(rayCast, _param_host->dimension,
+    PX_CUDA_LAUNCH_KERNEL(rayCast, 1, //_param_host->dimension,
                           width, height,
                           cam_dist,
                           sampling_r, sampling_offset, sampling_weight,

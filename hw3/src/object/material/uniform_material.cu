@@ -88,6 +88,13 @@ UniformMaterial::UniformMaterial(Light const &ambient,
           _need_upload(true)
 {}
 
+UniformMaterial::~UniformMaterial()
+{
+#ifdef USE_CUDA
+    clearGpuData();
+#endif
+}
+
 BaseMaterial* UniformMaterial::up2Gpu()
 {
 #ifdef USE_CUDA
@@ -116,6 +123,9 @@ void UniformMaterial::clearGpuData()
 #ifdef USE_CUDA
     if (_dev_ptr == nullptr)
         return;
+
+    if (_bump_mapping_ptr.use_count() == 1)
+        _bump_mapping_ptr->clearGpu();
 
     PX_CUDA_CHECK(cudaFree(_dev_ptr));
     _dev_ptr = nullptr;
