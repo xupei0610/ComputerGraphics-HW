@@ -14,59 +14,70 @@ class px::BaseSphere : public BaseGeometry
 protected:
     PX_CUDA_CALLABLE
     const BaseGeometry * hitCheck(Ray const &ray,
-                                  double const &range_start,
-                                  double const &range_end,
-                                  double &hit_at) const override;
+                                  PREC const &range_start,
+                                  PREC const &range_end,
+                                  PREC &hit_at) const override;
     PX_CUDA_CALLABLE
-    Vec3<double> getTextureCoord(double const &x,
-                                 double const &y,
-                                 double const &z) const override;
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                                 PREC const &y,
+                                 PREC const &z) const override;
     PX_CUDA_CALLABLE
-    Direction normalVec(double const &x, double const &y, double const &z) const override;
+    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
 
-    ~BaseSphere() = default;
-protected:
-    Point _center;
-    double _radius;
-    double _radius2;
-
+public:
+    PX_CUDA_CALLABLE
     BaseSphere(Point const &pos,
-               double const &radius,
+               PREC const &radius,
                const BaseMaterial * const &material,
                const Transformation * const &trans);
 
+    PX_CUDA_CALLABLE
+    ~BaseSphere() = default;
+
+protected:
+    Point _center;
+    PREC _radius;
+    PREC _radius2;
+
+    PX_CUDA_CALLABLE
+    void updateVertices();
+
     BaseSphere &operator=(BaseSphere const &) = delete;
     BaseSphere &operator=(BaseSphere &&) = delete;
+
+    friend class Sphere;
 };
 
-class px::Sphere : public BaseSphere
+class px::Sphere : public Geometry
 {
 public:
-    static std::shared_ptr<BaseGeometry> create(Point const &center,
-                                                double const &radius,
-                                                std::shared_ptr<BaseMaterial> const &material,
+    static std::shared_ptr<Geometry> create(Point const &center,
+                                                PREC const &radius,
+                                                std::shared_ptr<Material> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry *up2Gpu() override;
+    BaseGeometry *const &obj() const noexcept override;
+    BaseGeometry **devPtr() override;
+    void up2Gpu() override;
     void clearGpuData() override;
 
     void setCenter(Point const &position);
-    void setRadius(double const &r);
+    void setRadius(PREC const &r);
 
     ~Sphere();
 protected:
+    BaseSphere *_obj;
+    BaseGeometry *_base_obj;
 
-    std::shared_ptr<BaseMaterial> _material_ptr;
+    std::shared_ptr<Material> _material_ptr;
     std::shared_ptr<Transformation> _transformation_ptr;
 
-    BaseSphere * _dev_ptr;
+    BaseGeometry **_dev_ptr;
     bool _need_upload;
 
     Sphere(Point const &center,
-           double const &radius,
-           std::shared_ptr<BaseMaterial> const &material,
+           PREC const &radius,
+           std::shared_ptr<Material> const &material,
            std::shared_ptr<Transformation> const &trans);
-
-    void updateVertices();
 
     Sphere &operator=(Sphere const &) = delete;
     Sphere &operator=(Sphere &&) = delete;

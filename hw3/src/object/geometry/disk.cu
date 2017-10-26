@@ -1,20 +1,29 @@
 #include "object/geometry/disk.hpp"
 
+#ifdef USE_CUDA
+#include "gpu_creator.hpp"
+#endif
+
 using namespace px;
 
+PX_CUDA_CALLABLE
 BaseDisk::BaseDisk(Point const &pos,
-                   double const &radius,
+                   Direction const &norm_vec,
+                   PREC const &radius,
                    const BaseMaterial *const &material,
                    const Transformation *const &trans)
         : BaseGeometry(material, trans, 8),
-          _center(pos), _radius(radius), _radius2(radius*radius)
-{}
+          _center(pos), _radius(radius), _radius2(radius*radius),
+          _p_dot_n(pos.dot(norm_vec))
+{
+    updateVertices();
+}
 
 PX_CUDA_CALLABLE
 const BaseGeometry * BaseDisk::hitCheck(Ray const &ray,
-                                        double const &t_start,
-                                        double const &t_end,
-                                        double &hit_at) const
+                                        PREC const &t_start,
+                                        PREC const &t_end,
+                                        PREC &hit_at) const
 {
     auto tmp = (_p_dot_n - ray.original.dot(_norm_vec)) / ray.direction.dot(_norm_vec);
     if (tmp > t_start && tmp < t_end)
@@ -32,73 +41,83 @@ const BaseGeometry * BaseDisk::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseDisk::normalVec(double const &x, double const &y, double const &z) const
+Direction BaseDisk::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
     return _norm_vec;
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseDisk::getTextureCoord(double const &x, double const &y,
-                                        double const &z) const
+Vec3<PREC> BaseDisk::getTextureCoord(PREC const &x, PREC const &y,
+                                        PREC const &z) const
 {
     return {x - _center.x,
             -_norm_vec.z*(y - _center.y) + _norm_vec.y*(z - _center.z),
             (x - _center.x)*_norm_vec.x + (y - _center.y)*_norm_vec.y + (z - _center.z)*_norm_vec.z};
 }
 
-std::shared_ptr<BaseGeometry> Disk::create(Point const &position,
+std::shared_ptr<Geometry> Disk::create(Point const &position,
                                            Direction const &norm_vec,
-                                           double const &radius,
-                                           std::shared_ptr<BaseMaterial> const &material,
+                                           PREC const &radius,
+                                           std::shared_ptr<Material> const &material,
                                            std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<BaseGeometry>(new Disk(position, norm_vec, radius,
+    return std::shared_ptr<Geometry>(new Disk(position, norm_vec, radius,
                                                   material, trans));
 }
 
 Disk::Disk(Point const &position,
            Direction const &norm_vec,
-           double const &radius,
-           std::shared_ptr<BaseMaterial> const &material,
+           PREC const &radius,
+           std::shared_ptr<Material> const &material,
            std::shared_ptr<Transformation> const &trans)
-        : BaseDisk(position, radius, material.get(), trans.get()),
+        : _obj(new BaseDisk(position, norm_vec, radius, material->obj(), trans.get())),
+          _base_obj(_obj),
           _material_ptr(material), _transformation_ptr(trans),
           _dev_ptr(nullptr), _need_upload(true)
-{
-    setNormVec(norm_vec);
-}
+{}
 
 Disk::~Disk()
 {
+    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
 
-BaseGeometry *Disk::up2Gpu()
+BaseGeometry *const &Disk::obj() const noexcept
+{
+    return _base_obj;
+}
+
+BaseGeometry **Disk::devPtr()
+{
+    return _dev_ptr;
+}
+
+void Disk::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseDisk)));
 
-        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
-        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
+        clearGpuData();
+        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseDisk*>(this),
-                                 sizeof(BaseDisk),
-                                 cudaMemcpyHostToDevice));
 
-        _material = _material_ptr.get();
-        _transformation = _transformation_ptr.get();
+        if (_material_ptr != nullptr)
+            _material_ptr->up2Gpu();
+        if (_transformation_ptr != nullptr)
+            _transformation_ptr->up2Gpu();
+
+        cudaDeviceSynchronize();
+
+        GpuCreator::Disk(_dev_ptr, _obj->_center, _obj->_norm_vec, _obj->_radius,
+                        _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
+                        _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
+
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -113,7 +132,7 @@ void Disk::clearGpuData()
     if (_material_ptr.use_count() == 1)
         _material_ptr->clearGpuData();
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
+    GpuCreator::destroy(_dev_ptr);
     _dev_ptr = nullptr;
     _need_upload = true;
 #endif
@@ -122,29 +141,40 @@ void Disk::clearGpuData()
 
 void Disk::setCenter(Point const &center)
 {
-    _center = center;
-    _p_dot_n = center.dot(_norm_vec);
+    _obj->_center = center;
+    _obj->_p_dot_n = center.dot(_obj->_norm_vec);
 
-    updateVertices();
+    _obj->updateVertices();
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
 }
 
 void Disk::setNormVec(Direction const &norm_vec)
 {
-    _norm_vec = norm_vec;
-    _p_dot_n = _center.dot(norm_vec);
+    _obj->_norm_vec = norm_vec;
+    _obj->_p_dot_n = _obj->_center.dot(norm_vec);
 
-    updateVertices();
+    _obj->updateVertices();
+
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
 }
 
-void Disk::setRadius(double const &radius)
+void Disk::setRadius(PREC const &radius)
 {
-    _radius = radius;
-    _radius2 = radius*radius;
+    _obj->_radius = radius;
+    _obj->_radius2 = radius*radius;
 
-    updateVertices();
+    _obj->updateVertices();
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
 }
 
-void Disk::updateVertices()
+PX_CUDA_CALLABLE
+void BaseDisk::updateVertices()
 {
     if (_norm_vec.x == 0 && _norm_vec.y == 0 && (_norm_vec.z == 1 || _norm_vec.z == -1))
     {
@@ -257,7 +287,4 @@ void Disk::updateVertices()
         _raw_vertices[7].y = _center.y - _radius;
         _raw_vertices[7].z = _center.z - _radius;
     }
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
 }

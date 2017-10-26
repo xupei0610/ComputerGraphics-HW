@@ -14,10 +14,11 @@ class AreaLight;
 // TODO Image-based Lighting (environment maps)
 }
 
+#include <iostream>
 class px::BaseLight
 {
 protected:
-    BaseLight *dev_ptr;
+    BaseLight **dev_ptr;
 public:
     enum class Type
     {
@@ -26,29 +27,29 @@ public:
         AreaLight
     };
 
-    inline BaseLight *devPtr() { return dev_ptr; }
+    inline BaseLight **devPtr() { return dev_ptr; }
     virtual void up2Gpu() = 0;
     virtual void clearGpuData() = 0;
 
     PX_CUDA_CALLABLE
-    virtual double attenuate(double const &x, double const &y, double const &z) const = 0;
+    virtual PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const = 0;
     __device__
-    virtual Direction dirFromDevice(double const &x, double const &y, double const &z, double &dist) const = 0;
-    virtual Direction dirFromHost(double const &x, double const &y, double const &z, double &dist) const = 0;
+    virtual Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const = 0;
+    virtual Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const = 0;
     PX_CUDA_CALLABLE
     virtual Type type() const = 0;
 
     PX_CUDA_CALLABLE
-    inline double attenuate(Point const & p) const
+    inline PREC attenuate(Point const & p) const
     {
         return attenuate(p.x, p.y, p.z);
     }
     __device__
-    inline Direction dirFromDevice(Point const &p, double &dist) const
+    inline Direction dirFromDevice(Point const &p, PREC &dist) const
     {
         return dirFromDevice(p.x, p.y, p.z, dist);
     }
-    inline Direction dirFromHost(Point const &p, double &dist) const
+    inline Direction dirFromHost(Point const &p, PREC &dist) const
     {
         return dirFromHost(p.x, p.y, p.z, dist);
     }
@@ -78,12 +79,12 @@ public:
     static std::shared_ptr<BaseLight> create(Light const &light, Direction const &dir);
 
     PX_CUDA_CALLABLE
-    double attenuate(double const &x, double const &y, double const &z) const override;
+    PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    Direction dirFromDevice(double const &x, double const &y, double const &z, double &dist) const override;
-    Direction dirFromHost(double const &x, double const &y, double const &z, double &dist) const override;
+    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
+    Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
     PX_CUDA_CALLABLE
-    Direction dirFrom(double const &x, double const &y, double const &z, double &dist) const;
+    Direction dirFrom(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
     PX_CUDA_CALLABLE
     Type type() const override
     {
@@ -97,7 +98,7 @@ public:
     void setDirection(Direction const &dir);
 
     PX_CUDA_CALLABLE
-    ~DirectionalLight();
+    ~DirectionalLight() = default;
     PX_CUDA_CALLABLE
     DirectionalLight(Light const &light, Direction const &dir);
 protected:
@@ -116,12 +117,12 @@ public:
     static std::shared_ptr<BaseLight> create(Light const &light, Point const &pos);
 
     PX_CUDA_CALLABLE
-    double attenuate(double const &x, double const &y, double const &z) const override;
+    PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    Direction dirFromDevice(double const &x, double const &y, double const &z, double &dist) const override;
-    Direction dirFromHost(double const &x, double const &y, double const &z, double &dist) const override;
+    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
+    Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
     PX_CUDA_CALLABLE
-    Direction dirFrom(double const &x, double const &y, double const &z, double &dist) const;
+    Direction dirFrom(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
     PX_CUDA_CALLABLE
     Type type() const override
     {
@@ -135,7 +136,7 @@ public:
     void setPosition(Point const &p);
 
     PX_CUDA_CALLABLE
-    ~PointLight();
+    ~PointLight() = default;
     PX_CUDA_CALLABLE
     PointLight(Light const &light, Point const &pos);
 protected:
@@ -152,16 +153,16 @@ public:
     static std::shared_ptr<BaseLight> create(Light const &light,
                                              Point const &pos,
                                              Direction const &direction,
-                                             double const &half_angle1,
-                                             double const &half_angle2,
-                                             double const &falloff);
+                                             PREC const &half_angle1,
+                                             PREC const &half_angle2,
+                                             PREC const &falloff);
     PX_CUDA_CALLABLE
-    double attenuate(double const &x, double const &y, double const &z) const override;
+    PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    Direction dirFromDevice(double const &x, double const &y, double const &z, double &dist) const override;
-    Direction dirFromHost(double const &x, double const &y, double const &z, double &dist) const override;
+    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
+    Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
     PX_CUDA_CALLABLE
-    Direction dirFrom(double const &x, double const &y, double const &z, double &dist) const;
+    Direction dirFrom(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
     PX_CUDA_CALLABLE
     Type type() const override
     {
@@ -174,33 +175,33 @@ public:
     void setPosition(Point const &pos);
     void setDirection(Direction const &direction);
     PX_CUDA_CALLABLE
-    void setAngles(double const &half_angle1, double const &half_angle2);
-    void setFalloff(double const &falloff);
+    void setAngles(PREC const &half_angle1, PREC const &half_angle2);
+    void setFalloff(PREC const &falloff);
 
     inline Point const & position() const noexcept { return _position; }
     inline Direction const & direction() const noexcept { return _direction; }
-    inline double const & innerHalfAngle() const noexcept { return _inner_ha; }
-    inline double const & outerHalfAngle() const noexcept { return _outer_ha; }
-    inline double const & falloff() const noexcept { return _falloff; }
+    inline PREC const & innerHalfAngle() const noexcept { return _inner_ha; }
+    inline PREC const & outerHalfAngle() const noexcept { return _outer_ha; }
+    inline PREC const & falloff() const noexcept { return _falloff; }
 
     PX_CUDA_CALLABLE
-    ~SpotLight();
+    ~SpotLight() = default;
     PX_CUDA_CALLABLE
     SpotLight(Light const &light,
               Point const &pos,
               Direction const &direction,
-              double const &half_angle1,
-              double const &half_angle2,
-              double const &falloff);
+              PREC const &half_angle1,
+              PREC const &half_angle2,
+              PREC const &falloff);
 protected:
     Point _position;
     Direction _direction;
-    double _inner_ha;
-    double _outer_ha;
-    double _falloff;
-    double _inner_ha_cosine;
-    double _outer_ha_cosine;
-    double _multiplier; // 1.0 / (_outer_ha_cosine - inner_ha_cosine)
+    PREC _inner_ha;
+    PREC _outer_ha;
+    PREC _falloff;
+    PREC _inner_ha_cosine;
+    PREC _outer_ha_cosine;
+    PREC _multiplier; // 1.0 / (_outer_ha_cosine - inner_ha_cosine)
 
     bool _need_upload;
 };
@@ -212,13 +213,13 @@ public:
 
     static std::shared_ptr<BaseLight> create(Light const &light,
                                              Point const &center,
-                                             double const &radius);
+                                             PREC const &radius);
 
     PX_CUDA_CALLABLE
-    double attenuate(double const &x, double const &y, double const &z) const override;
+    PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    virtual Direction dirFromDevice(double const &x, double const &y, double const &z, double &dist) const;
-    virtual Direction dirFromHost(double const &x, double const &y, double const &z, double &dist) const;
+    virtual Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
+    virtual Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
     PX_CUDA_CALLABLE
     Type type() const override
     {
@@ -229,20 +230,20 @@ public:
     void clearGpuData() override;
 
     inline Point const & center() const noexcept {return _center;}
-    inline double const & radius() const noexcept { return _radius; }
+    inline PREC const & radius() const noexcept { return _radius; }
 
     void setCenter(Point const &center);
-    void setRadius(double const &radius);
+    void setRadius(PREC const &radius);
 
     PX_CUDA_CALLABLE
-    ~AreaLight();
+    ~AreaLight() = default;
     PX_CUDA_CALLABLE
     AreaLight(Light const &light,
               Point const &center,
-              double const &radius);
+              PREC const &radius);
 protected:
     Point _center;
-    double _radius;
+    PREC _radius;
 
     bool _need_upload;
 };

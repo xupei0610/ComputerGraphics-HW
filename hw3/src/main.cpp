@@ -32,6 +32,7 @@ void outputImg(std::unordered_map<std::string, IMAGE_FORMAT> const &outputs,
 
 int main(int argc, char *argv[])
 {
+
     std::string static const DEFAULT_SCENE = {
 #include "default_scene.dat"
     };
@@ -87,7 +88,7 @@ int main(int argc, char *argv[])
     {
         if (scene->is_rendering)
             std::cout << "[Info] Stop rendering..." << std::endl;
-        scene->stop_rendering = true;
+        scene->stopRendering();
         t.join();
     }
 #else
@@ -116,7 +117,7 @@ int main(int argc, char *argv[])
     {
         if (scene->is_rendering)
             std::cout << "[Info] Stop rendering..." << std::endl;
-        scene->stop_rendering = true;
+        scene->stopRendering();
         t.join();
     }
 

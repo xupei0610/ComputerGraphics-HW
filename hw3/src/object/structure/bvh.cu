@@ -2,32 +2,62 @@
 
 #include <cfloat>
 
+#include "gpu_creator.hpp"
+
 using namespace px;
 
-Direction const BaseBVH::SNORM_VEC[7] = {
-        { 1,  0, 0},
-        { 0,  1, 0},
-        { 0,  0, 1},
-        { 1,  1, 1},
-        {-1,  1, 1},
-        {-1, -1, 1},
-        { 1, -1, 1}
-};
+//Direction const BaseBVH::NORM_VEC_0 = { 1,  0, 0};
+//Direction const BaseBVH::NORM_VEC_1 = { 0,  1, 0};
+//Direction const BaseBVH::NORM_VEC_2 = { 0,  0, 1};
+//Direction const BaseBVH::NORM_VEC_3 = { 1,  1, 1};
+//Direction const BaseBVH::NORM_VEC_4 = {-1,  1, 1};
+//Direction const BaseBVH::NORM_VEC_5 = {-1, -1, 1};
+//Direction const BaseBVH::NORM_VEC_6 = { 1, -1, 1};
+//Direction const BaseBVH::NORM_VEC ={
+//        { 1,  0, 0},
+//        { 0,  1, 0},
+//        { 0,  0, 1},
+//        { 1,  1, 1},
+//        {-1,  1, 1},
+//        {-1, -1, 1},
+//        { 1, -1, 1}
+//};
 
-BaseBVH::BaseExtent::BaseExtent(BaseGeometry *const &obj)
+BaseBVH::Extent::Extent(BaseGeometry *const &obj)
     : obj(obj)
-{}
+{
+/**
+//    auto n_vert = 0;
+//    auto vert = obj->rawVertices(n_vert);
+//#define SET_BOUND(idx)                                          \
+//    for (auto j = 0; j < n_vert; ++j)                           \
+//    {                                                           \
+//        auto b = NORM_VEC_ ## idx ## .dot(vert[j]);             \
+//        if (b < lower_bound_ ## idx) lower_bound_ ## idx = b;   \
+//        if (b > upper_bound_ ## idx) upper_bound_ ## idx = b;   \
+//    }
+//    SET_BOUND(0)
+//    SET_BOUND(1)
+//    SET_BOUND(2)
+//    SET_BOUND(3)
+//    SET_BOUND(4)
+//    SET_BOUND(5)
+//    SET_BOUND(6)
+//
+//#undef SET_BOUND
+**/
+}
 
-bool BaseBVH::BaseExtent::hitCheck(Ray const &ray,
-                                   double const &range_start,
-                                   double const &range_end,
-                                   const double * const &num,
-                                   const double * const &den) const
+bool BaseBVH::Extent::hitCheck(Ray const &ray,
+                                   PREC const &range_start,
+                                   PREC const &range_end,
+                                   const PREC * const &num,
+                                   const PREC * const &den) const
 {
     auto tn = -FLT_MAX;
     auto tf = FLT_MAX;
-    double tmp_tn;
-    double tmp_tf;
+    PREC tmp_tn;
+    PREC tmp_tf;
 
 #define CHECK_HIT(idx)                                          \
     tmp_tn = (lower_bound_ ## idx - num[idx]) / den[idx];       \
@@ -55,178 +85,121 @@ bool BaseBVH::BaseExtent::hitCheck(Ray const &ray,
 #undef CHECK_HIT
 }
 
-BVH::Extent::Extent(std::shared_ptr<BaseGeometry> const &obj)
-        : BaseExtent(obj.get()), obj_ptr(obj)
-{
-    auto n_vert = 0;
-    auto vert = obj->rawVertices(n_vert);
-#define SET_BOUND(idx)                                          \
-    for (auto j = 0; j < n_vert; ++j)                           \
-    {                                                           \
-        auto b = SNORM_VEC[idx].dot(vert[j]);                   \
-        if (b < lower_bound_ ## idx) lower_bound_ ## idx = b;   \
-        if (b > upper_bound_ ## idx) upper_bound_ ## idx = b;   \
-    }
-    SET_BOUND(0)
-    SET_BOUND(1)
-    SET_BOUND(2)
-    SET_BOUND(3)
-    SET_BOUND(4)
-    SET_BOUND(5)
-    SET_BOUND(6)
-
-#undef SET_BOUND
-}
-
-BVH::Extent::~Extent()
-{
-#ifdef USE_CUDA
-    clearGpuData();
-#endif
-}
-
-BaseBVH::BaseExtent* BVH::Extent::up2Gpu()
-{
-#ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseBVH::BaseExtent)));
-
-    obj = obj_ptr->up2Gpu();
-
-    PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                             dynamic_cast<BaseBVH::BaseExtent *>(this),
-                             sizeof(BaseBVH::BaseExtent),
-                             cudaMemcpyHostToDevice));
-    obj = obj_ptr.get();
-    return _dev_ptr;
-#else
-    return this;
-#endif
-}
-
-void BVH::Extent::clearGpuData()
-{
-#ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        return;
-    if (obj_ptr.use_count() == 1)
-        obj_ptr->clearGpuData();
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
-    _dev_ptr = nullptr;
-#endif
-}
-
-
+PX_CUDA_CALLABLE
 BaseBVH::BaseBVH()
-        : BaseGeometry(nullptr, nullptr, 0),
-          NORM_VEC_0(1, 0, 0),
-          NORM_VEC_1(0, 1, 0),
-          NORM_VEC_2(0, 0, 1),
-          NORM_VEC_3(1, 1, 1),
-          NORM_VEC_4(-1, 1, 1),
-          NORM_VEC_5(-1, -1, 1),
-          NORM_VEC_6(1, -1, 1)
-
+        : BaseGeometry(nullptr, nullptr, 0)
 {}
 
 PX_CUDA_CALLABLE
 const BaseGeometry *BaseBVH::hitCheck(Ray const &ray,
-                                double const &t_start,
-                                double const &t_end,
-                                double &hit_at) const
+                                PREC const &t_start,
+                                PREC const &t_end,
+                                PREC &hit_at) const
 {
-    double num[7];
-    double den[7];
-#define COMPUTE_NUM_DEN(idx)                          \
-    num[idx] = ray.original.dot(NORM_VEC_ ##idx);     \
-    den[idx] = ray.direction.dot(NORM_VEC_ ##idx);
-
-    COMPUTE_NUM_DEN(0)
-    COMPUTE_NUM_DEN(1)
-    COMPUTE_NUM_DEN(2)
-    COMPUTE_NUM_DEN(3)
-    COMPUTE_NUM_DEN(4)
-    COMPUTE_NUM_DEN(5)
-    COMPUTE_NUM_DEN(6)
-
-#undef COMPUTE_NUM_DEN
+/**
+//    PREC num[7];
+//    PREC den[7];
+//
+//#define GET_NUM_DEN(idx)                            \
+//    num[idx] = ray.original.dot(NORM_VEC_ ##idx);  \
+//    den[idx] = ray.direction.dot(NORM_VEC_ ##idx);
+//
+//    GET_NUM_DEN(0)
+//    GET_NUM_DEN(1)
+//    GET_NUM_DEN(2)
+//    GET_NUM_DEN(3)
+//    GET_NUM_DEN(4)
+//    GET_NUM_DEN(5)
+//    GET_NUM_DEN(6)
+//
+//#undef GET_NUM_DEN
+ **/
 
     const BaseGeometry *obj = nullptr;
-    double t;
-    double end_range = t_end;
-    for (auto i = 0; i < _n_exts; ++i)
+    PREC t;
+    PREC end_range = t_end;
+
+    auto node = _extents.start;
+    while (node != nullptr)
     {
-        if (_exts[i]->hitCheck(ray, t_start, end_range, num, den))
-        {
-            auto tmp = _exts[i]->obj->hit(ray, t_start, end_range, t);
+//        if (node->data->hitCheck(ray, t_start, end_range, num, den))
+//        {
+            auto tmp = node->data->obj->hit(ray, t_start, end_range, t);
             if (tmp != nullptr)
             {
                 end_range = t;
                 obj = tmp;
             }
-        }
+//        }
+        node = node->next;
     }
 
     return obj == nullptr ? nullptr : (hit_at = end_range,  obj);
 }
 
 PX_CUDA_CALLABLE
-Direction BaseBVH::normalVec(double const &x, double const &y, double const &z) const
+Direction BaseBVH::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
     return {};
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseBVH::getTextureCoord(double const &x, double const &y,
-                                      double const &z) const
+Vec3<PREC> BaseBVH::getTextureCoord(PREC const &x, PREC const &y,
+                                      PREC const &z) const
 {
     return {};
 }
 
 BVH::BVH()
-        : BaseBVH()
+        : _obj(new BaseBVH()), _base_obj(_obj),
+          _dev_ptr(nullptr), _need_upload(true)
 {}
 
 BVH::~BVH()
 {
+    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
 
-BaseGeometry *BVH::up2Gpu()
+BaseGeometry *const &BVH::obj() const noexcept
+{
+    return _base_obj;
+}
+
+BaseGeometry **BVH::devPtr()
+{
+    return _dev_ptr;
+}
+
+void BVH::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
         if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseBVH)));
+            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry**)));
+
+
+        for (auto &o : _objects_ptr)
+            o->up2Gpu();
 
         auto i = 0;
-        BaseExtent *gpu_exts[_n_exts];
-        auto node = _extents.start;
-        while (node != nullptr)
-        {
-            gpu_exts[i++] = node->data->up2Gpu();
-            node = node->next;
-        }
+        BaseGeometry **gpu_objs[_obj->_extents.n];
+        for (auto &o : _objects_ptr)
+            gpu_objs[i++] = o->devPtr();
 
+        BaseGeometry ***tmp;
 
-        PX_CUDA_CHECK(cudaMalloc(&_exts, sizeof(BaseBVH::BaseExtent*)*_n_exts));
-        PX_CUDA_CHECK(cudaMemcpy(_exts, gpu_exts,
-                                 sizeof(BaseBVH::BaseExtent*)*_n_exts,
+        PX_CUDA_CHECK(cudaMalloc(&tmp, sizeof(BaseGeometry **) * _obj->_extents.n));
+        PX_CUDA_CHECK(cudaMemcpy(tmp, gpu_objs, sizeof(BaseGeometry **) * _obj->_extents.n,
                                  cudaMemcpyHostToDevice));
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseBVH*>(this),
-                                 sizeof(BaseBVH),
-                                 cudaMemcpyHostToDevice));
+        GpuCreator::BVH(_dev_ptr, tmp, _obj->_extents.n);
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -236,24 +209,19 @@ void BVH::clearGpuData()
     if (_dev_ptr == nullptr)
         return;
 
-    auto node = _extents.start;
-    while (node != nullptr)
-    {
-        node->data->clearGpuData();
-        node = node->next;
-    }
-
     PX_CUDA_CHECK(cudaFree(_dev_ptr));
     _dev_ptr = nullptr;
-    _exts = nullptr;
     _need_upload = true;
 #endif
 }
 
-void BVH::addObj(std::shared_ptr<BaseGeometry> const &obj)
+void BVH::addObj(std::shared_ptr<Geometry> const &obj)
 {
-    _extents.add(new Extent(obj));
-    _n_exts++;
+    if (obj == nullptr)
+        return;
+
+    _objects_ptr.insert(obj);
+    _obj->addObj(obj->obj());
 
 #ifdef USE_CUDA
     _need_upload = true;
@@ -261,46 +229,8 @@ void BVH::addObj(std::shared_ptr<BaseGeometry> const &obj)
 }
 
 PX_CUDA_CALLABLE
-const BaseGeometry *BVH::hitCheck(Ray const &ray,
-                            double const &t_start,
-                            double const &t_end,
-                            double &hit_at) const
+void BaseBVH::addObj(BaseGeometry *const &obj)
 {
-    double num[7];
-    double den[7];
-
-#define GET_NUM_DEN(idx)                            \
-    num[idx] = ray.original.dot(NORM_VEC_ ## idx);  \
-    den[idx] = ray.direction.dot(NORM_VEC_ ## idx);
-
-    GET_NUM_DEN(0)
-    GET_NUM_DEN(1)
-    GET_NUM_DEN(2)
-    GET_NUM_DEN(3)
-    GET_NUM_DEN(4)
-    GET_NUM_DEN(5)
-    GET_NUM_DEN(6)
-
-#undef GET_NUM_DEN
-
-    const BaseGeometry *obj = nullptr;
-    double t;
-    double end_range = t_end;
-
-    auto node = _extents.start;
-    while (node != nullptr)
-    {
-        if (node->data->hitCheck(ray, t_start, end_range, num, den))
-        {
-            auto tmp = node->data->obj->hit(ray, t_start, end_range, t);
-            if (tmp != nullptr)
-            {
-                end_range = t;
-                obj = tmp;
-            }
-        }
-        node = node->next;
-    }
-
-    return obj == nullptr ? nullptr : (hit_at = end_range,  obj);
+    _extents.add(new Extent(obj));
 }
+

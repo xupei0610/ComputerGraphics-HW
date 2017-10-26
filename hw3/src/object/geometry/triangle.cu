@@ -1,19 +1,29 @@
 #include "object/geometry/triangle.hpp"
 
+#ifdef USE_CUDA
+#include "gpu_creator.hpp"
+#endif
+
 #include <cfloat>
 
 using namespace px;
 
-BaseTriangle::BaseTriangle(const BaseMaterial *const &material,
+PX_CUDA_CALLABLE
+BaseTriangle::BaseTriangle(Point const &a,
+                           Point const &b,
+                           Point const &c,
+                           const BaseMaterial *const &material,
                            const Transformation *const &trans)
         : BaseGeometry(material, trans, 3)
-{}
+{
+    setVertices(a, b, c);
+}
 
 PX_CUDA_CALLABLE
 const BaseGeometry * BaseTriangle::hitCheck(Ray const &ray,
-                                  double const &t_start,
-                                  double const &t_end,
-                                  double &hit_at) const
+                                  PREC const &t_start,
+                                  PREC const &t_end,
+                                  PREC &hit_at) const
 {
     auto pvec = ray.direction.cross(_ca);
     auto det = pvec.dot(_ba);
@@ -50,74 +60,82 @@ const BaseGeometry * BaseTriangle::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseTriangle::normalVec(double const &x, double const &y, double const &z) const
+Direction BaseTriangle::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
     return _norm_vec;
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseTriangle::getTextureCoord(double const &x, double const &y,
-                                       double const &z) const
+Vec3<PREC> BaseTriangle::getTextureCoord(PREC const &x, PREC const &y,
+                                         PREC const &z) const
 {
     return {x - _center.x,
             -_norm_vec.z*(y - _center.y) + _norm_vec.y*(z - _center.z),
             (x - _center.x)*_norm_vec.x + (y - _center.y)*_norm_vec.y + (z - _center.z)*_norm_vec.z};
 }
 
-std::shared_ptr<BaseGeometry> Triangle::create(Point const &a,
+std::shared_ptr<Geometry> Triangle::create(Point const &a,
                                                Point const &b,
                                                Point const &c,
-                                               std::shared_ptr<BaseMaterial> const &material,
+                                               std::shared_ptr<Material> const &material,
                                                std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<BaseGeometry>(new Triangle(a, b, c,
+    return std::shared_ptr<Geometry>(new Triangle(a, b, c,
                                                       material, trans));
 }
 
 Triangle::Triangle(Point const &a,
                    Point const &b,
                    Point const &c,
-                   std::shared_ptr<BaseMaterial> const &material,
+                   std::shared_ptr<Material> const &material,
                    std::shared_ptr<Transformation> const &trans)
-        : BaseTriangle(material.get(), trans.get()),
+        : _obj(new BaseTriangle(a, b, c, material->obj(), trans.get())),
+          _base_obj(_obj),
+          _a(a), _b(b), _c(c),
           _material_ptr(material), _transformation_ptr(trans),
           _dev_ptr(nullptr), _need_upload(true)
-{
-    setVertices(a, b, c);
-}
+{}
 
 Triangle::~Triangle()
 {
+    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
 
-BaseGeometry *Triangle::up2Gpu()
+BaseGeometry * const &Triangle::obj() const noexcept
+{
+    return _base_obj;
+}
+
+BaseGeometry **Triangle::devPtr()
+{
+    return _dev_ptr;
+}
+
+void Triangle::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseTriangle)));
+        clearGpuData();
+        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
 
+        if (_material_ptr != nullptr)
+            _material_ptr->up2Gpu();
+        if (_transformation_ptr != nullptr)
+            _transformation_ptr->up2Gpu();
 
-        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
-        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
+        cudaDeviceSynchronize();
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseTriangle*>(this),
-                                 sizeof(BaseTriangle),
-                                 cudaMemcpyHostToDevice));
-
-        _material = _material_ptr.get();
-        _transformation = _transformation_ptr.get();
+        GpuCreator::Triangle(_dev_ptr,
+                             _a, _b, _c,
+                             _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
+                             _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -132,13 +150,14 @@ void Triangle::clearGpuData()
     if (_material_ptr.use_count() == 1)
         _material_ptr->clearGpuData();
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
+    GpuCreator::destroy(_dev_ptr);
+
     _dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
 
-void Triangle::setVertices(Point const &a, Point const &b, Point const &c)
+void BaseTriangle::setVertices(Point const &a, Point const &b, Point const &c)
 {
     _raw_vertices[0] = a;
     _raw_vertices[1] = b;
@@ -156,8 +175,18 @@ void Triangle::setVertices(Point const &a, Point const &b, Point const &c)
     _center += _raw_vertices[1];
     _center += _raw_vertices[2];
     _center /= 3.0;
+}
 
+void Triangle::setVertices(Point const &a,
+                           Point const &b,
+                           Point const &c)
+{
+    _a = a;
+    _b = b;
+    _c = c;
+    _obj->setVertices(a, b, c);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
+

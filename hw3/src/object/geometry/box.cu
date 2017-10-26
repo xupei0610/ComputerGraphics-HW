@@ -1,17 +1,27 @@
 #include "object/geometry/box.hpp"
 
+#ifdef USE_CUDA
+#include "gpu_creator.hpp"
+#endif
+
 using namespace px;
 
-BaseBox::BaseBox(const BaseMaterial *const &material,
+PX_CUDA_CALLABLE
+BaseBox::BaseBox(PREC const &x1, PREC const &x2,
+                 PREC const &y1, PREC const &y2,
+                 PREC const &z1, PREC const &z2,
+                 const BaseMaterial *const &material,
                  const Transformation *const &trans)
         : BaseGeometry(material, trans, 8)
-{}
+{
+    setVertices(x1, x2, y1, y2, z1, z2);
+}
 
 PX_CUDA_CALLABLE
 const BaseGeometry * BaseBox::hitCheck(Ray const &ray,
-                                       double const &t_start,
-                                       double const &t_end,
-                                       double &hit_at) const
+                                       PREC const &t_start,
+                                       PREC const &t_end,
+                                       PREC &hit_at) const
 {
     auto tmin  = ((ray.direction.x < 0 ? _vertex_max.x : _vertex_min.x) - ray.original.x) / ray.direction.x;
     auto tmax  = ((ray.direction.x < 0 ? _vertex_min.x : _vertex_max.x) - ray.original.x) / ray.direction.x;
@@ -55,7 +65,7 @@ const BaseGeometry * BaseBox::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseBox::normalVec(double const &x, double const &y, double const &z) const
+Direction BaseBox::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
     if (std::abs(x-_vertex_min.x) < 1e-12)
     {
@@ -103,8 +113,8 @@ Direction BaseBox::normalVec(double const &x, double const &y, double const &z) 
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseBox::getTextureCoord(double const &x, double const &y,
-                                            double const &z) const
+Vec3<PREC> BaseBox::getTextureCoord(PREC const &x, PREC const &y,
+                                            PREC const &z) const
 {
     if (std::abs(x-_vertex_min.x) < 1e-12) // left side
     {
@@ -151,80 +161,85 @@ Vec3<double> BaseBox::getTextureCoord(double const &x, double const &y,
     return {x-_center.x, y-_center.y, z-_center.z}; // Undefined action
 }
 
-std::shared_ptr<BaseGeometry> Box::create(double const &x1, double const &x2,
-                                          double const &y1, double const &y2,
-                                          double const &z1, double const &z2,
-                                          std::shared_ptr<BaseMaterial> const &material,
+std::shared_ptr<Geometry> Box::create(PREC const &x1, PREC const &x2,
+                                          PREC const &y1, PREC const &y2,
+                                          PREC const &z1, PREC const &z2,
+                                          std::shared_ptr<Material> const &material,
                                           std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<BaseGeometry>(new Box(x1, x2,
+    return std::shared_ptr<Geometry>(new Box(x1, x2,
                                                  y1, y2,
                                                  z1, z2,
                                                  material, trans));
 }
 
-std::shared_ptr<BaseGeometry> Box::create(Point const &v1, Point const &v2,
-                                          std::shared_ptr<BaseMaterial> const &material,
+std::shared_ptr<Geometry> Box::create(Point const &v1, Point const &v2,
+                                          std::shared_ptr<Material> const &material,
                                           std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<BaseGeometry>(new Box(v1, v2,
+    return std::shared_ptr<Geometry>(new Box(v1.x, v2.x,
+                                                 v1.y, v2.y,
+                                                 v1.z, v2.z,
                                                  material, trans));
 }
 
-Box::Box(double const &x1, double const &x2,
-         double const &y1, double const &y2,
-         double const &z1, double const &z2,
-         std::shared_ptr<BaseMaterial> const &material,
+Box::Box(PREC const &x1, PREC const &x2,
+         PREC const &y1, PREC const &y2,
+         PREC const &z1, PREC const &z2,
+         std::shared_ptr<Material> const &material,
          std::shared_ptr<Transformation> const &trans)
-        : BaseBox(material.get(), trans.get()),
+        : _obj(new BaseBox(x1, x2, y1, y2, z1, z2,
+                  material->obj(), trans.get())),
+          _base_obj(_obj),
+          _v1_x(x1), _v1_y(y1), _v1_z(z1),
+          _v2_x(x2), _v2_y(y2), _v2_z(z2),
           _material_ptr(material), _transformation_ptr(trans),
           _dev_ptr(nullptr), _need_upload(true)
-{
-    setVertices(x1, x2, y1, y2, z1, z2);
-}
-
-Box::Box(Point const &v1, Point const &v2,
-         std::shared_ptr<BaseMaterial> const &material,
-         std::shared_ptr<Transformation> const &trans)
-        : BaseBox(material.get(), trans.get()),
-          _material_ptr(material), _transformation_ptr(trans),
-          _dev_ptr(nullptr), _need_upload(true)
-{
-    setVertices(v1, v2);
-}
-
+{}
 
 Box::~Box()
 {
+    delete _obj;
+
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
 
-BaseGeometry *Box::up2Gpu()
+BaseGeometry *const &Box::obj() const noexcept
+{
+    return _base_obj;
+}
+
+BaseGeometry **Box::devPtr()
+{
+    return _dev_ptr;
+}
+
+void Box::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseBox)));
+        clearGpuData();
+        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
 
-        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
-        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
+        if (_material_ptr != nullptr)
+            _material_ptr->up2Gpu();
+        if (_transformation_ptr != nullptr)
+            _transformation_ptr->up2Gpu();
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseBox*>(this),
-                                 sizeof(BaseBox),
-                                 cudaMemcpyHostToDevice));
+        cudaDeviceSynchronize();
 
-        _material = _material_ptr.get();
-        _transformation = _transformation_ptr.get();
+        GpuCreator::Box(_dev_ptr,
+                        _v1_x, _v2_x,
+                        _v1_y, _v2_y,
+                        _v1_z, _v2_z,
+                        _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
+                        _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -235,19 +250,21 @@ void Box::clearGpuData()
         return;
 
     if (_transformation_ptr.use_count() == 1)
-            _transformation_ptr->clearGpuData();
+        _transformation_ptr->clearGpuData();
     if (_material_ptr.use_count() == 1)
         _material_ptr->clearGpuData();
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
+    GpuCreator::destroy(_dev_ptr);
+
     _dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
 
-void Box::setVertices(double const &x1, double const &x2,
-                      double const &y1, double const &y2,
-                      double const &z1, double const &z2)
+PX_CUDA_CALLABLE
+void BaseBox::setVertices(PREC const &x1, PREC const &x2,
+                      PREC const &y1, PREC const &y2,
+                      PREC const &z1, PREC const &z2)
 {
     _vertex_min.x = x1 > x2 ? (_vertex_max.x = x1, x2) : (_vertex_max.x = x2, x1);
     _vertex_min.y = y1 > y2 ? (_vertex_max.y = y1, y2) : (_vertex_max.y = y2, y1);
@@ -292,7 +309,21 @@ void Box::setVertices(double const &x1, double const &x2,
     _raw_vertices[7].x = _vertex_max.x;
     _raw_vertices[7].y = _vertex_max.y;
     _raw_vertices[7].z = _vertex_max.z;
+}
 
+void Box::setVertices(Point const &v1, Point const &v2)
+{
+    _obj->setVertices(v1.x, v2.x, v1.y, v2.y, v1.z, v2.z);
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
+}
+
+void Box::setVertices(PREC const &x1, PREC const &x2,
+                      PREC const &y1, PREC const &y2,
+                      PREC const &z1, PREC const &z2)
+{
+    _obj->setVertices(x1, x2, y1, y2, z1, z2);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

@@ -1,7 +1,7 @@
 #ifndef PX_CG_OBJECT_GEOMETRY_BOUND_BOX_HPP
 #define PX_CG_OBJECT_GEOMETRY_BOUND_BOX_HPP
 
-#include "object/structure/base_structure.hpp"
+#include "object/geometry/base_geometry.hpp"
 
 namespace px
 {
@@ -9,74 +9,60 @@ class BoundBox;
 class BaseBoundBox;
 }
 
-class px::BaseBoundBox : public Structure
+class px::BaseBoundBox : public BaseGeometry
 {
 protected:
     PX_CUDA_CALLABLE
     bool hitBox(Ray const &ray,
-                double const &t_start,
-                double const &t_end) const;
+                PREC const &t_start,
+                PREC const &t_end) const;
 
     PX_CUDA_CALLABLE
     const BaseGeometry * hitCheck(Ray const &ray,
-                            double const &range_start,
-                            double const &range_end,
-                            double &hit_at) const override;
+                            PREC const &range_start,
+                            PREC const &range_end,
+                            PREC &hit_at) const override;
     PX_CUDA_CALLABLE
-    Vec3<double> getTextureCoord(double const &x,
-                                 double const &y,
-                                 double const &z) const override;
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                                 PREC const &y,
+                                 PREC const &z) const override;
     PX_CUDA_CALLABLE
-    Direction normalVec(double const &x, double const &y, double const &z) const override;
+    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
 
+public:
+    PX_CUDA_CALLABLE
+    BaseBoundBox(const Transformation * const &trans);
+    PX_CUDA_CALLABLE
     ~BaseBoundBox() = default;
 
+    PX_CUDA_CALLABLE
+    void addObj(BaseGeometry * const &obj);
+
 protected:
-    Point _vertex_min;
-    Point _vertex_max;
-
-    Point _center;
-    Vec3<double> _side;
-
-    int _n_objs;
-    BaseGeometry **_objs;
-
-    BaseBoundBox(const Transformation * const &trans);
-
-    BaseBoundBox &operator=(BaseBoundBox const &) = delete;
-    BaseBoundBox &operator=(BaseBoundBox &&) = delete;
-};
-
-class px::BoundBox : public BaseBoundBox
-{
-public:
-    BoundBox(std::shared_ptr<Transformation> const &trans);
-
-    void addObj(std::shared_ptr<BaseGeometry> const &obj);
-
-    BaseGeometry *up2Gpu() override;
-    void clearGpuData() override;
-
-    ~BoundBox();
-protected:
-    struct List             // a sample list structure for loop in the CPU version of hitCheck
-    {                       // which have to be compatible with CUDA __device__ standard
+    struct List
+    {
         struct Node
         {
             BaseGeometry *data;
             Node *next;
 
+            PX_CUDA_CALLABLE
             Node(BaseGeometry * const &obj) : data(obj), next(nullptr)
             {}
+
+            PX_CUDA_CALLABLE
+            ~Node() = default;
         };
 
         Node *start;
         Node *end;
         int n;
 
+        PX_CUDA_CALLABLE
         List() : start(nullptr), end(nullptr), n(0)
         {}
 
+        PX_CUDA_CALLABLE
         void add(BaseGeometry *const &obj)
         {
             if (start == nullptr)
@@ -92,21 +78,45 @@ protected:
             ++n;
         }
 
+        PX_CUDA_CALLABLE
         ~List() = default; // data come from shared_ptr;
     };
 
     List _objects;
 
-    PX_CUDA_CALLABLE
-    const BaseGeometry * hitCheck(Ray const &ray,
-                            double const &range_start,
-                            double const &range_end,
-                            double &hit_at) const override;
+    Point _vertex_min;
+    Point _vertex_max;
+
+    Point _center;
+    Vec3<PREC> _side;
+
+    BaseBoundBox &operator=(BaseBoundBox const &) = delete;
+    BaseBoundBox &operator=(BaseBoundBox &&) = delete;
+
+    friend class BoundBox;
+};
+
+class px::BoundBox : public Geometry
+{
+public:
+    BoundBox(std::shared_ptr<Transformation> const &trans);
+
+    void addObj(std::shared_ptr<Geometry> const &obj);
+
+    BaseGeometry *const &obj() const noexcept override;
+    BaseGeometry **devPtr() override;
+    void up2Gpu() override;
+    void clearGpuData() override;
+
+    ~BoundBox();
+protected:
+    BaseBoundBox *_obj;
+    BaseGeometry *_base_obj;
 
     std::shared_ptr<Transformation> _transformation_ptr;
-    std::unordered_set<std::shared_ptr<BaseGeometry> > _objects_ptr;
+    std::unordered_set<std::shared_ptr<Geometry> > _objects_ptr;
 
-    BaseBoundBox * _dev_ptr;
+    BaseGeometry **_dev_ptr;
     bool _need_upload;
 
     BoundBox &operator=(BoundBox const &) = delete;

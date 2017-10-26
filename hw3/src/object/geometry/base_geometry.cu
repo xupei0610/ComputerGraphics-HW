@@ -2,6 +2,7 @@
 
 using namespace px;
 
+PX_CUDA_CALLABLE
 BaseGeometry::BaseGeometry(const BaseMaterial * const &material,
                            const Transformation * const &trans,
                            int const &n_vertices)
@@ -13,6 +14,7 @@ BaseGeometry::BaseGeometry(const BaseMaterial * const &material,
     _raw_vertices = new Point[n_vertices];
 }
 
+PX_CUDA_CALLABLE
 BaseGeometry::~BaseGeometry()
 {
     delete [] _raw_vertices;
@@ -20,15 +22,13 @@ BaseGeometry::~BaseGeometry()
 
 PX_CUDA_CALLABLE
 const BaseGeometry *BaseGeometry::hit(Ray const &ray,
-                                double const &range_start,
-                                double const &range_end,
-                                double &hit_at) const
+                                PREC const &range_start,
+                                PREC const &range_end,
+                                PREC &hit_at) const
 {
     // TODO bump mapping
     if (_transformation == nullptr)
-    {
         return hitCheck(ray, range_start, range_end, hit_at);
-    }
 
     Ray trans_ray(_transformation->point(ray.original),
                   _transformation->direction(ray.direction));
@@ -37,9 +37,9 @@ const BaseGeometry *BaseGeometry::hit(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseGeometry::normal(double const &x,
-                               double const &y,
-                               double const &z) const
+Direction BaseGeometry::normal(PREC const &x,
+                               PREC const &y,
+                               PREC const &z) const
 {
     // TODO bump mapping
     if (_transformation == nullptr)
@@ -48,9 +48,9 @@ Direction BaseGeometry::normal(double const &x,
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseGeometry::textureCoord(double const &x,
-                                        double const &y,
-                                        double const &z) const
+Vec3<PREC> BaseGeometry::textureCoord(PREC const &x,
+                                        PREC const &y,
+                                        PREC const &z) const
 {
     if (_transformation == nullptr)
         return getTextureCoord(x, y, z);

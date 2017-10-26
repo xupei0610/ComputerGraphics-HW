@@ -13,8 +13,9 @@
 
 namespace px
 {
-class BaseGeometry;
-class Structure;
+class BaseGeometry; // primarily used for gpu
+class Geometry; // a cpu object
+
 // TODO Polygon
 //class Polygon;
 // TODO Torus
@@ -25,6 +26,21 @@ class Structure;
 // TODO Procedurally generated terrain/heightfields
 }
 
+class px::Geometry
+{
+public:
+    virtual BaseGeometry **devPtr() = 0;
+    virtual void up2Gpu() = 0;
+    virtual void clearGpuData() = 0;
+
+    virtual BaseGeometry * const &obj() const noexcept = 0;
+
+protected:
+    Geometry() = default;
+    ~Geometry() = default;
+
+};
+
 class px::BaseGeometry
 {
 protected:
@@ -34,11 +50,7 @@ protected:
     int _n_vertices;
     Point * _raw_vertices;
 
-    friend Structure;
-
 public:
-    virtual BaseGeometry *up2Gpu() = 0;
-    virtual void clearGpuData() = 0;
 
     PX_CUDA_CALLABLE
     inline const BaseMaterial * const &material() const noexcept
@@ -54,52 +66,23 @@ public:
 
     PX_CUDA_CALLABLE
     const BaseGeometry * hit(Ray const &ray,
-                       double const &range_start,
-                       double const &range_end,
-                       double &hit_at) const;
+                       PREC const &range_start,
+                       PREC const &range_end,
+                       PREC &hit_at) const;
     PX_CUDA_CALLABLE
-    Direction normal(double const &x,
-                     double const &y,
-                     double const &z) const;
+    Direction normal(PREC const &x,
+                     PREC const &y,
+                     PREC const &z) const;
     PX_CUDA_CALLABLE
-    Vec3<double> textureCoord(double const &x, double const &y, double const &z) const;
-
+    Vec3<PREC> textureCoord(PREC const &x, PREC const &y, PREC const &z) const;
+    PX_CUDA_CALLABLE
     virtual Point * rawVertices(int &n_vertices) const noexcept
     {
         n_vertices = _n_vertices;
         return _raw_vertices;
     }
-
     PX_CUDA_CALLABLE
-    virtual Light ambient(double const &x,
-                          double const &y,
-                          double const &z) const
-    {
-        return _material->ambient(textureCoord(x, y, z));
-    }
-    PX_CUDA_CALLABLE
-    virtual Light diffuse(double const &x,
-                          double const &y,
-                          double const &z) const
-    {
-        return _material->diffuse(textureCoord(x, y, z));
-    }
-    PX_CUDA_CALLABLE
-    virtual Light specular(double const &x,
-                           double const &y,
-                           double const &z) const
-    {
-        return _material->specular(textureCoord(x, y, z));
-    }
-    PX_CUDA_CALLABLE
-    virtual Light transmissive(double const &x,
-                               double const &y,
-                               double const &z) const
-    {
-        return _material->transmissive(textureCoord(x, y, z));
-    }
-    PX_CUDA_CALLABLE
-    virtual Vec3<double> textureCoord(Point const &p) const
+    virtual Vec3<PREC> textureCoord(Point const &p) const
     {
         return textureCoord(p.x, p.y, p.z);
     }
@@ -109,56 +92,32 @@ public:
         return normal(p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
-    virtual Light ambient(Point const &p) const
-    {
-        return ambient(p.x, p.y, p.z);
-    }
-    PX_CUDA_CALLABLE
-    virtual Light diffuse(Point const &p) const
-    {
-        return diffuse(p.x, p.y, p.z);
-    }
-    PX_CUDA_CALLABLE
-    virtual Light specular(Point const &p) const
-    {
-        return specular(p.x, p.y, p.z);
-    }
-    PX_CUDA_CALLABLE
-    virtual Light transmissive(Point const &p) const
-    {
-        return transmissive(p.x, p.y, p.z);
-    }
-    PX_CUDA_CALLABLE
-    virtual double refractiveIndex(Point const &p) const
-    {
-        return _material->refractiveIndex(p.x, p.y, p.z);
-    }
-
-    ~BaseGeometry();
+    virtual ~BaseGeometry();
 protected:
     PX_CUDA_CALLABLE
-    virtual Vec3<double> getTextureCoord(double const &x,
-                                         double const &y,
-                                         double const &z) const = 0;
+    virtual Vec3<PREC> getTextureCoord(PREC const &x,
+                                         PREC const &y,
+                                         PREC const &z) const = 0;
     PX_CUDA_CALLABLE
-    inline Vec3<double> getTextureCoord(Point const &p)
+    inline Vec3<PREC> getTextureCoord(Point const &p)
     {
         return getTextureCoord(p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
     virtual const BaseGeometry * hitCheck(Ray const &ray,
-                                          double const &range_start,
-                                          double const &range_end,
-                                          double &hit_at) const = 0;
+                                          PREC const &range_start,
+                                          PREC const &range_end,
+                                          PREC &hit_at) const = 0;
     PX_CUDA_CALLABLE
-    virtual Direction normalVec(double const &x, double const &y,
-                                double const &z) const = 0;
+    virtual Direction normalVec(PREC const &x, PREC const &y,
+                                PREC const &z) const = 0;
     PX_CUDA_CALLABLE
     inline Direction normalVec(Point const &p) const
     {
         return normalVec(p.x, p.y, p.z);
     }
 
+    PX_CUDA_CALLABLE
     BaseGeometry(const BaseMaterial * const &material,
                  const Transformation * const &trans,
                  int const &n_vertices);

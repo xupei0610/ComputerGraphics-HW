@@ -14,34 +14,48 @@ class px::BaseNormalTriangle : public BaseGeometry
 protected:
     PX_CUDA_CALLABLE
     const BaseGeometry * hitCheck(Ray const &ray,
-                                  double const &range_start,
-                                  double const &range_end,
-                                  double &hit_at) const override;
+                                  PREC const &range_start,
+                                  PREC const &range_end,
+                                  PREC &hit_at) const override;
     PX_CUDA_CALLABLE
-    Vec3<double> getTextureCoord(double const &x,
-                                 double const &y,
-                                 double const &z) const override;
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                                 PREC const &y,
+                                 PREC const &z) const override;
     PX_CUDA_CALLABLE
-    Direction normalVec(double const &x, double const &y, double const &z) const override;
+    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
 
+public:
+    PX_CUDA_CALLABLE
+    BaseNormalTriangle(Point const &vertex1, Direction const &normal1,
+                       Point const &vertex2, Direction const &normal2,
+                       Point const &vertex3, Direction const &normal3,
+                       const BaseMaterial * const &material,
+                       const Transformation * const &trans);
+    PX_CUDA_CALLABLE
     ~BaseNormalTriangle() = default;
 protected:
-    BaseNormalTriangle(const BaseMaterial * const &material,
-                       const Transformation * const &trans);
+    PX_CUDA_CALLABLE
+    void setParam(Point const &vertex1, Direction const &normal1,
+                  Point const &vertex2, Direction const &normal2,
+                  Point const &vertex3, Direction const &normal3);
 
     BaseNormalTriangle &operator=(BaseNormalTriangle const &) = delete;
     BaseNormalTriangle &operator=(BaseNormalTriangle &&) = delete;
+
+    friend class NormalTriangle;
 };
 
-class px::NormalTriangle : public BaseNormalTriangle
+class px::NormalTriangle : public Geometry
 {
 public:
-    static std::shared_ptr<BaseGeometry> create(Point const &vertex1, Direction const &normal1,
+    static std::shared_ptr<Geometry> create(Point const &vertex1, Direction const &normal1,
                                                 Point const &vertex2, Direction const &normal2,
                                                 Point const &vertex3, Direction const &normal3,
-                                                std::shared_ptr<BaseMaterial> const &material,
+                                                std::shared_ptr<Material> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry *up2Gpu() override;
+    BaseGeometry *const &obj() const noexcept override;
+    BaseGeometry **devPtr() override;
+    void up2Gpu() override;
     void clearGpuData() override;
 
     void setParam(Point const &vertex1, Direction const &normal1,
@@ -50,16 +64,26 @@ public:
 
     ~NormalTriangle();
 protected:
-    std::shared_ptr<BaseMaterial> _material_ptr;
+    BaseNormalTriangle *_obj;
+    BaseGeometry *_base_obj;
+
+    Point _a;
+    Direction _na;
+    Point _b;
+    Direction _nb;
+    Point _c;
+    Direction _nc;
+
+    std::shared_ptr<Material> _material_ptr;
     std::shared_ptr<Transformation> _transformation_ptr;
 
-    BaseNormalTriangle * _dev_ptr;
+    BaseGeometry **_dev_ptr;
     bool _need_upload;
 
     NormalTriangle(Point const &vertex1, Direction const &normal1,
                    Point const &vertex2, Direction const &normal2,
                    Point const &vertex3, Direction const &normal3,
-                   std::shared_ptr<BaseMaterial> const &material,
+                   std::shared_ptr<Material> const &material,
                    std::shared_ptr<Transformation> const &trans);
 
     NormalTriangle &operator=(NormalTriangle const &) = delete;

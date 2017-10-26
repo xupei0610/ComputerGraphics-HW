@@ -6,6 +6,7 @@
 
 using namespace px;
 
+PX_CUDA_CALLABLE
 BaseLight::BaseLight(Light const &light)
         : dev_ptr(nullptr), _light(light), need_upload(true)
 {}
@@ -33,37 +34,31 @@ DirectionalLight::DirectionalLight(Light const &light, Direction const &dir)
 {}
 
 PX_CUDA_CALLABLE
-DirectionalLight::~DirectionalLight()
-{
-
-}
-
-PX_CUDA_CALLABLE
-double DirectionalLight::attenuate(double const &x,
-                                   double const &y,
-                                   double const &z) const
+PREC DirectionalLight::attenuate(PREC const &x,
+                                   PREC const &y,
+                                   PREC const &z) const
 {
     return 1.0;
 }
 
 __device__
-Direction DirectionalLight::dirFromDevice(double const &x, double const &y, double const &z, double &dist) const
+Direction DirectionalLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
 
     return dirFrom(x, y, z, dist);
 }
 
-Direction DirectionalLight::dirFromHost(double const &x, double const &y, double const &z, double &dist) const
+Direction DirectionalLight::dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
 
     return dirFrom(x, y, z, dist);
 }
 
 PX_CUDA_CALLABLE
-Direction DirectionalLight::dirFrom(double const &x,
-                                    double const &y,
-                                    double const &z,
-                                    double &dist) const
+Direction DirectionalLight::dirFrom(PREC const &x,
+                                    PREC const &y,
+                                    PREC const &z,
+                                    PREC &dist) const
 {
     dist = FLT_MAX;
     return _neg_dir;
@@ -74,6 +69,9 @@ void DirectionalLight::up2Gpu()
 #ifdef USE_CUDA
     if (_need_upload || BaseLight::need_upload)
     {
+        if (dev_ptr == nullptr)
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(BaseLight**)));
+
         GpuCreator::DirectionalLight(dev_ptr, _light, _dir);
 
         BaseLight::need_upload = false;
@@ -119,12 +117,7 @@ PointLight::PointLight(Light const &light, Point const &pos)
 {}
 
 PX_CUDA_CALLABLE
-PointLight::~PointLight()
-{
-}
-
-PX_CUDA_CALLABLE
-double PointLight::attenuate(double const &x, double const &y, double const &z) const
+PREC PointLight::attenuate(PREC const &x, PREC const &y, PREC const &z) const
 {
     auto nrm2 = (_position.x - x)*(_position.x - x) +
                 (_position.y - y)*(_position.y - y) +
@@ -133,20 +126,20 @@ double PointLight::attenuate(double const &x, double const &y, double const &z) 
 }
 
 __device__
-Direction PointLight::dirFromDevice(double const &x, double const &y, double const &z, double &dist) const
+Direction PointLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
 
     return dirFrom(x, y, z, dist);
 }
 
-Direction PointLight::dirFromHost(double const &x, double const &y, double const &z, double &dist) const
+Direction PointLight::dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
 
     return dirFrom(x, y, z, dist);
 }
 
 PX_CUDA_CALLABLE
-Direction PointLight::dirFrom(double const &x, double const &y, double const &z, double &dist) const
+Direction PointLight::dirFrom(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
     auto dx = _position.x - x;
     auto dy = _position.y - y;
@@ -161,6 +154,9 @@ void PointLight::up2Gpu()
 #ifdef USE_CUDA
     if (_need_upload || BaseLight::need_upload)
     {
+        if (dev_ptr == nullptr)
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(BaseLight**)));
+
         GpuCreator::PointLight(dev_ptr, _light, _position);
         
         BaseLight::need_upload = false;
@@ -192,9 +188,9 @@ void PointLight::setPosition(Point const &p)
 std::shared_ptr<BaseLight> SpotLight::create(Light const &light,
                                              Point const &pos,
                                              Direction const &direction,
-                                             double const &half_angle1,
-                                             double const &half_angle2,
-                                             double const &falloff)
+                                             PREC const &half_angle1,
+                                             PREC const &half_angle2,
+                                             PREC const &falloff)
 {
     return std::shared_ptr<BaseLight>(new SpotLight(light, pos, direction,
                                                     half_angle1, half_angle2,
@@ -204,9 +200,9 @@ std::shared_ptr<BaseLight> SpotLight::create(Light const &light,
 SpotLight::SpotLight(Light const &light,
                      Point const &pos,
                      Direction const &direction,
-                     double const &half_angle1,
-                     double const &half_angle2,
-                     double const &falloff)
+                     PREC const &half_angle1,
+                     PREC const &half_angle2,
+                     PREC const &falloff)
         : BaseLight(light),
           TYPE(Type::PointLight),
           _position(pos),
@@ -218,29 +214,24 @@ SpotLight::SpotLight(Light const &light,
 }
 
 PX_CUDA_CALLABLE
-SpotLight::~SpotLight()
+PREC SpotLight::attenuate(PREC const &x,
+                            PREC const &y,
+                            PREC const &z) const
 {
-}
-
-PX_CUDA_CALLABLE
-double SpotLight::attenuate(double const &x,
-                            double const &y,
-                            double const &z) const
-{
-    double dx = x-_position.x;
-    double dy = y-_position.y;
-    double dz = z-_position.z;
-    double nrm2 = dx*dx + dy*dy + dz*dz;
+    PREC dx = x-_position.x;
+    PREC dy = y-_position.y;
+    PREC dz = z-_position.z;
+    PREC nrm2 = dx*dx + dy*dy + dz*dz;
     if (nrm2 < FLT_MIN)
         return FLT_MAX;
 
-    double nrm = std::sqrt(nrm2);
+    PREC nrm = std::sqrt(nrm2);
 
     dx /= nrm;
     dy /= nrm;
     dz /= nrm;
 
-    double cosine = _direction.x * dx + _direction.y * dy + _direction.z * dz;
+    PREC cosine = _direction.x * dx + _direction.y * dy + _direction.z * dz;
 
     if (cosine >= _inner_ha_cosine)
         return 1.0/nrm2;
@@ -250,20 +241,20 @@ double SpotLight::attenuate(double const &x,
 }
 
 __device__
-Direction SpotLight::dirFromDevice(double const &x, double const &y, double const &z, double &dist) const
+Direction SpotLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
 
     return dirFrom(x, y, z, dist);
 }
 
-Direction SpotLight::dirFromHost(double const &x, double const &y, double const &z, double &dist) const
+Direction SpotLight::dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
 
     return dirFrom(x, y, z, dist);
 }
 
 PX_CUDA_CALLABLE
-Direction SpotLight::dirFrom(double const &x, double const &y, double const &z, double &dist) const
+Direction SpotLight::dirFrom(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
     auto dx = _position.x - x;
     auto dy = _position.y - y;
@@ -278,6 +269,9 @@ void SpotLight::up2Gpu()
 #ifdef USE_CUDA
     if (_need_upload || BaseLight::need_upload)
     {
+        if (dev_ptr == nullptr)
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(BaseLight**)));
+
         GpuCreator::SpotLight(dev_ptr,
                               _light, _position, _direction,
                               _inner_ha, _outer_ha, _falloff);
@@ -318,12 +312,12 @@ void SpotLight::setDirection(Direction const &direction)
 }
 
 PX_CUDA_CALLABLE
-void SpotLight::setAngles(double const &half_angle1, double const &half_angle2)
+void SpotLight::setAngles(PREC const &half_angle1, PREC const &half_angle2)
 {
     _inner_ha = half_angle1 < 0 ?
-                std::fmod(half_angle1, PI2) + PI2 : std::fmod(half_angle1, PI2);
+                std::fmod(half_angle1, PREC(PI2)) + PREC(PI2) : std::fmod(half_angle1,PREC(PI2));
     _outer_ha = half_angle2 < 0 ?
-                std::fmod(half_angle2, PI2) + PI2 : std::fmod(half_angle2, PI2);
+                std::fmod(half_angle2, PREC(PI2)) + PREC(PI2) : std::fmod(half_angle2,PREC(PI2));
 
     if (_inner_ha_cosine > PI)
         _inner_ha_cosine = PI;
@@ -346,7 +340,7 @@ void SpotLight::setAngles(double const &half_angle1, double const &half_angle2)
 #endif
 }
 
-void SpotLight::setFalloff(double const &falloff)
+void SpotLight::setFalloff(PREC const &falloff)
 {
     _falloff = falloff;
 
@@ -357,7 +351,7 @@ void SpotLight::setFalloff(double const &falloff)
 
 std::shared_ptr<BaseLight> AreaLight::create(Light const &light,
                                              Point const &center,
-                                             double const &radius)
+                                             PREC const &radius)
 {
     return std::shared_ptr<BaseLight>(new AreaLight(light, center, radius));
 }
@@ -365,7 +359,7 @@ std::shared_ptr<BaseLight> AreaLight::create(Light const &light,
 PX_CUDA_CALLABLE
 AreaLight::AreaLight(Light const &light,
                      Point const &center,
-                     double const &radius)
+                     PREC const &radius)
         : BaseLight(light),
           TYPE(Type::AreaLight),
           _center(center),
@@ -374,12 +368,7 @@ AreaLight::AreaLight(Light const &light,
 {}
 
 PX_CUDA_CALLABLE
-AreaLight::~AreaLight()
-{
-}
-
-PX_CUDA_CALLABLE
-double AreaLight::attenuate(double const &x, double const &y, double const &z) const
+PREC AreaLight::attenuate(PREC const &x, PREC const &y, PREC const &z) const
 {
     auto nrm2 = (_center.x - x)*(_center.x - x) +
                 (_center.y - y)*(_center.y - y) +
@@ -387,11 +376,11 @@ double AreaLight::attenuate(double const &x, double const &y, double const &z) c
     return nrm2 < FLT_MIN ? FLT_MAX : 1.0 / nrm2;
 }
 
-Direction AreaLight::dirFromHost(double const &x, double const &y, double const &z, double &dist) const
+Direction AreaLight::dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
-    auto dx = _center.x + _radius * RND::rnd_cpu();
-    auto dy = _center.y + _radius * RND::rnd_cpu();
-    auto dz = _center.z + _radius * RND::rnd_cpu();
+    auto dx = _center.x + _radius * rnd::rnd_cpu();
+    auto dy = _center.y + _radius * rnd::rnd_cpu();
+    auto dz = _center.z + _radius * rnd::rnd_cpu();
 
     dx -= x;
     dy -= y;
@@ -402,11 +391,11 @@ Direction AreaLight::dirFromHost(double const &x, double const &y, double const 
 }
 
 __device__
-Direction AreaLight::dirFromDevice(double const &x, double const &y, double const &z, double &dist) const
+Direction AreaLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
-    auto dx = _center.x + _radius * RND::rnd_gpu();
-    auto dy = _center.y + _radius * RND::rnd_gpu();
-    auto dz = _center.z + _radius * RND::rnd_gpu();
+    auto dx = _center.x + _radius * rnd::rnd_gpu();
+    auto dy = _center.y + _radius * rnd::rnd_gpu();
+    auto dz = _center.z + _radius * rnd::rnd_gpu();
 
     dx -= x;
     dy -= y;
@@ -421,6 +410,9 @@ void AreaLight::up2Gpu()
 #ifdef USE_CUDA
     if (_need_upload || BaseLight::need_upload)
     {
+        if (dev_ptr == nullptr)
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(BaseLight**)));
+
         GpuCreator::AreaLight(dev_ptr, _light, _center, _radius);
 
         BaseLight::need_upload = false;
@@ -451,7 +443,7 @@ void AreaLight::setCenter(Point const &center)
 #endif
 }
 
-void AreaLight::setRadius(double const &radius)
+void AreaLight::setRadius(PREC const &radius)
 {
     _radius = radius;
 

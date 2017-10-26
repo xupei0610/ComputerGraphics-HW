@@ -13,106 +13,38 @@ class BaseBVH;
 class px::BaseBVH : public BaseGeometry
 {
 protected:
-    Direction const NORM_VEC_0; // not use static for gpu hitCheck
-    Direction const NORM_VEC_1;
-    Direction const NORM_VEC_2;
-    Direction const NORM_VEC_3;
-    Direction const NORM_VEC_4;
-    Direction const NORM_VEC_5;
-    Direction const NORM_VEC_6;
-
-    Direction const static SNORM_VEC[7]; // for cpu object initialization
-
-    class BaseExtent
+    class Extent
     {
     public:
-        BaseExtent(BaseGeometry * const &obj);
+        PX_CUDA_CALLABLE
+        Extent(BaseGeometry * const &obj);
         PX_CUDA_CALLABLE
         bool hitCheck(Ray const &ray,
-                      double const &range_start,
-                      double const &range_end,
-                      const double * const &num,
-                      const double * const &den) const;
+                      PREC const &range_start,
+                      PREC const &range_end,
+                      const PREC * const &num,
+                      const PREC * const &den) const;
 
-        double lower_bound_0;
-        double lower_bound_1;
-        double lower_bound_2;
-        double lower_bound_3;
-        double lower_bound_4;
-        double lower_bound_5;
-        double lower_bound_6;
-        double upper_bound_0;
-        double upper_bound_1;
-        double upper_bound_2;
-        double upper_bound_3;
-        double upper_bound_4;
-        double upper_bound_5;
-        double upper_bound_6;
+        PREC lower_bound_0;
+        PREC lower_bound_1;
+        PREC lower_bound_2;
+        PREC lower_bound_3;
+        PREC lower_bound_4;
+        PREC lower_bound_5;
+        PREC lower_bound_6;
+        PREC upper_bound_0;
+        PREC upper_bound_1;
+        PREC upper_bound_2;
+        PREC upper_bound_3;
+        PREC upper_bound_4;
+        PREC upper_bound_5;
+        PREC upper_bound_6;
 
-        ~BaseExtent() = default;
+        PX_CUDA_CALLABLE
+        ~Extent() = default;
 
-        BaseGeometry *obj;
+        BaseGeometry *obj; // data from shared_ptr, no need to delete
     };
-
-protected:
-    PX_CUDA_CALLABLE
-    const BaseGeometry * hitCheck(Ray const &ray,
-                            double const &range_start,
-                            double const &range_end,
-                            double &hit_at) const override;
-    PX_CUDA_CALLABLE
-    Vec3<double> getTextureCoord(double const &x,
-                                 double const &y,
-                                 double const &z) const override;
-    PX_CUDA_CALLABLE
-    Direction normalVec(double const &x, double const &y, double const &z) const override;
-
-    ~BaseBVH() = default;
-
-protected:
-    int _n_exts;
-    BaseExtent **_exts;
-
-    BaseBVH();
-
-    BaseBVH &operator=(BaseBVH const &) = delete;
-    BaseBVH &operator=(BaseBVH &&) = delete;
-};
-
-class px::BVH : public BaseBVH
-{
-protected:
-    class Extent : public BaseBVH::BaseExtent
-    {
-    public:
-        Extent(std::shared_ptr<BaseGeometry> const &obj);
-
-        BaseBVH::BaseExtent * up2Gpu();
-        void clearGpuData();
-
-        std::shared_ptr<BaseGeometry> obj_ptr;
-        Extent * _dev_ptr;
-        ~Extent();
-    };
-
-public:
-    BVH();
-
-    void addObj(std::shared_ptr<BaseGeometry> const &obj);
-
-    // a cpu version
-    PX_CUDA_CALLABLE
-    const BaseGeometry *hitCheck(Ray const &ray,
-                                 double const &t_start,
-                                 double const &t_end,
-                                 double &hit_at) const override;
-
-
-    BaseGeometry *up2Gpu() override;
-    void clearGpuData() override;
-
-    ~BVH();
-protected:
 
     struct List             // a sample list structure for loop in the CPU version of hitCheck
     {                       // which have to be compatible with CUDA __device__ standard
@@ -121,6 +53,7 @@ protected:
             Extent *data;
             Node *next;
 
+            PX_CUDA_CALLABLE
             Node(Extent * const &ext) : data(ext), next(nullptr)
             {}
         };
@@ -129,9 +62,11 @@ protected:
         Node *end;
         int n;
 
+        PX_CUDA_CALLABLE
         List() : start(nullptr), end(nullptr), n(0)
         {}
 
+        PX_CUDA_CALLABLE
         void add(Extent *const &ext)
         {
             if (start == nullptr)
@@ -147,6 +82,7 @@ protected:
             ++n;
         }
 
+        PX_CUDA_CALLABLE
         ~List()
         {
             if (start != nullptr)
@@ -163,7 +99,56 @@ protected:
 
     List _extents;
 
-    BaseBVH * _dev_ptr;
+public:
+    PX_CUDA_CALLABLE
+    void addObj(BaseGeometry *const &obj);
+
+protected:
+    PX_CUDA_CALLABLE
+    const BaseGeometry * hitCheck(Ray const &ray,
+                            PREC const &range_start,
+                            PREC const &range_end,
+                            PREC &hit_at) const override;
+    PX_CUDA_CALLABLE
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                                 PREC const &y,
+                                 PREC const &z) const override;
+    PX_CUDA_CALLABLE
+    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
+
+public:
+    PX_CUDA_CALLABLE
+    ~BaseBVH() = default;
+    PX_CUDA_CALLABLE
+    BaseBVH();
+protected:
+
+    BaseBVH &operator=(BaseBVH const &) = delete;
+    BaseBVH &operator=(BaseBVH &&) = delete;
+
+    friend class BVH;
+};
+
+class px::BVH : public Geometry
+{
+public:
+    BVH();
+
+    void addObj(std::shared_ptr<Geometry> const &obj);
+
+    BaseGeometry *const &obj() const noexcept override;
+    BaseGeometry **devPtr() override;
+    void up2Gpu() override;
+    void clearGpuData() override;
+
+    ~BVH();
+protected:
+    BaseBVH *_obj;
+    BaseGeometry *_base_obj;
+
+    std::unordered_set<std::shared_ptr<Geometry> > _objects_ptr;
+
+    BaseGeometry **_dev_ptr;
     bool _need_upload;
 
     BVH &operator=(BVH const &) = delete;

@@ -4,8 +4,9 @@ project(hw3)
 
 option(USE_OPENMP "Use OpenMP or not." ON)
 option(USE_GUI "Use GUI or not" ON)
+#set(USE_GUI OFF)
 option(USE_CUDA "Use CUDA or not" ON)
-set(USE_CUDA OFF)
+#set(USE_CUDA OFF)
 option(USE_JITTER "Use Jitter Sampling" OFF)
 option(USE_ADAPTIVE "Use Adaptive Sampling" OFF)
 
@@ -13,7 +14,14 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
 set(CMAKE_CXX_FLAGS "-Wall -O3")
 set(CMAKE_C_FLAGS "-Wall -O3")
+set(CMAKE_CXX_FLAGS_RELEASE "")
+set(CMAKE_CXX_FLAGS_DEBUG "")
+set(CMAKE_C_FLAGS_RELEASE "")
+set(CMAKE_C_FLAGS_DEBUG "")
+
 set(EXE_NAME ${PROJECT_NAME})
+
+add_definitions("-DPREC=float")
 
 find_package(Threads)
 include_directories(${PROJECT_SOURCE_DIR}/src)
@@ -69,6 +77,7 @@ file(GLOB EXE_COMMON_SRC_FILES
      )
 
 file(GLOB EXE_CUDA_SRC_FILES
+     ${PROJECT_SOURCE_DIR}/src/gpu_creator.cu
      ${PROJECT_SOURCE_DIR}/src/trace.cu
      ${PROJECT_SOURCE_DIR}/src/scene.cu
      )
@@ -91,6 +100,7 @@ if (USE_CUDA)
         -std=c++11
         -arch=compute_61
         -code=sm_61
+        -use_fast_math
         -O3)
     cuda_add_executable(${EXE_NAME}
                         ${HEADER_FILES}
@@ -117,3 +127,6 @@ target_link_libraries(${EXE_NAME}
                       ${SDL2_LIBRARIES}
                       ${CUDA_CUDART_LIBRARY}
                       )
+
+
+set(CMAKE_BUILD_TYPE "Release")

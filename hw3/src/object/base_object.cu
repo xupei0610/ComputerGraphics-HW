@@ -4,32 +4,25 @@
 using namespace px;
 
 PX_CUDA_CALLABLE
-Direction::Direction()
-    : Vec3<double>(0, 0, 0)
+Direction::Direction(Vec3<PREC> const &v)
+    : Vec3<PREC>(v)
 {
     Vec3::normalize();
 }
 
 PX_CUDA_CALLABLE
-Direction::Direction(Vec3<double> const &v)
-    : Vec3<double>(v)
+Direction::Direction(PREC const &x, PREC const &y, PREC const &z)
+    : Vec3<PREC>(x, y, z)
 {
     Vec3::normalize();
 }
 
 PX_CUDA_CALLABLE
-Direction::Direction(double const &x, double const &y, double const &z)
-    : Vec3<double>(x, y, z)
+void Direction::set(PREC const &x, PREC const &y, PREC const &z)
 {
-    Vec3::normalize();
-}
-
-PX_CUDA_CALLABLE
-void Direction::set(double const &x, double const &y, double const &z)
-{
-    Vec3<double>::x = x;
-    Vec3<double>::y = y;
-    Vec3<double>::z = z;
+    Vec3<PREC>::x = x;
+    Vec3<PREC>::y = y;
+    Vec3<PREC>::z = z;
     Vec3::normalize();
 }
 
@@ -41,7 +34,7 @@ Ray::Ray(Point const &o, Direction const &d)
 std::shared_ptr<Camera> Camera::create(Point const &pos,
                                        Direction const &d,
                                        Direction const &u,
-                                       double const &ha)
+                                       PREC const &ha)
 {
     return std::shared_ptr<Camera>(new Camera(pos, d, u, ha));
 }
@@ -49,7 +42,7 @@ std::shared_ptr<Camera> Camera::create(Point const &pos,
 Camera::Camera(Point const &pos,
                Direction const &d,
                Direction const &u,
-               double const &ha)
+               PREC const &ha)
     : direction(_d), up_vector(_u), right_vector(_r)
 {
     setPosition(pos);
@@ -62,7 +55,7 @@ void Camera::setPosition(Point const &pos)
     position = pos;
 }
 
-void Camera::setHalfAngle(double const ha)
+void Camera::setHalfAngle(PREC const ha)
 {
     half_angle = ha;
 }
@@ -74,12 +67,12 @@ void Camera::setDirection(Direction const &d, Direction const &u)
     _r = d.cross(u);
 }
 
-std::shared_ptr<Transformation> Transformation::create(double const &rotate_x,
-                                                     double const &rotate_y,
-                                                     double const &rotate_z,
-                                                     double const &t_x,
-                                                     double const &t_y,
-                                                     double const &t_z,
+std::shared_ptr<Transformation> Transformation::create(PREC const &rotate_x,
+                                                     PREC const &rotate_y,
+                                                     PREC const &rotate_z,
+                                                     PREC const &t_x,
+                                                     PREC const &t_y,
+                                                     PREC const &t_z,
                                                      std::shared_ptr<Transformation> const &parent)
 {
     return std::shared_ptr<Transformation>(new Transformation(rotate_x, rotate_y, rotate_z,
@@ -87,12 +80,12 @@ std::shared_ptr<Transformation> Transformation::create(double const &rotate_x,
                                                parent));
 }
 
-Transformation::Transformation(double const &rotate_x,
-                               double const &rotate_y,
-                               double const &rotate_z,
-                               double const &t_x,
-                               double const &t_y,
-                               double const &t_z,
+Transformation::Transformation(PREC const &rotate_x,
+                               PREC const &rotate_y,
+                               PREC const &rotate_z,
+                               PREC const &t_x,
+                               PREC const &t_y,
+                               PREC const &t_z,
                                std::shared_ptr<Transformation> const &parent)
     : _dev_ptr(nullptr), _need_upload(true)
 {
@@ -107,7 +100,12 @@ Transformation::~Transformation()
 #endif
 }
 
-Transformation * Transformation::up2Gpu()
+Transformation * const & Transformation::devPtr() const noexcept
+{
+    return _dev_ptr;
+}
+
+void Transformation::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
@@ -122,9 +120,6 @@ Transformation * Transformation::up2Gpu()
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -134,16 +129,16 @@ void Transformation::clearGpuData()
     if (_dev_ptr == nullptr)
         return;
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
+    PX_CUDA_CHECK(cudaFree(_dev_ptr))
     _dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
 
 PX_CUDA_CALLABLE
-Point Transformation::point(double const &x,
-                            double const &y,
-                            double const &z) const noexcept
+Point Transformation::point(PREC const &x,
+                            PREC const &y,
+                            PREC const &z) const noexcept
 {
     return {_r00 * x + _r10 * y + _r20 * z + _t00,
             _r01 * x + _r11 * y + _r21 * z + _t01,
@@ -166,12 +161,12 @@ Direction Transformation::normal(Direction const &n) const noexcept
             _r20 * n.x + _r21 * n.y + _r22 * n.z};
 }
 
-void Transformation::setParams(double const &rotate_x,
-                               double const &rotate_y,
-                               double const &rotate_z,
-                               double const &t_x,
-                               double const &t_y,
-                               double const &t_z,
+void Transformation::setParams(PREC const &rotate_x,
+                               PREC const &rotate_y,
+                               PREC const &rotate_z,
+                               PREC const &t_x,
+                               PREC const &t_y,
+                               PREC const &t_z,
                                std::shared_ptr<Transformation> const &parent)
 {
     auto sx = std::sin(rotate_x);

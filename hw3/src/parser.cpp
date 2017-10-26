@@ -28,7 +28,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
     std::string line;
     int ln = 0;
 
-#define S2D(var) std::stod(var)
+#define S2D(var) std::stof(var)
 #define S2I(var) std::stoi(var)
 #define PARAM_CHECK(name, param_size, param, line)                                          \
     if (param.size() != param_size + 1)                                                     \
@@ -49,7 +49,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                                     std::to_string(line));           \
     }
 
-    auto addObj = [&](std::shared_ptr<BaseGeometry> const &obj) {
+    auto addObj = [&](std::shared_ptr<Geometry> const &obj) {
         if (bound_box.empty())
 //            bvh->addObj(obj);
             scene->geometries.insert(obj);
@@ -481,7 +481,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                 }
                 else
                 {
-                    auto bb = std::shared_ptr<BaseGeometry>(bound_box.at(s - 1));
+                    auto bb = std::shared_ptr<Geometry>(bound_box.at(s - 1));
                     bound_box.pop_back();
                     addObj(bb);
                 }
@@ -522,7 +522,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         throw std::invalid_argument("[Error] Failed to parse unmatched `transform` parameter at line " +
                                     std::to_string(ln));
 
-//    scene->geometries.insert(std::shared_ptr<BaseGeometry>(bvh));
+//    scene->geometries.insert(std::shared_ptr<Geometry>(bvh));
 
     return outputs;
 }

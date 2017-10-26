@@ -1,17 +1,28 @@
 #include "object/geometry/ellipsoid.hpp"
 
+#ifdef USE_CUDA
+#include "gpu_creator.hpp"
+#endif
+
 using namespace px;
 
-BaseEllipsoid::BaseEllipsoid(const BaseMaterial *const &material,
-                           const Transformation *const &trans)
+PX_CUDA_CALLABLE
+BaseEllipsoid::BaseEllipsoid(Point const &center,
+                             PREC const &radius_x, PREC const &radius_y,
+                             PREC const &radius_z,
+                             const BaseMaterial *const &material,
+                             const Transformation *const &trans)
         : BaseGeometry(material, trans, 8)
-{}
+{
+    setParams(center,
+              radius_x, radius_y, radius_z);
+}
 
 PX_CUDA_CALLABLE
 const BaseGeometry * BaseEllipsoid::hitCheck(Ray const &ray,
-                                             double const &t_start,
-                                             double const &t_end,
-                                             double &hit_at) const
+                                             PREC const &t_start,
+                                             PREC const &t_end,
+                                             PREC &hit_at) const
 {
     auto xo = ray.original.x - _center.x;
     auto yo = ray.original.y - _center.y;
@@ -70,7 +81,7 @@ const BaseGeometry * BaseEllipsoid::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseEllipsoid::normalVec(double const &x, double const &y, double const &z) const
+Direction BaseEllipsoid::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
     return {_a * (x - _center.x),
             _b * (y - _center.y),
@@ -78,73 +89,82 @@ Direction BaseEllipsoid::normalVec(double const &x, double const &y, double cons
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseEllipsoid::getTextureCoord(double const &x, double const &y,
-                                           double const &z) const
+Vec3<PREC> BaseEllipsoid::getTextureCoord(PREC const &x, PREC const &y,
+                                           PREC const &z) const
 {
     auto dx = x - _center.x;
     auto dy = y - _center.y;
     auto dz = z - _center.z;
 
-    return {(1 + std::atan2(dz, dx) / PI) * 0.5,
+    return {(1 + std::atan2(dz, dx) / PI) * PREC(0.5),
             std::acos(dy / (dx*dx+dy*dy+dz*dz)) / PI,
             0};;
 }
 
-std::shared_ptr<BaseGeometry> Ellipsoid::create(Point const &center,
-                                                double const &radius_x, double const &radius_y,
-                                                double const &radius_z,
-                                                std::shared_ptr<BaseMaterial> const &material,
+std::shared_ptr<Geometry> Ellipsoid::create(Point const &center,
+                                                PREC const &radius_x, PREC const &radius_y,
+                                                PREC const &radius_z,
+                                                std::shared_ptr<Material> const &material,
                                                 std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<BaseGeometry>(new Ellipsoid(center,
+    return std::shared_ptr<Geometry>(new Ellipsoid(center,
                                                       radius_x, radius_y, radius_z,
                                                       material, trans));
 }
 
 Ellipsoid::Ellipsoid(Point const &center,
-                     double const &radius_x, double const &radius_y,
-                     double const &radius_z,
-                     std::shared_ptr<BaseMaterial> const &material,
+                     PREC const &radius_x, PREC const &radius_y,
+                     PREC const &radius_z,
+                     std::shared_ptr<Material> const &material,
                      std::shared_ptr<Transformation> const &trans)
-        : BaseEllipsoid(material.get(), trans.get()),
+        : _obj(new BaseEllipsoid(center, radius_x, radius_y, radius_z,
+                        material->obj(), trans.get())),
+          _base_obj(_obj),
           _material_ptr(material), _transformation_ptr(trans),
           _dev_ptr(nullptr), _need_upload(true)
-{
-    setParams(center,
-              radius_x, radius_y, radius_z);
-}
+{}
 
 Ellipsoid::~Ellipsoid()
 {
+    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
 
-BaseGeometry *Ellipsoid::up2Gpu()
+BaseGeometry *const &Ellipsoid::obj() const noexcept
+{
+    return  _base_obj;
+}
+
+BaseGeometry **Ellipsoid::devPtr()
+{
+    return _dev_ptr;
+}
+
+void Ellipsoid::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseEllipsoid)));
+        clearGpuData();
+        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
 
-        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
-        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
+        if (_material_ptr != nullptr)
+            _material_ptr->up2Gpu();
+        if (_transformation_ptr != nullptr)
+            _transformation_ptr->up2Gpu();
+        cudaDeviceSynchronize();
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseEllipsoid*>(this),
-                                 sizeof(BaseEllipsoid),
-                                 cudaMemcpyHostToDevice));
-
-        _material = _material_ptr.get();
-        _transformation = _transformation_ptr.get();
+        GpuCreator::Ellipsoid(_dev_ptr, _obj->_center, _obj->_radius_x, _obj->_radius_y,
+                              _obj->_radius_z,
+                              _material_ptr == nullptr ? nullptr
+                                                       : _material_ptr->devPtr(),
+                              _transformation_ptr == nullptr ? nullptr
+                                                             : _transformation_ptr->devPtr());
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -159,16 +179,17 @@ void Ellipsoid::clearGpuData()
     if (_material_ptr.use_count() == 1)
         _material_ptr->clearGpuData();
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
+    GpuCreator::destroy(_dev_ptr);
     _dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
 
-void Ellipsoid::setParams(Point const &center,
-                          double const &radius_x,
-                          double const &radius_y,
-                          double const &radius_z)
+PX_CUDA_CALLABLE
+void BaseEllipsoid::setParams(Point const &center,
+                          PREC const &radius_x,
+                          PREC const &radius_y,
+                          PREC const &radius_z)
 {
     _center = center;
     _radius_x = radius_x;
@@ -204,7 +225,14 @@ void Ellipsoid::setParams(Point const &center,
     _raw_vertices[3].x = _center.x + radius_x;
     _raw_vertices[3].y = _center.y - radius_y;
     _raw_vertices[3].z = _center.z - radius_z;
+}
 
+void Ellipsoid::setParams(Point const &center,
+                          PREC const &radius_x,
+                          PREC const &radius_y,
+                          PREC const &radius_z)
+{
+    _obj->setParams(center, radius_x, radius_y, radius_z);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

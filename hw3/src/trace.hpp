@@ -3,56 +3,113 @@
 
 #include "scene.hpp"
 
-namespace px
+namespace px { namespace RayTrace
 {
-class RayTrace
+
+template<typename T>
+PX_CUDA_CALLABLE
+inline
+T ambientReflect(T  const &light,
+                 T const &material)
 {
-public:
-    static
-    Light traceCpu(const Scene *const &scene,
-                   Ray const &ray,
-                   double const &refractive_index = 1.0,
-                   int const &depth = 0);
-
-    __device__ static
-    Light traceGpu(const Scene::Param *const &scene,
-                   Ray const &ray,
-                   double const &refractive_index = 1.0,
-                   int const &depth = 0);
-
-private:
-
-    PX_CUDA_CALLABLE
-    inline static
-    Light ambientReflect(Light const &light,
-                         Light const &material)
-    {
-        return light * material;
-    }
-    PX_CUDA_CALLABLE
-    inline static
-    Light diffuseReflect(Light const &light,
-                         Light const &material,
-                         Direction const &to_light_vec,
-                         Direction const &norm_vec)
-    {
-        auto cosine = to_light_vec.dot(norm_vec);
-        if (cosine < 0) cosine *= - 1;
-        return light * material * cosine;
-    }
-    PX_CUDA_CALLABLE
-    inline static
-    Light specularReflect(Light const &light,
-                          Light const &material,
-                          Direction const &to_light_vec,
-                          Direction const &reflect_vec,
-                          int const &specular_exponent)
-    {
-        auto f = to_light_vec.dot(reflect_vec);
-        if (f < 0) return Light(0,0,0);
-        return light*material*std::pow(f, specular_exponent);
-    }
-
-};
+    return light * material;
 }
+template<typename T>
+PX_CUDA_CALLABLE
+inline
+T diffuseReflect(T const &light,
+                 T const &material,
+                 Direction const &to_light_vec,
+                 Direction const &norm_vec)
+{
+    auto cosine = to_light_vec.dot(norm_vec);
+    if (cosine < 0) cosine *= -1;
+    return light * material * cosine;
+}
+
+PX_CUDA_CALLABLE
+inline
+Light specularReflect(Light const &light,
+                      Light const &material,
+                      Direction const &to_light_vec,
+                      Direction const &reflect_vec,
+                      int const &specular_exponent)
+{
+    auto f = to_light_vec.dot(reflect_vec);
+    if (f < 0) return Light(0, 0, 0);
+    return light * material * std::pow(f, specular_exponent);
+}
+PX_CUDA_CALLABLE
+inline
+PREC specularReflect(PREC const &light,
+                     PREC const &material,
+                     Direction const &to_light_vec,
+                     Direction const &reflect_vec,
+                     int const &specular_exponent)
+{
+    auto f = to_light_vec.dot(reflect_vec);
+    if (f < 0) return 0;
+    return light * material * std::pow(f, specular_exponent);
+}
+
+Light traceCpu(const Scene *const &scene,
+               Ray const &ray,
+               PREC const &refractive_index = 1.0,
+               int const &depth = 0);
+
+// the following is for gpu
+struct TraceQueue
+{
+    struct Node
+    {
+        Ray ray;
+        Light coef;
+        int depth;
+
+        PX_CUDA_CALLABLE
+        Node() = default;
+        PX_CUDA_CALLABLE
+        Node(Ray const &ray, Light const &coef, int const &depth);
+        PX_CUDA_CALLABLE
+        ~Node() = default;
+    };
+
+    Node *ptr;
+    int n;
+    int size;
+
+    PX_CUDA_CALLABLE
+    TraceQueue(Node *const &ptr, int const &size);
+    PX_CUDA_CALLABLE
+    ~TraceQueue() = default;
+
+    PX_CUDA_CALLABLE
+    bool prepend(Point const &ray_o, Direction const &ray_d,
+                 Light const &coef, int const &depth);
+    PX_CUDA_CALLABLE
+    void pop();
+};
+
+__device__
+const BaseGeometry *hitCheck(Ray const & ray,
+                             const Scene::Param *const &scene,
+                             PREC &t);
+__device__
+Light reflect(Point const &intersect,
+              Direction const &direction,
+              Point const &texture_coord,
+              const BaseGeometry *const &obj,
+              const Scene::Param *const &scene,
+              Direction &n, Direction &r);
+__device__
+void recursive(Point const &intersect,
+                TraceQueue::Node const &current,
+                Point const &texture_coord,
+                BaseGeometry const &obj,
+                Direction &n,
+                Direction const &r,
+                TraceQueue &trace,
+                Scene::Param const &scene);
+
+}}
 #endif // PX_CG_TRACE_HPP

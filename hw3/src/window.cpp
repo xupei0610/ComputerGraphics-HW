@@ -49,7 +49,7 @@ void Window::render()
         return;
 
     if (scene->is_rendering)
-        scene->stop_rendering = true;
+        scene->stopRendering();
 
     while (scene->is_rendering);
 
@@ -87,7 +87,7 @@ bool Window::run()
             SDL_SetWindowSize(window, w, h);
         }
 
-        SDL_Rect progressbar = {30, h/2-10, static_cast<int>(scene->rendering_process * 1.0/ scene->dimension * (w - 60)), 20};
+        SDL_Rect progressbar = {30, h/2-10, static_cast<int>(scene->renderProgress() * 1.0/ scene->dimension * (w - 60)), 20};
         SDL_SetRenderDrawColor(renderer,
                                0,
                                255,

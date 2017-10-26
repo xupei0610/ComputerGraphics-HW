@@ -1,17 +1,31 @@
 #include "object/geometry/cylinder.hpp"
 
+#include <cfloat>
+
+#ifdef USE_CUDA
+#include "gpu_creator.hpp"
+#endif
+
 using namespace px;
 
-BaseCylinder::BaseCylinder(const BaseMaterial *const &material,
-                   const Transformation *const &trans)
+PX_CUDA_CALLABLE
+BaseCylinder::BaseCylinder(Point const &center_of_bottom_face,
+                           PREC const &radius_x, PREC const &radius_y,
+                           PREC const &height,
+                           const BaseMaterial *const &material,
+                           const Transformation *const &trans)
         : BaseGeometry(material, trans, 8)
-{}
+{
+    setParams(center_of_bottom_face,
+              radius_x, radius_y,
+              height);
+}
 
 PX_CUDA_CALLABLE
 const BaseGeometry * BaseCylinder::hitCheck(Ray const &ray,
-                                            double const &t_start,
-                                            double const &t_end,
-                                            double &hit_at) const
+                                            PREC const &t_start,
+                                            PREC const &t_end,
+                                            PREC &hit_at) const
 {
     auto xo = ray.original.x - _center.x;
     auto yo = ray.original.y - _center.y;
@@ -110,11 +124,11 @@ const BaseGeometry * BaseCylinder::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseCylinder::normalVec(double const &x, double const &y, double const &z) const
+Direction BaseCylinder::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
-    if (std::abs(z - _z0) < 1e-12)
+    if (std::abs(z - _z0) < FLT_MIN)
         return {0, 0, -1};
-    if (std::abs(z - _z1) < 1e-12)
+    if (std::abs(z - _z1) < FLT_MIN)
         return {0, 0, 1};
 
     return {_a * (x - _center.x),
@@ -123,80 +137,88 @@ Direction BaseCylinder::normalVec(double const &x, double const &y, double const
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseCylinder::getTextureCoord(double const &x, double const &y,
-                                       double const &z) const
+Vec3<PREC> BaseCylinder::getTextureCoord(PREC const &x, PREC const &y,
+                                       PREC const &z) const
 {
-    if (std::abs(z - _z0) < 1e-12)
+    if (std::abs(z - _z0) < FLT_MIN)
         return {x - _center.x,
                 _radius_y + y - _center.y, 0};
-    if (std::abs(z - _z1) < 1e-12)
+    if (std::abs(z - _z1) < FLT_MIN)
         return {x - _center.x,
                 _radius_y + _radius_y + _radius_y + _abs_height + y - _center.y, 0};
 
     auto dx = x - _center.x;
     auto dy = y - _center.y - _radius_y;
 
-    return {((_a/3.0 * dx * dx * dx - dx) + _b/3.0 * dy * dy * dy),
+    return {((_a/PREC(3.0) * dx * dx * dx - dx) + _b/PREC(3.0) * dy * dy * dy),
             _radius_y + _radius_y + z - _center.z, 0};
 }
 
-std::shared_ptr<BaseGeometry> Cylinder::create(Point const &center_of_bottom_face,
-                                               double const &radius_x, double const &radius_y,
-                                               double const &height,
-                                           std::shared_ptr<BaseMaterial> const &material,
+std::shared_ptr<Geometry> Cylinder::create(Point const &center_of_bottom_face,
+                                               PREC const &radius_x, PREC const &radius_y,
+                                               PREC const &height,
+                                           std::shared_ptr<Material> const &material,
                                            std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<BaseGeometry>(new Cylinder(center_of_bottom_face,
+    return std::shared_ptr<Geometry>(new Cylinder(center_of_bottom_face,
                                                       radius_x, radius_y,
                                                       height,
                                                       material, trans));
 }
 
 Cylinder::Cylinder(Point const &center_of_bottom_face,
-                   double const &radius_x, double const &radius_y,
-                   double const &height,
-           std::shared_ptr<BaseMaterial> const &material,
+                   PREC const &radius_x, PREC const &radius_y,
+                   PREC const &height,
+           std::shared_ptr<Material> const &material,
            std::shared_ptr<Transformation> const &trans)
-        : BaseCylinder(material.get(), trans.get()),
+        : _obj(new BaseCylinder(center_of_bottom_face, radius_x, radius_y, height,
+                       material->obj(), trans.get())),
+          _base_obj(_obj),
           _material_ptr(material), _transformation_ptr(trans),
           _dev_ptr(nullptr), _need_upload(true)
-{
-    setParams(center_of_bottom_face,
-              radius_x, radius_y,
-              height);
-}
+{}
 
 Cylinder::~Cylinder()
 {
+    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
 
-BaseGeometry *Cylinder::up2Gpu()
+BaseGeometry *const &Cylinder::obj() const noexcept
+{
+    return _base_obj;
+}
+
+BaseGeometry **Cylinder::devPtr()
+{
+    return _dev_ptr;
+}
+
+void Cylinder::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseCylinder)));
+        clearGpuData();
+        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
 
-        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
-        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseCylinder*>(this),
-                                 sizeof(BaseCylinder),
-                                 cudaMemcpyHostToDevice));
+        if (_material_ptr != nullptr)
+            _material_ptr->up2Gpu();
+        if (_transformation_ptr != nullptr)
+            _transformation_ptr->up2Gpu();
 
-        _material = _material_ptr.get();
-        _transformation = _transformation_ptr.get();
+        cudaDeviceSynchronize();
+
+        GpuCreator::Cylinder(_dev_ptr,
+                             _obj->_center, _obj->_radius_x, _obj->_radius_y, _obj->_height,
+                             _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
+                             _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -211,15 +233,16 @@ void Cylinder::clearGpuData()
     if (_material_ptr.use_count() == 1)
         _material_ptr->clearGpuData();
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
+    GpuCreator::destroy(_dev_ptr);
     _dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
 
-void Cylinder::setParams(Point const &center_of_bottom_face,
-                         double const &radius_x, double const &radius_y,
-                         double const &height)
+PX_CUDA_CALLABLE
+void BaseCylinder::setParams(Point const &center_of_bottom_face,
+                         PREC const &radius_x, PREC const &radius_y,
+                         PREC const &height)
 {
     _center = center_of_bottom_face;
     _radius_x = std::abs(radius_x);
@@ -259,7 +282,13 @@ void Cylinder::setParams(Point const &center_of_bottom_face,
 
     _z0 = height < 0 ? (_z1 = _center.z, top)
                      : (_z1 = top, _center.z);
+}
 
+void Cylinder::setParams(Point const &center_of_bottom_face,
+                         PREC const &radius_x, PREC const &radius_y,
+                         PREC const &height)
+{
+    _obj->setParams(center_of_bottom_face, radius_x, radius_y, height);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

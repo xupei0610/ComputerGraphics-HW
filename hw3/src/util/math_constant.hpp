@@ -16,10 +16,10 @@ namespace px
 
 #else
 
-double const static PI = std::acos(-1.0);
-double const static PI2 = 2 * PI;
-double const static PI_by_4 = PI/4.0;
-double const static DEG2RAD = PI/180;
+PREC const static PI = std::acos(-1.0);
+PREC const static PI2 = 2 * PI;
+PREC const static PI_by_4 = PI/4.0;
+PREC const static DEG2RAD = PI/180;
 
 #endif
 

@@ -14,65 +14,83 @@ class px::BaseCylinder : public BaseGeometry
 protected:
     PX_CUDA_CALLABLE
     const BaseGeometry * hitCheck(Ray const &ray,
-                                  double const &range_start,
-                                  double const &range_end,
-                                  double &hit_at) const override;
+                                  PREC const &range_start,
+                                  PREC const &range_end,
+                                  PREC &hit_at) const override;
     PX_CUDA_CALLABLE
-    Vec3<double> getTextureCoord(double const &x,
-                                 double const &y,
-                                 double const &z) const override;
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                                 PREC const &y,
+                                 PREC const &z) const override;
     PX_CUDA_CALLABLE
-    Direction normalVec(double const &x, double const &y, double const &z) const override;
+    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
 
+public:
+    PX_CUDA_CALLABLE
+    BaseCylinder(Point const &center_of_bottom_face,
+                 PREC const &radius_x,
+                 PREC const &radius_y,
+                 PREC const &height,
+                 const BaseMaterial * const &material,
+                 const Transformation * const &trans);
+    PX_CUDA_CALLABLE
     ~BaseCylinder() = default;
 protected:
     Point _center;
-    double _radius_x;
-    double _radius_y;
-    double _height;
+    PREC _radius_x;
+    PREC _radius_y;
+    PREC _height;
 
-    double _a, _b;
-    double _z0, _z1;
-    double _abs_height;
+    PREC _a, _b;
+    PREC _z0, _z1;
+    PREC _abs_height;
 
-    BaseCylinder(const BaseMaterial * const &material,
-                 const Transformation * const &trans);
+    PX_CUDA_CALLABLE
+    void setParams(Point const &center_of_bottom_face,
+                   PREC const &radius_x,
+                   PREC const &radius_y,
+                   PREC const &height);
 
     BaseCylinder &operator=(BaseCylinder const &) = delete;
     BaseCylinder &operator=(BaseCylinder &&) = delete;
+
+    friend class Cylinder;
 };
 
-class px::Cylinder : public BaseCylinder
+class px::Cylinder : public Geometry
 {
 public:
-    static std::shared_ptr<BaseGeometry> create(Point const &center_of_bottom_face,
-                                                double const &radius_x,
-                                                double const &radius_y,
-                                                double const &height,
-                                                std::shared_ptr<BaseMaterial> const &material,
+    static std::shared_ptr<Geometry> create(Point const &center_of_bottom_face,
+                                                PREC const &radius_x,
+                                                PREC const &radius_y,
+                                                PREC const &height,
+                                                std::shared_ptr<Material> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry *up2Gpu() override;
+    BaseGeometry *const &obj() const noexcept override;
+    BaseGeometry **devPtr() override;
+    void up2Gpu() override;
     void clearGpuData() override;
 
     void setParams(Point const &center_of_bottom_face,
-                   double const &radius_x,
-                   double const &radius_y,
-                   double const &height);
+                   PREC const &radius_x,
+                   PREC const &radius_y,
+                   PREC const &height);
 
     ~Cylinder();
 protected:
+    BaseCylinder *_obj;
+    BaseGeometry *_base_obj;
 
-    std::shared_ptr<BaseMaterial> _material_ptr;
+    std::shared_ptr<Material> _material_ptr;
     std::shared_ptr<Transformation> _transformation_ptr;
 
-    BaseCylinder * _dev_ptr;
+    BaseGeometry **_dev_ptr;
     bool _need_upload;
 
     Cylinder(Point const &center_of_bottom_face,
-             double const &radius_x,
-             double const &radius_y,
-             double const &height,
-         std::shared_ptr<BaseMaterial> const &material,
+             PREC const &radius_x,
+             PREC const &radius_y,
+             PREC const &height,
+         std::shared_ptr<Material> const &material,
          std::shared_ptr<Transformation> const &trans);
 
     Cylinder &operator=(Cylinder const &) = delete;

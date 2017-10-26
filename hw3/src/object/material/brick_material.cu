@@ -1,5 +1,9 @@
 #include "object/material/brick_material.hpp"
 
+#ifdef USE_CUDA
+#include "gpu_creator.hpp"
+#endif
+
 using namespace px;
 
 BaseBrickMaterial::BaseBrickMaterial(Light const &ambient,
@@ -7,16 +11,16 @@ BaseBrickMaterial::BaseBrickMaterial(Light const &ambient,
                                      Light const &specular,
                                      int const &specular_exponent,
                                      Light const &transmissive,
-                                     double const &refractive_index,
+                                     PREC const &refractive_index,
                                      Light const &ambient_edge,
                                      Light const &diffuse_edge,
                                      Light const &specular_edge,
                                      int const &specular_exponent_edge,
                                      Light const &transmissive_edge,
-                                     double const &refractive_index_edge,
-                                     double const &scale,
-                                     double const &edge_width,
-                                     double const &edge_height,
+                                     PREC const &refractive_index_edge,
+                                     PREC const &scale,
+                                     PREC const &edge_width,
+                                     PREC const &edge_height,
                                      const BumpMapping * const &bump_mapping)
         : BaseMaterial(bump_mapping),
           _ambient(ambient),
@@ -37,7 +41,7 @@ BaseBrickMaterial::BaseBrickMaterial(Light const &ambient,
 {}
 
 PX_CUDA_CALLABLE
-Light BaseBrickMaterial::getAmbient(double const &u, double const &v, double const &w) const
+Light BaseBrickMaterial::getAmbient(PREC const &u, PREC const &v, PREC const &w) const
 {
     if (onEdge(u, v, w))
         return _ambient_edge;
@@ -45,7 +49,7 @@ Light BaseBrickMaterial::getAmbient(double const &u, double const &v, double con
 }
 
 PX_CUDA_CALLABLE
-Light BaseBrickMaterial::getDiffuse(double const &u, double const &v, double const &w) const
+Light BaseBrickMaterial::getDiffuse(PREC const &u, PREC const &v, PREC const &w) const
 {
     if (onEdge(u, v, w))
         return _diffuse_edge;
@@ -53,7 +57,7 @@ Light BaseBrickMaterial::getDiffuse(double const &u, double const &v, double con
 }
 
 PX_CUDA_CALLABLE
-Light BaseBrickMaterial::getSpecular(double const &u, double const &v, double const &w) const
+Light BaseBrickMaterial::getSpecular(PREC const &u, PREC const &v, PREC const &w) const
 {
     if (onEdge(u, v, w))
         return _specular_edge;
@@ -61,7 +65,7 @@ Light BaseBrickMaterial::getSpecular(double const &u, double const &v, double co
 }
 
 PX_CUDA_CALLABLE
-int BaseBrickMaterial::specularExp(double const &u, double const &v, double const &w) const
+int BaseBrickMaterial::specularExp(PREC const &u, PREC const &v, PREC const &w) const
 {
     if (onEdge(u, v, w))
         return _specular_exponent_edge;
@@ -69,7 +73,7 @@ int BaseBrickMaterial::specularExp(double const &u, double const &v, double cons
 }
 
 PX_CUDA_CALLABLE
-Light BaseBrickMaterial::getTransmissive(double const &u, double const &v, double const &w) const
+Light BaseBrickMaterial::getTransmissive(PREC const &u, PREC const &v, PREC const &w) const
 {
     if (onEdge(u, v, w))
         return _transmissive_edge;
@@ -77,7 +81,7 @@ Light BaseBrickMaterial::getTransmissive(double const &u, double const &v, doubl
 }
 
 PX_CUDA_CALLABLE
-double BaseBrickMaterial::refractiveIndex(double const &u, double const &v, double const &w) const
+PREC BaseBrickMaterial::refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const
 {
     if (onEdge(u, v, w))
         return _refractive_index_edge;
@@ -85,33 +89,33 @@ double BaseBrickMaterial::refractiveIndex(double const &u, double const &v, doub
 }
 
 PX_CUDA_CALLABLE
-bool BaseBrickMaterial::onEdge(double const &u,
-                               double const &v,
-                               double const &w) const noexcept
+bool BaseBrickMaterial::onEdge(PREC const &u,
+                               PREC const &v,
+                               PREC const &w) const noexcept
 {
     auto tx = static_cast<int>(u < 0 ? std::ceil(_scale*u) : std::floor(_scale*u));
     auto ty = static_cast<int>(v < 0 ? std::ceil(_scale*v) : std::floor(_scale*v));
     return ((std::abs(_scale*u - tx) < _edge_width) && ((tx & 0x0001) == (ty & 0x0001))) || (std::abs(_scale*v - ty) < _edge_height);
 }
 
-std::shared_ptr<BaseMaterial> BrickMaterial::create(Light const &ambient,
+std::shared_ptr<Material> BrickMaterial::create(Light const &ambient,
                                                     Light const &diffuse,
                                                     Light const &specular,
                                                     int const &specular_exponent,
                                                     Light const &transmissive,
-                                                    double const &refractive_index,
+                                                    PREC const &refractive_index,
                                                     Light const &ambient_edge,
                                                     Light const &diffuse_edge,
                                                     Light const &specular_edge,
                                                     int const &specular_exponent_edge,
                                                     Light const &transmissive_edge,
-                                                    double const &refractive_index_edge,
-                                                    double const &scale,
-                                                    double const &edge_width,
-                                                    double const &edge_height,
+                                                    PREC const &refractive_index_edge,
+                                                    PREC const &scale,
+                                                    PREC const &edge_width,
+                                                    PREC const &edge_height,
                                                     std::shared_ptr<BumpMapping> const &bump_mapping)
 {
-    return std::shared_ptr<BaseMaterial>(new BrickMaterial(ambient,
+    return std::shared_ptr<Material>(new BrickMaterial(ambient,
                                                            diffuse,
                                                            specular,
                                                            specular_exponent,
@@ -134,25 +138,26 @@ BrickMaterial::BrickMaterial(Light const &ambient,
                              Light const &specular,
                              int const &specular_exponent,
                              Light const &transmissive,
-                             double const &refractive_index,
+                             PREC const &refractive_index,
                              Light const &ambient_edge,
                              Light const &diffuse_edge,
                              Light const &specular_edge,
                              int const &specular_exponent_edge,
                              Light const &transmissive_edge,
-                             double const &refractive_index_edge,
-                             double const &scale,
-                             double const &edge_width,
-                             double const &edge_height,
+                             PREC const &refractive_index_edge,
+                             PREC const &scale,
+                             PREC const &edge_width,
+                             PREC const &edge_height,
                              std::shared_ptr<BumpMapping> const &bump_mapping)
-        : BaseBrickMaterial(ambient, diffuse,
+        : _obj(new BaseBrickMaterial(ambient, diffuse,
                             specular, specular_exponent,
                             transmissive, refractive_index,
                             ambient_edge, diffuse_edge,
                             specular_edge, specular_exponent_edge,
                             transmissive_edge, refractive_index_edge,
                             scale, edge_width, edge_height,
-                            bump_mapping.get()),
+                            bump_mapping.get())),
+          _base_obj(_obj),
           _bump_mapping_ptr(bump_mapping),
           _dev_ptr(nullptr),
           _need_upload(true)
@@ -160,32 +165,47 @@ BrickMaterial::BrickMaterial(Light const &ambient,
 
 BrickMaterial::~BrickMaterial()
 {
+    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
+BaseMaterial *const &BrickMaterial::obj() const noexcept
+{
+    return _base_obj;
+}
 
-BaseMaterial* BrickMaterial::up2Gpu()
+BaseMaterial **BrickMaterial::devPtr()
+{
+    return _dev_ptr;
+}
+
+void BrickMaterial::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseBrickMaterial)));
+        clearGpuData();
+        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseMaterial**)));
 
-        _bump_mapping = _bump_mapping_ptr->up2Gpu();
+        if (_bump_mapping_ptr != nullptr)
+            _bump_mapping_ptr->up2Gpu();
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseBrickMaterial*>(this),
-                                 sizeof(BaseBrickMaterial),
-                                 cudaMemcpyHostToDevice));
+        cudaDeviceSynchronize();
 
-        _bump_mapping = _bump_mapping_ptr.get();
+        GpuCreator::BrickMaterial(_dev_ptr,
+                                  _obj->_ambient, _obj->_diffuse,
+                                  _obj->_specular, _obj->_specular_exponent,
+                                  _obj->_transmissive, _obj->_refractive_index,
+                                  _obj->_ambient_edge, _obj->_diffuse_edge,
+                                  _obj->_specular_edge, _obj->_specular_exponent_edge,
+                                  _obj->_transmissive_edge, _obj->_refractive_index_edge,
+                                  _obj->_scale,
+                                  _obj->_edge_width, _obj->_edge_height,
+                                  _bump_mapping_ptr == nullptr ? nullptr :_bump_mapping_ptr->devPtr());
+
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -196,9 +216,10 @@ void BrickMaterial::clearGpuData()
         return;
 
     if (_bump_mapping_ptr.use_count() == 1)
-        _bump_mapping_ptr->clearGpu();
+        _bump_mapping_ptr->clearGpuData();
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr))
+    GpuCreator::destroy(_dev_ptr);
+
     _dev_ptr = nullptr;
     _need_upload = true;
 #endif
@@ -206,42 +227,42 @@ void BrickMaterial::clearGpuData()
 
 void BrickMaterial::setAmbient(Light const &ambient)
 {
-    _ambient = ambient;
+    _obj->_ambient = ambient;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void BrickMaterial::setDiffuse(Light const &diffuse)
 {
-    _diffuse = diffuse;
+    _obj->_diffuse = diffuse;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void BrickMaterial::setSpecular(Light const &specular)
 {
-    _specular = specular;
+    _obj->_specular = specular;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void BrickMaterial::setSpecularExp(int const &specular_exp)
 {
-    _specular_exponent = specular_exp;
+    _obj->_specular_exponent = specular_exp;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void BrickMaterial::setTransmissive(Light const &transmissive)
 {
-    _transmissive = transmissive;
+    _obj->_transmissive = transmissive;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-void BrickMaterial::setRefractiveIndex(double const &ior)
+void BrickMaterial::setRefractiveIndex(PREC const &ior)
 {
-    _refractive_index = ior;
+    _obj->_refractive_index = ior;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
@@ -249,7 +270,7 @@ void BrickMaterial::setRefractiveIndex(double const &ior)
 void BrickMaterial::setBumpMapping(std::shared_ptr<BumpMapping> const &bm)
 {
     _bump_mapping_ptr = bm;
-    _bump_mapping = bm.get();
+    _obj->setBumpMapping(bm.get());
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
@@ -257,63 +278,63 @@ void BrickMaterial::setBumpMapping(std::shared_ptr<BumpMapping> const &bm)
 
 void BrickMaterial::setAmbientEdge(Light const &ambient)
 {
-    _ambient = ambient;
+    _obj->_ambient_edge = ambient;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void BrickMaterial::setDiffuseEdge(Light const &diffuse)
 {
-    _diffuse = diffuse;
+    _obj->_diffuse_edge = diffuse;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void BrickMaterial::setSpecularEdge(Light const &specular)
 {
-    _specular = specular;
+    _obj->_specular_edge = specular;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void BrickMaterial::setSpecularExpEdge(int const &specular_exp)
 {
-    _specular_exponent = specular_exp;
+    _obj->_specular_exponent_edge = specular_exp;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void BrickMaterial::setTransmissiveEdge(Light const &transmissive)
 {
-    _transmissive = transmissive;
+    _obj->_transmissive_edge = transmissive;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-void BrickMaterial::setRefractiveIndexEdge(double const &ior)
+void BrickMaterial::setRefractiveIndexEdge(PREC const &ior)
 {
-    _refractive_index = ior;
+    _obj->_refractive_index_edge = ior;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-void BrickMaterial::setScale(double const &scale)
+void BrickMaterial::setScale(PREC const &scale)
 {
-    _scale = scale;
+    _obj->_scale = scale;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-void BrickMaterial::setEdgeWidth(double const &edge_width)
+void BrickMaterial::setEdgeWidth(PREC const &edge_width)
 {
-    _edge_width = edge_width;
+    _obj->_edge_width = edge_width;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-void BrickMaterial::setEdgeHeight(double const &edge_height)
+void BrickMaterial::setEdgeHeight(PREC const &edge_height)
 {
-    _edge_height = edge_height;
+    _obj->_edge_height = edge_height;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

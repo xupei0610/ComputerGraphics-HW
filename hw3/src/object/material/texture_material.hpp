@@ -24,12 +24,12 @@ public:
                                            int const &height,
                                            int const &width,
                                            Format const &format,
-                                           double const &scale_u,
-                                           double const &scale_v);
+                                           PREC const &scale_u,
+                                           PREC const &scale_v);
     std::shared_ptr<Texture> static create(std::string const &file,
                                            Format const &format,
-                                           double const &scale_u,
-                                           double const &scale_v);
+                                           PREC const &scale_u,
+                                           PREC const &scale_v);
 
     static std::uint8_t * loadTexture(std::string const &file,
                                       int &height, int &width,
@@ -39,22 +39,23 @@ public:
                     int const &height,
                     int const &width,
                     Format const &format);
-    void setScale(double const &scale_u, double const &scale_v);
+    void setScale(PREC const &scale_u, PREC const &scale_v);
 
     PX_CUDA_CALLABLE
-    Light rgb(double const &u, double const &v) const;
+    Light rgb(PREC const &u, PREC const &v) const;
     PX_CUDA_CALLABLE
-    double alpha(double const &u, double const &v) const;
+    PREC alpha(PREC const &u, PREC const &v) const;
 
     ~Texture();
 
-    Texture *up2Gpu();
+    Texture *devPtr();
+    void up2Gpu();
     void clearGpuData();
 
 protected:
     Format _format;
-    double _scale_u;
-    double _scale_v;
+    PREC _scale_u;
+    PREC _scale_v;
     int _height;
     int _width;
     int _comp;
@@ -71,44 +72,46 @@ protected:
             int const &height,
             int const &width,
             Format const &format,
-            double const &scale_u,
-            double const &scale_v);
+            PREC const &scale_u,
+            PREC const &scale_v);
     Texture(std::string const &file,
             Format const &format,
-            double const &scale_u,
-            double const &scale_v);
+            PREC const &scale_u,
+            PREC const &scale_v);
+
+    friend class TextureMaterial;
 };
 
 
 class px::BaseTextureMaterial : public BaseMaterial
 {
 public:
-
-    ~BaseTextureMaterial() = default;
-
     PX_CUDA_CALLABLE
-    int specularExp(double const &u, double const &v, double const &w) const override;
-    PX_CUDA_CALLABLE
-    double refractiveIndex(double const &u, double const &v, double const &w) const override;
-
-protected:
-    PX_CUDA_CALLABLE
-    Light getAmbient(double const &u, double const &v, double const &w) const override;
-    PX_CUDA_CALLABLE
-    Light getDiffuse(double const &u, double const &v, double const &w) const override;
-    PX_CUDA_CALLABLE
-    Light getSpecular(double const &u, double const &v, double const &w) const override;
-    PX_CUDA_CALLABLE
-    Light getTransmissive(double const &u, double const &v, double const &w) const override;
-
     BaseTextureMaterial(Light const &ambient,
                         Light const &diffuse,
                         Light const &specular,
                         int const &specular_exponent,
                         Light const &transmissive, // final transmissive = (1.0 - alpha/255.0) + transmissive
-                        double const &refractive_index,
+                        PREC const &refractive_index,
                         const Texture *const &texture,
                         const BumpMapping *const &bump_mapping);
+    PX_CUDA_CALLABLE
+    ~BaseTextureMaterial() = default;
+
+    PX_CUDA_CALLABLE
+    int specularExp(PREC const &u, PREC const &v, PREC const &w) const override;
+    PX_CUDA_CALLABLE
+    PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const override;
+
+protected:
+    PX_CUDA_CALLABLE
+    Light getAmbient(PREC const &u, PREC const &v, PREC const &w) const override;
+    PX_CUDA_CALLABLE
+    Light getDiffuse(PREC const &u, PREC const &v, PREC const &w) const override;
+    PX_CUDA_CALLABLE
+    Light getSpecular(PREC const &u, PREC const &v, PREC const &w) const override;
+    PX_CUDA_CALLABLE
+    Light getTransmissive(PREC const &u, PREC const &v, PREC const &w) const override;
 
     BaseTextureMaterial &operator=(BaseTextureMaterial const &) = delete;
     BaseTextureMaterial &operator=(BaseTextureMaterial &&) = delete;
@@ -118,27 +121,30 @@ protected:
     Light _specular;
     int _specular_exponent;
     Light _transmissive;
-    double _refractive_index;
+    PREC _refractive_index;
 
     const Texture *_texture;
+
+    friend class TextureMaterial;
 };
 
 
 
-class px::TextureMaterial : public BaseTextureMaterial
+class px::TextureMaterial : public Material
 {
 public:
 
-    std::shared_ptr<BaseMaterial> static create(Light const &ambient,   // final ambient = ambient * RGB/255.0
+    std::shared_ptr<Material> static create(Light const &ambient,   // final ambient = ambient * RGB/255.0
                                                 Light const &diffuse,   // final ambient = diffuse * RGB/255.0
                                                 Light const &specular,
                                                 int const &specular_exponent,
                                                 Light const &transmissive, // final transmissive = (1.0 - alpha/255.0) * transmissive
-                                                double const &refractive_index,
+                                                PREC const &refractive_index,
                                                 std::shared_ptr<Texture> const & texture,
                                                 std::shared_ptr<BumpMapping> const &bump_mapping=nullptr);
-
-    BaseMaterial *up2Gpu() override;
+    BaseMaterial *const &obj() const noexcept override;
+    BaseMaterial **devPtr() override;
+    void up2Gpu() override;
     void clearGpuData() override ;
 
     void setAmbient(Light const &ambient);
@@ -146,19 +152,21 @@ public:
     void setSpecular(Light const &specular);
     void setSpecularExp(int const &specular_exp);
     void setTransmissive(Light const &transmissive);
-    void setRefractiveIndex(double const &ior);
+    void setRefractiveIndex(PREC const &ior);
     void setBumpMapping(std::shared_ptr<BumpMapping> const &bump_mapping);
     void setTexture(std::shared_ptr<Texture> const &texture);
 
     ~TextureMaterial();
 protected:
+    BaseTextureMaterial *_obj;
+    BaseMaterial *_base_obj;
 
     TextureMaterial(Light const &ambient,
                     Light const &diffuse,
                     Light const &specular,
                     int const &specular_exponent,
                     Light const &transmissive,
-                    double const &refractive_index,
+                    PREC const &refractive_index,
                     std::shared_ptr<Texture> const & texture,
                     std::shared_ptr<BumpMapping> const &bump_mapping);
 
@@ -167,7 +175,7 @@ protected:
 
     std::shared_ptr<Texture> _texture_ptr;
     std::shared_ptr<BumpMapping> _bump_mapping_ptr;
-    BaseMaterial *_dev_ptr;
+    BaseMaterial **_dev_ptr;
     bool _need_upload;
 };
 

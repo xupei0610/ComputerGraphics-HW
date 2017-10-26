@@ -1,6 +1,20 @@
 #ifndef PX_CG_SCENE_HPP
 #define PX_CG_SCENE_HPP
 
+
+#ifndef NDEBUG
+#include <iostream>
+#include <chrono>
+#define TIC(id) \
+    auto _tic_##id = std::chrono::system_clock::now();
+#define TOC(id) \
+    auto _toc_##id = std::chrono::system_clock::now(); \
+    std::cout << "\033[1K\r[Info] Process time: " \
+              << std::chrono::duration_cast<std::chrono::milliseconds>(_toc_##id - _tic_##id).count() \
+              << "ms" << std::endl;
+#endif
+
+
 #include "object/base_object.hpp"
 #include "object/geometry.hpp"
 #include "object/light.hpp"
@@ -35,14 +49,16 @@ public:
         int area_light_sampling;
         int diffuse_sampling;
         int diffuse_recursion_depth;
-        double hit_min_tol;
-        double hit_max_tol;
+        PREC hit_min_tol;
+        PREC hit_max_tol;
 
         int n_geometries;
-        BaseGeometry **geometries;
+        BaseGeometry ***geometries;
         int n_lights;
-        BaseLight **lights;
+        BaseLight ***lights;
 
+        PX_CUDA_CALLABLE
+        Param() = default;
         Param(int const &width, int const &height,
               int const &dimension,
               Light bg, Light ambient,
@@ -50,7 +66,7 @@ public:
               int const &area_light_sampling,
               int const &diffuse_sampling,
               int const &diffuse_recursion_depth,
-              double const &hit_min_tol, double const &hit_max_tol);
+              PREC const &hit_min_tol, PREC const &hit_max_tol);
     };
 
     struct Color
@@ -84,8 +100,6 @@ public:
 
 private:
     Param *_param;
-    Param *_param_host;
-    Param *_param_dev;
     Color *_pixels;
     Color *_pixels_gpu;
 
@@ -99,8 +113,8 @@ public:
     int static constexpr DEFAULT_DIFFUSE_SAMPLING = 16;
     int static constexpr DEFAULT_RECURSION_DEPTH = 5;
     int static constexpr DEFAULT_DIFFUSE_RECURSION_DEPTH = 0;
-    double static constexpr DEFAULT_HIT_MIN_TOL = 1e-12; // minimum tol to check if a ray hits an object or not.
-    double static constexpr DEFAULT_HIT_MAX_TOL = std::numeric_limits<double>::max(); // maximum tol to check if a ray hits an object or not
+    PREC static constexpr DEFAULT_HIT_MIN_TOL = 1e-3; // minimum tol to check if a ray hits an object or not.
+    PREC static constexpr DEFAULT_HIT_MAX_TOL = std::numeric_limits<PREC>::max(); // maximum tol to check if a ray hits an object or not
 #ifdef USE_CUDA
     ComputationMode static constexpr DEFAULT_COMPUTATION_MODE = ComputationMode::GPU;
 #else
@@ -109,10 +123,8 @@ public:
 
 public:
     bool const &is_rendering;
-    std::atomic<bool> stop_rendering;
-    int const &rendering_process;
 
-    std::unordered_set<std::shared_ptr<BaseGeometry> > geometries;
+    std::unordered_set<std::shared_ptr<Geometry> > geometries;
     std::unordered_set<std::shared_ptr<BaseLight> > lights;
 
     Pixels pixels;
@@ -128,8 +140,8 @@ public:
     int const &diffuse_sampling;
     int const &recursion_depth;
     int const &diffuse_recursion_depth;
-    double const &hit_min_tol;
-    double const &hit_max_tol;
+    PREC const &hit_min_tol;
+    PREC const &hit_max_tol;
     ComputationMode const &mode;
 
     std::shared_ptr<Camera> const & cam;
@@ -138,13 +150,12 @@ public:
     ~Scene();
 
     void clearPixels();
-    void clearGpuData();
 
     void setSceneSize(int const &width, int const &height);
 
-    void setBackground(double const &light_r,
-                       double const &light_g,
-                       double const &light_b);
+    void setBackground(PREC const &light_r,
+                       PREC const &light_g,
+                       PREC const &light_b);
     void setBackground(Light const &light);
 
     void setCamera(std::shared_ptr<Camera> const &cam);
@@ -156,29 +167,31 @@ public:
     void setAreaLightSampling(int const &n);
     void setDiffuseSampling(int const &depth, int const &n);
     void setRecursionDepth(int const &depth);
-    void setHitMinTol(double const &tol);
-    void setHitMaxTol(double const &tol);
+    void setHitMinTol(PREC const &tol);
+    void setHitMaxTol(PREC const &tol);
 
     void render();
+    void stopRendering();
+    int renderProgress();
 
     void setComputationMode(ComputationMode const &mode);
 
 protected:
     void renderCpu(int const &width, int const &height,
-                   double const &cam_dist,
+                   PREC const &cam_dist,
                    int const &sampling_r,
-                   double const &sampling_offset,
-                   double const &sampling_weight);
+                   PREC const &sampling_offset,
+                   PREC const &sampling_weight);
     void renderGpu(int const &width, int const &height,
-                   double const &cam_dist,
+                   PREC const &cam_dist,
                    int const &sampling_r,
-                   double const &sampling_offset,
-                   double const &sampling_weight);
+                   PREC const &sampling_offset,
+                   PREC const &sampling_weight);
     void allocatePixels();
 
 private:
     bool _is_rendering;
-    int _rendering_processing;
+    int *_rendering_progress; // not atomic
 
     int _sampling_radius;
 
@@ -186,6 +199,8 @@ private:
     std::shared_ptr<Camera> _cam;
 
     bool _allocate_gpu_pixels;
-    bool _need_upload_gpu_param;
+    bool *_gpu_stop_flag;
+
+    std::atomic<bool>_cpu_stop_flag;
 };
 #endif // PX_CG_SCENE_HPP

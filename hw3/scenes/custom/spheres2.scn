@@ -1,6 +1,6 @@
 #Simple Sphere Sceen
 camera -6 2 -4 .77 0 .64 0 1 0 35
-output_image C:\raytracer\spheres1.bmp
+output_image spheres1.bmp
 
 texture 1 1 1 1 1 1 0 0 0 1 0 0 0 1 images.bin rgb 0.01171875 0.01171875
 #quadric 0 2 0 1 1 0 0 0 0 0 0 0 -1 -10 10 -10 10 -2 2

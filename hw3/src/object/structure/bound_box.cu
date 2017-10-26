@@ -1,15 +1,18 @@
 #include "object/structure/bound_box.hpp"
 
+#include "gpu_creator.hpp"
+
 using namespace px;
 
+PX_CUDA_CALLABLE
 BaseBoundBox::BaseBoundBox(const Transformation *const &trans)
-        : Structure(nullptr, trans, 8)
+        : BaseGeometry(nullptr, trans, 8)
 {}
 
 PX_CUDA_CALLABLE
 bool BaseBoundBox::hitBox(Ray const &ray,
-                          double const &t_start,
-                          double const &t_end) const
+                          PREC const &t_start,
+                          PREC const &t_end) const
 {
 
     auto tmin  = ((ray.direction.x < 0 ? _vertex_max.x : _vertex_min.x) - ray.original.x) / ray.direction.x;
@@ -49,24 +52,27 @@ bool BaseBoundBox::hitBox(Ray const &ray,
 
 PX_CUDA_CALLABLE
 const BaseGeometry * BaseBoundBox::hitCheck(Ray const &ray,
-                                 double const &t_start,
-                                 double const &t_end,
-                                 double &hit_at) const
+                                 PREC const &t_start,
+                                 PREC const &t_end,
+                                 PREC &hit_at) const
 {
     if (hitBox(ray, t_start, t_end))
     {
         const BaseGeometry *obj = nullptr, *tmp;
 
-        double end_range = t_end;
-        for (auto i = 0; i < _n_objs; ++i)
+        PREC end_range = t_end;
+        auto node = _objects.start;
+        while (node != nullptr)
         {
-            tmp = _objs[i]->hit(ray, t_start, end_range, hit_at);
+            tmp = node->data->hit(ray, t_start, end_range, hit_at);
 
             if (tmp == nullptr)
                 continue;
 
             end_range = hit_at;
             obj = tmp;
+
+            node = node->next;
         }
 
         return obj == nullptr ? nullptr : (hit_at = end_range, obj);
@@ -76,63 +82,76 @@ const BaseGeometry * BaseBoundBox::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseBoundBox::normalVec(double const &x, double const &y, double const &z) const
+Direction BaseBoundBox::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
     return {};
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseBoundBox::getTextureCoord(double const &x, double const &y,
-                                           double const &z) const
+Vec3<PREC> BaseBoundBox::getTextureCoord(PREC const &x, PREC const &y,
+                                           PREC const &z) const
 {
     return {};
 }
 
 BoundBox::BoundBox(std::shared_ptr<Transformation> const &trans)
-        : BaseBoundBox(trans.get()),
+        : _obj(new BaseBoundBox(trans.get())),
+          _base_obj(_obj),
           _transformation_ptr(trans),
           _dev_ptr(nullptr), _need_upload(true)
 {}
 
 BoundBox::~BoundBox()
 {
+    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
 
-BaseGeometry *BoundBox::up2Gpu()
+BaseGeometry *const &BoundBox::obj() const noexcept
+{
+    return _base_obj;
+}
+
+BaseGeometry **BoundBox::devPtr()
+{
+    return _dev_ptr;
+}
+
+void BoundBox::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
         if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseBoundBox)));
+            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry**)));
+
+        for (auto &o : _objects_ptr)
+            o->up2Gpu();
+
+        if (_transformation_ptr != nullptr)
+            _transformation_ptr->up2Gpu();
+
+        cudaDeviceSynchronize();
 
         auto i = 0;
-        BaseGeometry *gpu_objs[_n_objs];
+        BaseGeometry **gpu_objs[_obj->_objects.n];
         for (auto &o : _objects_ptr)
-            gpu_objs[i++] = o->up2Gpu();
+            gpu_objs[i++] = o->devPtr();
 
-        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
+        BaseGeometry ***tmp;
 
-        PX_CUDA_CHECK(cudaMalloc(&_objs, sizeof(BaseGeometry*)*_n_objs));
-        PX_CUDA_CHECK(cudaMemcpy(_objs, gpu_objs,
-                                 sizeof(BaseGeometry*)*_n_objs,
-                                 cudaMemcpyHostToDevice));
+        PX_CUDA_CHECK(cudaMalloc(&tmp, sizeof(BaseGeometry **) * _obj->_objects.n));
+        PX_CUDA_CHECK(cudaMemcpy(tmp, gpu_objs, sizeof(BaseGeometry **) * _obj->_objects.n,
+                           cudaMemcpyHostToDevice));
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseBoundBox*>(this),
-                                 sizeof(BaseBoundBox),
-                                 cudaMemcpyHostToDevice));
-
-        _transformation = _transformation_ptr.get();
+        GpuCreator::BoundBox(_dev_ptr, tmp, _obj->_objects.n,
+                             _transformation_ptr == nullptr ? nullptr
+                                                            : _transformation_ptr->devPtr());
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -148,20 +167,30 @@ void BoundBox::clearGpuData()
             o->clearGpuData();
     }
 
-    PX_CUDA_CHECK(cudaFree(_objs));
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
+    GpuCreator::destroy(_dev_ptr);
     _dev_ptr = nullptr;
-    _n_objs = 0;
-    _objs = nullptr;
     _need_upload = true;
 #endif
 }
 
-void BoundBox::addObj(std::shared_ptr<BaseGeometry> const &obj)
+void BoundBox::addObj(std::shared_ptr<Geometry> const &obj)
 {
+    if (obj == nullptr)
+        return;
+
     _objects_ptr.insert(obj);
-    _objects.add(obj.get());
-    _n_objs++;
+    _obj->addObj(obj->obj());
+
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
+}
+
+PX_CUDA_CALLABLE
+void BaseBoundBox::addObj(BaseGeometry *const &obj)
+{
+    _objects.add(obj);
+
     int n_vert;
     auto vert = obj->rawVertices(n_vert);
 
@@ -217,39 +246,4 @@ void BoundBox::addObj(std::shared_ptr<BaseGeometry> const &obj)
     _raw_vertices[7].x = _vertex_max.x;
     _raw_vertices[7].y = _vertex_max.y;
     _raw_vertices[7].z = _vertex_max.z;
-
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
-}
-
-PX_CUDA_CALLABLE
-const BaseGeometry * BoundBox::hitCheck(Ray const &ray,
-                                  double const &t_start,
-                                  double const &t_end,
-                                  double &hit_at) const
-{
-    if (hitBox(ray, t_start, t_end))
-    {
-        const BaseGeometry *obj = nullptr, *tmp;
-
-        double end_range = t_end;
-        auto node = _objects.start;
-        while (node != nullptr)
-        {
-            tmp = node->data->hit(ray, t_start, end_range, hit_at);
-
-            if (tmp == nullptr)
-                continue;
-
-            end_range = hit_at;
-            obj = tmp;
-
-            node = node->next;
-        }
-
-        return obj == nullptr ? nullptr : (hit_at = end_range, obj);
-    }
-
-    return nullptr;
 }

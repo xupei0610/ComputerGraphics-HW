@@ -52,15 +52,15 @@ protected:
 
 
 #define PX_CUDA_THREADS_PER_BLOCK     512
-#define PX_CUDA_MIN_BLOCKS_PER_KERNEL 5
+#define PX_CUDA_MIN_BLOCKS_PER_KERNEL 4
 
 #define PX_CUDA_LOOP(index_var, total)                                          \
     for (int index_var = blockIdx.x * blockDim.x + threadIdx.x;                 \
     index_var < (total); index_var += blockDim.x * gridDim.x)
 
 #define PX_CUDA_KERNEL                                                          \
-    __global__ void                                                             \
-    __launch_bounds__(PX_CUDA_THREADS_PER_BLOCK, PX_CUDA_MIN_BLOCKS_PER_KERNEL)
+    __global__ void
+//    __launch_bounds__(PX_CUDA_THREADS_PER_BLOCK, PX_CUDA_MIN_BLOCKS_PER_KERNEL)
 
 #define PX_CUDA_LAUNCH_KERNEL(kernel, num_threads, ...)                         \
     kernel<<<px::cuda::blocks(num_threads), PX_CUDA_THREADS_PER_BLOCK >>>(__VA_ARGS__)

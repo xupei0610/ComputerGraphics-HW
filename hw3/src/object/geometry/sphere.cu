@@ -1,24 +1,31 @@
 #include "object/geometry/sphere.hpp"
 
+#ifdef USE_CUDA
+#include "gpu_creator.hpp"
+#endif
+
 using namespace px;
 
+PX_CUDA_CALLABLE
 BaseSphere::BaseSphere(Point const &pos,
-                       double const &radius,
+                       PREC const &radius,
                        const BaseMaterial *const &material,
                        const Transformation *const &trans)
         : BaseGeometry(material, trans, 8),
           _center(pos),
           _radius(radius),
           _radius2(radius*radius)
-{}
+{
+    updateVertices();
+}
 
 PX_CUDA_CALLABLE
 const BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
-                                  double const &t_start,
-                                  double const &t_end,
-                                  double &hit_at) const
+                                  PREC const &t_start,
+                                  PREC const &t_end,
+                                  PREC &hit_at) const
 {
-    auto oc = Vec3<double>(ray.original.x - _center.x,
+    auto oc = Vec3<PREC>(ray.original.x - _center.x,
                            ray.original.y - _center.y,
                            ray.original.z - _center.z);
     auto a = ray.direction.dot(ray.direction);
@@ -49,71 +56,79 @@ const BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseSphere::normalVec(double const &x, double const &y, double const &z) const
+Direction BaseSphere::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
     return {x - _center.x, y - _center.y, z - _center.z};
 }
 
 PX_CUDA_CALLABLE
-Vec3<double> BaseSphere::getTextureCoord(double const &x, double const &y,
-                                       double const &z) const
+Vec3<PREC> BaseSphere::getTextureCoord(PREC const &x, PREC const &y,
+                                       PREC const &z) const
 {
-    return {(1 + std::atan2(z - _center.z, x - _center.x) / PI) * 0.5,
+    return {(1 + std::atan2(z - _center.z, x - _center.x) / PI) *PREC(0.5),
             std::acos((y - _center.y) / _radius2) / PI,
             0};
 }
 
-std::shared_ptr<BaseGeometry> Sphere::create(Point const &position,
-                                             double const &radius,
-                                             std::shared_ptr<BaseMaterial> const &material,
+std::shared_ptr<Geometry> Sphere::create(Point const &position,
+                                             PREC const &radius,
+                                             std::shared_ptr<Material> const &material,
                                              std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<BaseGeometry>(new Sphere(position, radius,
+    return std::shared_ptr<Geometry>(new Sphere(position, radius,
                                                     material, trans));
 }
 
 Sphere::Sphere(Point const &position,
-               double const &radius,
-           std::shared_ptr<BaseMaterial> const &material,
+               PREC const &radius,
+           std::shared_ptr<Material> const &material,
            std::shared_ptr<Transformation> const &trans)
-        : BaseSphere(position, radius, material.get(), trans.get()),
+        : _obj(new BaseSphere(position, radius, material->obj(), trans.get())),
+          _base_obj(_obj),
           _material_ptr(material), _transformation_ptr(trans),
           _dev_ptr(nullptr), _need_upload(true)
-{
-    updateVertices();
-}
+{}
 
 Sphere::~Sphere()
 {
+    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
 }
 
-BaseGeometry *Sphere::up2Gpu()
+BaseGeometry *const &Sphere::obj() const noexcept
+{
+    return _base_obj;
+}
+
+BaseGeometry **Sphere::devPtr()
+{
+    return _dev_ptr;
+}
+
+void Sphere::up2Gpu()
 {
 #ifdef USE_CUDA
     if (_need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseSphere)));
+        clearGpuData();
+        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
 
-        _material = _material_ptr == nullptr ? nullptr : _material_ptr->up2Gpu();
-        _transformation = _transformation_ptr == nullptr ? nullptr : _transformation_ptr->up2Gpu();
+        if (_material_ptr != nullptr)
+            _material_ptr->up2Gpu();
+        if (_transformation_ptr != nullptr)
+            _transformation_ptr->up2Gpu();
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr,
-                                 dynamic_cast<BaseSphere*>(this),
-                                 sizeof(BaseSphere),
-                                 cudaMemcpyHostToDevice));
+        cudaDeviceSynchronize();
 
-        _material = _material_ptr.get();
-        _transformation = _transformation_ptr.get();
+        GpuCreator::Sphere(_dev_ptr,
+                           _obj->_center, _obj->_radius,
+                           _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
+                           _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
 
         _need_upload = false;
     }
-    return _dev_ptr;
-#else
-    return this;
 #endif
 }
 
@@ -128,29 +143,32 @@ void Sphere::clearGpuData()
     if (_material_ptr.use_count() == 1)
         _material_ptr->clearGpuData();
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
+    GpuCreator::destroy(_dev_ptr);
     _dev_ptr = nullptr;
     _need_upload = true;
 #endif
 }
 
-
 void Sphere::setCenter(Point const &center)
 {
-    _center = center;
-
-    updateVertices();
+    _obj->_center = center;
+    _obj->updateVertices();
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
 }
 
-void Sphere::setRadius(double const &r)
+void Sphere::setRadius(PREC const &r)
 {
-    _radius = r;
-    _radius2 = r*r;
-
-    updateVertices();
+    _obj->_radius = r;
+    _obj->_radius2 = r*r;
+    _obj->updateVertices();
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
 }
 
-void Sphere::updateVertices()
+void BaseSphere::updateVertices()
 {
     _raw_vertices[0].x = _center.x + _radius;
     _raw_vertices[0].y = _center.y + _radius;
@@ -183,7 +201,4 @@ void Sphere::updateVertices()
     _raw_vertices[7].x = _center.x - _radius;
     _raw_vertices[7].y = _center.y - _radius;
     _raw_vertices[7].z = _center.z - _radius;
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
 }

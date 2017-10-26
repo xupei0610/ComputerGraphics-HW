@@ -1,17 +1,6 @@
 #include "scene.hpp"
 #include "trace.hpp"
 
-#ifndef NDEBUG
-#include <iostream>
-#include <chrono>
-#define TIC(id) \
-    auto _tic_##id = std::chrono::system_clock::now();
-#define TOC(id) \
-    auto _toc_##id = std::chrono::system_clock::now(); \
-    std::cout << "\033[1K\r[Info] Process time: " \
-              << std::chrono::duration_cast<std::chrono::milliseconds>(_toc_##id - _tic_##id).count() \
-              << "ms" << std::endl;
-#endif
 
 using namespace px;
 
@@ -21,7 +10,7 @@ Scene::Param::Param(int const &width, int const &height, int const &dimension,
                     int const &area_light_sampling,
                     int const &diffuse_sampling,
                     int const &diffuse_recursion_depth,
-                    double const &hit_min_tol, double const &hit_max_tol)
+                    PREC const &hit_min_tol, PREC const &hit_max_tol)
         : width(width), height(height), dimension(dimension),
           bg(bg), ambient(ambient),
           recursion_depth(recursion_depth),
@@ -44,13 +33,9 @@ Scene::Scene()
              DEFAULT_DIFFUSE_RECURSION_DEPTH,
              DEFAULT_HIT_MIN_TOL,
              DEFAULT_HIT_MAX_TOL)),
-          _param_host(nullptr),
-          _param_dev(_param),
           _pixels(nullptr),
           _pixels_gpu(nullptr),
           is_rendering(_is_rendering),
-          stop_rendering(false),
-          rendering_process(_rendering_processing),
           width(_param->width),
           height(_param->height),
           dimension(_param->dimension),
@@ -66,44 +51,45 @@ Scene::Scene()
           mode(_mode),
           cam(_cam),
           _is_rendering(false),
-          _rendering_processing(0),
+          _rendering_progress(nullptr),
           _sampling_radius(DEFAULT_SAMPLING_RADIUS),
           _mode(DEFAULT_COMPUTATION_MODE),
           _cam(Camera::create()),
           _allocate_gpu_pixels(false),
-          _need_upload_gpu_param(false)
+          _gpu_stop_flag(nullptr),
+          _cpu_stop_flag(false)
 {
     pixels.color = nullptr;
+#ifdef USE_CUDA
+    PX_CUDA_CHECK(cudaHostAlloc(&_gpu_stop_flag, sizeof(bool),
+                                cudaHostAllocMapped));
+    PX_CUDA_CHECK(cudaHostAlloc(&_rendering_progress, sizeof(bool),
+                                cudaHostAllocMapped));
+#else
+    _gpu_stop_flag = nullptr;
+    _rendering_progress = new PREC;
+#endif
 }
 
 Scene::~Scene()
 {
     clearPixels();
-    clearGpuData();
-}
-
-void Scene::clearGpuData()
-{
-#ifdef USE_CUDA
-    if (_param_dev != nullptr)
+    if (_gpu_stop_flag != nullptr)
+        PX_CUDA_CHECK(cudaFreeHost(_gpu_stop_flag));
+    if (_rendering_progress != nullptr)
     {
-        for (const auto &g : geometries)
-            g->clearGpuData();
-        for (const auto &l : lights)
-            l->clearGpuData();
-        PX_CUDA_CHECK(cudaFree(_param_host->geometries))
-        PX_CUDA_CHECK(cudaFree(_param_host->lights))
-        PX_CUDA_CHECK(cudaFreeHost(_param_host))
-        _param_dev = nullptr;
-        _param_host = nullptr;
-    }
+#ifdef USE_CUDA
+        PX_CUDA_CHECK(cudaFreeHost(_rendering_progress));
+#else
+        delete _rendering_progress;
 #endif
+    }
 }
 
 void Scene::clearPixels()
 {
 #ifdef USE_CUDA
-    if (_allocate_gpu_pixels)
+    if (_pixels != nullptr)
     {
         PX_CUDA_CHECK(cudaFreeHost(_pixels));
         _pixels_gpu = nullptr;
@@ -141,27 +127,19 @@ void Scene::setSceneSize(int const &width, int const &height)
     _param->width = width;
     _param->height = height;
     _param->dimension = _param->width * _param->height;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
 }
 
-void Scene::setBackground(double const &light_r,
-                          double const &light_g,
-                          double const &light_b)
+void Scene::setBackground(PREC const &light_r,
+                          PREC const &light_g,
+                          PREC const &light_b)
 {
     _param->bg = Light(light_r, light_g, light_b);
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
 }
 
 void Scene::setBackground(Light const &light)
 {
     _param->bg = light;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
+
 }
 
 void Scene::setCamera(std::shared_ptr<Camera> const &cam)
@@ -172,17 +150,13 @@ void Scene::setCamera(std::shared_ptr<Camera> const &cam)
 void Scene::setAmbientLight(Light const &c)
 {
     _param->ambient = c;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
+
 }
 
 void Scene::addAmbientLight(Light const &c)
 {
     _param->ambient += c;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
+
 }
 
 void Scene::setSamplingRadius(int const &radius)
@@ -197,18 +171,14 @@ void Scene::setAreaLightSampling(int const &n)
     if (n < 0)
         throw std::invalid_argument("Failed to set sampling number for area light as a negative value.");
     _param->area_light_sampling = n;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
+
 }
 
 void Scene::setDiffuseSampling(int const &depth, int const &n)
 {
     _param->diffuse_recursion_depth = depth;
     _param->diffuse_sampling = n;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
+
 }
 
 void Scene::setRecursionDepth(int const &depth)
@@ -216,25 +186,19 @@ void Scene::setRecursionDepth(int const &depth)
     if (depth < 0)
         throw std::invalid_argument("Failed to set recursion depth as a negative value.");
     _param->recursion_depth = depth;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
+
 }
 
-void Scene::setHitMinTol(double const &tol)
+void Scene::setHitMinTol(PREC const &tol)
 {
     _param->hit_min_tol = tol;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
+
 }
 
-void Scene::setHitMaxTol(double const &tol)
+void Scene::setHitMaxTol(PREC const &tol)
 {
     _param->hit_max_tol = tol;
-#ifdef USE_CUDA
-    _need_upload_gpu_param = true;
-#endif
+
 }
 
 void Scene::setComputationMode(ComputationMode const &mode)
@@ -244,10 +208,32 @@ void Scene::setComputationMode(ComputationMode const &mode)
 #endif
 }
 
+void Scene::stopRendering()
+{
+    if (_is_rendering)
+    {
+#ifdef USE_CUDA
+        if (_gpu_stop_flag != nullptr)
+        {
+            *_gpu_stop_flag = true;
+        }
+#endif
+        _cpu_stop_flag = true;
+    }
+}
+
+int Scene::renderProgress()
+{
+    return *_rendering_progress;
+}
+
 void Scene::render()
 {
     _is_rendering = true;
-    _rendering_processing = 0;
+    *_gpu_stop_flag = false;
+    _cpu_stop_flag = false;
+    *_rendering_progress = 0;
+
 
     clearPixels();
     allocatePixels();
@@ -257,38 +243,36 @@ void Scene::render()
     auto sampling_r      = sampling_radius == 0 ? 1.0 : sampling_radius*2;
     auto sampling_offset = sampling_radius == 0 ? 1.0 : 0.25/sampling_radius;
 
-#ifndef NDEBUG
-    TIC(1)
-#endif
 
 #ifdef USE_CUDA
     if (mode == ComputationMode::GPU)
+    {
         renderGpu(width, height,
                   cam_dist,
                   sampling_r, sampling_offset, sampling_weight);
+    }
     else
 #endif
         renderCpu(width, height,
                   cam_dist,
                   sampling_r, sampling_offset, sampling_weight);
 
-    if (stop_rendering)
-        stop_rendering = false;
+    if (_cpu_stop_flag)
+        _cpu_stop_flag = false;
+    if (*_gpu_stop_flag)
+        *_gpu_stop_flag = false;
 
     _is_rendering = false;
 
-#ifndef NDEBUG
-    TOC(1)
-#endif
 
 }
 
 void Scene::renderCpu(int const &width,
                       int const &height,
-                      double const &cam_dist,
+                      PREC const &cam_dist,
                       int const &sampling_r,
-                      double const &sampling_offset,
-                      double const &sampling_weight)
+                      PREC const &sampling_offset,
+                      PREC const &sampling_weight)
 {
     // TODO Adaptive supersampling
     // TODO Motion Blur
@@ -296,11 +280,14 @@ void Scene::renderCpu(int const &width,
     // TODO Zoom Lens
 
     // TODO Ambient Occlusion
+#ifndef NDEBUG
+    TIC(1)
+#endif
 
 #pragma omp parallel for num_threads(8)
     for (auto i = 0; i < _param->dimension; ++i)
     {
-        if (stop_rendering) // OpenMP not support break statement
+        if (_cpu_stop_flag) // OpenMP not support break statement
             continue;
 
         auto h = i / width;
@@ -313,7 +300,7 @@ void Scene::renderCpu(int const &width,
         Ray ray(cam->position, Direction(0, 0, 0));
 
 #ifdef ADAPTIVE_SAMPLING
-        auto min_r = std::numeric_limits<double>::max();
+        auto min_r = std::numeric_limits<PREC>::max();
         auto min_g = min_r;
         auto min_b = min_r;
         auto max_r = -min_r;
@@ -395,7 +382,10 @@ void Scene::renderCpu(int const &width,
         pixels.color[i] = light * sampling_weight;
 #endif
 
-        ++_rendering_processing;
+        ++_rendering_progress;
     }
 
+#ifndef NDEBUG
+    TOC(1)
+#endif
 }
