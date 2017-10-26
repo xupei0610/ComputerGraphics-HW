@@ -240,7 +240,7 @@ public:
     PX_CUDA_CALLABLE
     AreaLight(Light const &light,
               Point const &center,
-              PREC const &radius);
+              PREC const &r);
 protected:
     Point _center;
     PREC _radius;

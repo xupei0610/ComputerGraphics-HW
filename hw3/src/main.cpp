@@ -80,9 +80,17 @@ int main(int argc, char *argv[])
     {
         w.render();
         if (stop_request == false)
+        {
+            std::cout << "\033[1K\r[Info] Process time: " << scene->renderingTime() << "ms" << std::endl;
             outputImg(outputs, scene);
+        }
     });
+
     while (w.run() && stop_request == false);
+
+
+    if (stop_request == false)
+        std::cout << "\033[1K\r[Info] Process time: " << scene->renderingTime() << "ms" << std::endl;
 
     if (t.joinable())
     {
@@ -105,13 +113,19 @@ int main(int argc, char *argv[])
         std::cout << "\r[Info] Begin rendering..." << std::flush;
     while (scene->is_rendering && stop_request == false)
         std::cout << "\r[Info] Rendering: "
-                  << scene->rendering_process << " / " << scene->dimension
+                  << scene->renderingProgress() << " / " << scene->dimension
                   << " (" << std::setprecision(2)
-                  << (scene->rendering_process * 100.0 / scene->dimension)
+                  << (scene->renderingProgress() * 100.0 / scene->dimension)
                   << "%)" << std::flush;
+
 #ifdef NDEBUG
     std::cout << "\r\n";
 #endif
+
+    if (stop_request == false)
+    {
+        std::cout << "\033[1K\r[Info] Process time: " << scene->renderingTime() << "ms" << std::endl;
+    }
 
     if (t.joinable())
     {

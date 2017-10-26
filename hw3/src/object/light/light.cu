@@ -348,23 +348,22 @@ void SpotLight::setFalloff(PREC const &falloff)
     _need_upload = true;
 #endif
 }
-
 std::shared_ptr<BaseLight> AreaLight::create(Light const &light,
-                                             Point const &center,
+                                             Point const &pos,
                                              PREC const &radius)
 {
-    return std::shared_ptr<BaseLight>(new AreaLight(light, center, radius));
+    return std::shared_ptr<BaseLight>(new AreaLight(light, pos, radius));
 }
 
-PX_CUDA_CALLABLE
 AreaLight::AreaLight(Light const &light,
-                     Point const &center,
-                     PREC const &radius)
+                         Point const &center,
+                         PREC const &radius)
         : BaseLight(light),
           TYPE(Type::AreaLight),
           _center(center),
           _radius(radius),
           _need_upload(true)
+
 {}
 
 PX_CUDA_CALLABLE
@@ -376,30 +375,24 @@ PREC AreaLight::attenuate(PREC const &x, PREC const &y, PREC const &z) const
     return nrm2 < FLT_MIN ? FLT_MAX : 1.0 / nrm2;
 }
 
-Direction AreaLight::dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
-{
-    auto dx = _center.x + _radius * rnd::rnd_cpu();
-    auto dy = _center.y + _radius * rnd::rnd_cpu();
-    auto dz = _center.z + _radius * rnd::rnd_cpu();
-
-    dx -= x;
-    dy -= y;
-    dz -= z;
-
-    dist = std::sqrt(dx*dx + dy*dy + dz*dz);
-    return Direction(dx, dy, dz);
-}
-
 __device__
 Direction AreaLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
-    auto dx = _center.x + _radius * rnd::rnd_gpu();
-    auto dy = _center.y + _radius * rnd::rnd_gpu();
-    auto dz = _center.z + _radius * rnd::rnd_gpu();
 
-    dx -= x;
-    dy -= y;
-    dz -= z;
+    auto dx = _center.x - x;
+    auto dy = _center.y - y;
+    auto dz = _center.z - z;
+
+    dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+    return Direction(dx, dy, dz);
+}
+
+Direction AreaLight::dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
+{
+
+    auto dx = _center.x - x;
+    auto dy = _center.y - y;
+    auto dz = _center.z - z;
 
     dist = std::sqrt(dx*dx + dy*dy + dz*dz);
     return Direction(dx, dy, dz);
@@ -433,20 +426,17 @@ void AreaLight::clearGpuData()
     _need_upload = true;
 #endif
 }
-
-void AreaLight::setCenter(Point const &center)
+void AreaLight::setCenter(Point const &p)
 {
-    _center = center;
-
+    _center = p;
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 
-void AreaLight::setRadius(PREC const &radius)
+void AreaLight::setRadius(const PREC &radius)
 {
     _radius = radius;
-
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

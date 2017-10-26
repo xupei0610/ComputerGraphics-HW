@@ -98,7 +98,7 @@ PX_CUDA_KERNEL rayCast(bool *stop, int *progress,
                 break;
         } while (true);
 
-            *progress += 3;
+            *progress += 5;
     }
 }
 
@@ -126,11 +126,13 @@ void Scene::renderGpu(int const &width, int const &height,
     BaseGeometry **pg[_param->n_geometries];
 
     for (auto &l : lights) l->up2Gpu();
-    *_rendering_progress = _param->dimension * 0.1;
     for (auto &g : geometries) g->up2Gpu();
+
     *_rendering_progress = _param->dimension * 0.2;
 
     cudaDeviceSynchronize();
+
+    *_rendering_progress = _param->dimension * 0.4;
 
     auto i = 0;
     for (auto &l : lights) pl[i++] = l->devPtr();
@@ -189,7 +191,7 @@ void Scene::renderGpu(int const &width, int const &height,
     if (*_gpu_stop_flag == true)
         return;
 
-    *_rendering_progress = _param->dimension * 0.3;
+    *_rendering_progress = _param->dimension * 0.5;
 
     for (auto k0 = -sampling_r + 1; k0 < sampling_r; k0 += 2)
     {
@@ -212,7 +214,7 @@ void Scene::renderGpu(int const &width, int const &height,
 
     PX_CUDA_CHECK(cudaDeviceSynchronize());
 
-    *_rendering_progress = _param->dimension * 0.9;
+    *_rendering_progress = _param->dimension * 0.95;
 
     if (*_gpu_stop_flag == false)
     {

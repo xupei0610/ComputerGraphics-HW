@@ -21,6 +21,7 @@ set(CMAKE_C_FLAGS_DEBUG "")
 
 set(EXE_NAME ${PROJECT_NAME})
 
+
 add_definitions("-DPREC=float")
 
 find_package(Threads)

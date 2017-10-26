@@ -49,7 +49,7 @@ Light RayTrace::traceCpu(const Scene *const &scene,
     for (const auto &light : scene->lights)
     {
         // soft shadow for area light
-        int sampling = light->type() == BaseLight::Type::AreaLight ? scene->area_light_sampling : 1;
+        int sampling = 1;// light->type() == BaseLight::Type::AreaLight ? scene->area_light_sampling : 1;
         int shadow_hit = sampling;
 
         for (auto k = 0; k < sampling; ++k)
@@ -142,10 +142,12 @@ Light RayTrace::traceCpu(const Scene *const &scene,
                     if (std::abs(n.x) > std::abs(n.y))
                     {
                         Nt.x = n.z;
+                        Nt.y = 0;
                         Nt.z = -n.x;
                     }
                     else
                     {
+                        Nt.x = 0;
                         Nt.y = -n.z;
                         Nt.z = n.y;
                     }

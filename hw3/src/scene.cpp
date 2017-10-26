@@ -52,6 +52,7 @@ Scene::Scene()
           cam(_cam),
           _is_rendering(false),
           _rendering_progress(nullptr),
+          _rendering_time(0),
           _sampling_radius(DEFAULT_SAMPLING_RADIUS),
           _mode(DEFAULT_COMPUTATION_MODE),
           _cam(Camera::create()),
@@ -63,7 +64,7 @@ Scene::Scene()
 #ifdef USE_CUDA
     PX_CUDA_CHECK(cudaHostAlloc(&_gpu_stop_flag, sizeof(bool),
                                 cudaHostAllocMapped));
-    PX_CUDA_CHECK(cudaHostAlloc(&_rendering_progress, sizeof(bool),
+    PX_CUDA_CHECK(cudaHostAlloc(&_rendering_progress, sizeof(int),
                                 cudaHostAllocMapped));
 #else
     _gpu_stop_flag = nullptr;
@@ -89,7 +90,7 @@ Scene::~Scene()
 void Scene::clearPixels()
 {
 #ifdef USE_CUDA
-    if (_pixels != nullptr)
+    if (_pixels_gpu != nullptr)
     {
         PX_CUDA_CHECK(cudaFreeHost(_pixels));
         _pixels_gpu = nullptr;
@@ -222,9 +223,14 @@ void Scene::stopRendering()
     }
 }
 
-int Scene::renderProgress()
+int Scene::renderingProgress()
 {
     return *_rendering_progress;
+}
+
+int Scene::renderingTime()
+{
+    return _rendering_time;
 }
 
 void Scene::render()
@@ -382,7 +388,7 @@ void Scene::renderCpu(int const &width,
         pixels.color[i] = light * sampling_weight;
 #endif
 
-        ++_rendering_progress;
+        ++(*_rendering_progress);
     }
 
 #ifndef NDEBUG

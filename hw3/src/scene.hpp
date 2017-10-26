@@ -1,18 +1,13 @@
 #ifndef PX_CG_SCENE_HPP
 #define PX_CG_SCENE_HPP
 
-
-#ifndef NDEBUG
 #include <iostream>
 #include <chrono>
 #define TIC(id) \
     auto _tic_##id = std::chrono::system_clock::now();
 #define TOC(id) \
     auto _toc_##id = std::chrono::system_clock::now(); \
-    std::cout << "\033[1K\r[Info] Process time: " \
-              << std::chrono::duration_cast<std::chrono::milliseconds>(_toc_##id - _tic_##id).count() \
-              << "ms" << std::endl;
-#endif
+    _rendering_time = std::chrono::duration_cast<std::chrono::milliseconds>(_toc_##id - _tic_##id).count();
 
 
 #include "object/base_object.hpp"
@@ -172,7 +167,8 @@ public:
 
     void render();
     void stopRendering();
-    int renderProgress();
+    int renderingProgress();
+    int renderingTime();
 
     void setComputationMode(ComputationMode const &mode);
 
@@ -192,6 +188,7 @@ protected:
 private:
     bool _is_rendering;
     int *_rendering_progress; // not atomic
+    int _rendering_time;
 
     int _sampling_radius;
 
