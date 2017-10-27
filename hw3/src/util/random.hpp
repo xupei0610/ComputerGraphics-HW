@@ -25,20 +25,22 @@ inline PREC rnd_cpu()
 #ifdef USE_CUDA
 
     __device__
-inline PREC rnd_gpu()
+inline PREC rnd_gpu(curandState_t * const &state)
 {
-        static curandState_t *state = nullptr;
-        if (state == nullptr)
-        {
-            state = new curandState_t;
-            curand_init(clock(), 0, 0, state);
-        }
+          // use thread-based random state for better performance
+//        static curandState_t *state = nullptr;
+//        if (state == nullptr)
+//        {
+//            state = new curandState_t;
+//            curand_init(clock(), 0, 0, state);
+//        }
         return curand_uniform(state)*2 - 1;
 }
 
 #else
+template<typename T>
 [[ noreturn ]]
-inline PREC rnd_gpu()
+inline PREC rnd_gpu(T)
 {
     throw CUDAError("Failed to generate random number using GPU without the support of CUDA.");
 }

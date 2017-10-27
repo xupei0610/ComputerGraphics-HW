@@ -133,9 +133,9 @@ const BaseGeometry * BaseCone::hitCheck(Ray const &ray,
 PX_CUDA_CALLABLE
 Direction BaseCone::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
-    if (std::abs(z - _z0) < 1e-12)
+    if (std::abs(z - _z0) < EPSILON)
         return {0, 0, -1};
-    if (std::abs(z - _z1) < 1e-12)
+    if (std::abs(z - _z1) < EPSILON)
         return {0, 0, 1};
 
     return {_a * (x - _center.x),
@@ -303,7 +303,6 @@ void BaseCone::setParams(Point const &center_of_bottom_face,
         _raw_vertices[7].x = _center.x + _top_r_x;
         _raw_vertices[7].y = _center.y - _top_r_y;
         _raw_vertices[7].z = _center.z + _real_height;
-
     }
 
     _raw_vertices[0].x = _center.x - radius_x;
@@ -315,7 +314,7 @@ void BaseCone::setParams(Point const &center_of_bottom_face,
     _raw_vertices[2].x = _center.x + radius_x;
     _raw_vertices[2].y = _center.y - radius_y;
     _raw_vertices[2].z = _center.z;
-    _raw_vertices[3].x = _center.x + radius_x;
+    _raw_vertices[3].x = _center.x - radius_x;
     _raw_vertices[3].y = _center.y - radius_y;
     _raw_vertices[3].z = _center.z;
 

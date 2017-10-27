@@ -25,12 +25,12 @@ const BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
                                   PREC const &t_end,
                                   PREC &hit_at) const
 {
-    auto oc = Vec3<PREC>(ray.original.x - _center.x,
+    auto oc = Vec3<double>(ray.original.x - _center.x,
                            ray.original.y - _center.y,
                            ray.original.z - _center.z);
     auto a = ray.direction.dot(ray.direction);
     auto b = ray.direction.dot(oc);
-    auto c = oc.dot(oc) - _radius2;
+    auto c = oc.dot(oc) - _radius*_radius;
     auto discriminant = b*b - a*c;
     if (discriminant > 0)
     {
@@ -66,7 +66,7 @@ Vec3<PREC> BaseSphere::getTextureCoord(PREC const &x, PREC const &y,
                                        PREC const &z) const
 {
     return {(1 + std::atan2(z - _center.z, x - _center.x) / PI) *PREC(0.5),
-            std::acos((y - _center.y) / _radius2) / PI,
+            std::acos((y - _center.y) / _radius2) / PREC(PI),
             0};
 }
 

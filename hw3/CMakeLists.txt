@@ -66,6 +66,7 @@ file(GLOB HEADER_FILES
      ${PROJECT_SOURCE_DIR}/src/object/structure/*.hpp
      ${PROJECT_SOURCE_DIR}/src/object/*.hpp
      ${PROJECT_SOURCE_DIR}/src/*.hpp
+     ${PROJECT_SOURCE_DIR}/util/*.hpp
      )
 
 file(GLOB EXE_COMMON_SRC_FILES
@@ -102,6 +103,8 @@ if (USE_CUDA)
         -arch=compute_61
         -code=sm_61
         -use_fast_math
+#        --ptxas-options=-v
+        -maxrregcount=120
         -O3)
     cuda_add_executable(${EXE_NAME}
                         ${HEADER_FILES}

@@ -42,7 +42,8 @@ PREC DirectionalLight::attenuate(PREC const &x,
 }
 
 __device__
-Direction DirectionalLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
+Direction DirectionalLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                                          curandState_t * const &state) const
 {
 
     return dirFrom(x, y, z, dist);
@@ -122,11 +123,12 @@ PREC PointLight::attenuate(PREC const &x, PREC const &y, PREC const &z) const
     auto nrm2 = (_position.x - x)*(_position.x - x) +
                 (_position.y - y)*(_position.y - y) +
                 (_position.z - z)*(_position.z - z);
-    return nrm2 < FLT_MIN ? FLT_MAX : 1.0 / nrm2;
+    return nrm2 < EPSILON ? FLT_MAX : 1.0 / nrm2;
 }
 
 __device__
-Direction PointLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
+Direction PointLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                                    curandState_t * const &state) const
 {
 
     return dirFrom(x, y, z, dist);
@@ -222,7 +224,7 @@ PREC SpotLight::attenuate(PREC const &x,
     PREC dy = y-_position.y;
     PREC dz = z-_position.z;
     PREC nrm2 = dx*dx + dy*dy + dz*dz;
-    if (nrm2 < FLT_MIN)
+    if (nrm2 < EPSILON)
         return FLT_MAX;
 
     PREC nrm = std::sqrt(nrm2);
@@ -241,7 +243,8 @@ PREC SpotLight::attenuate(PREC const &x,
 }
 
 __device__
-Direction SpotLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
+Direction SpotLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                                   curandState_t * const &state) const
 {
 
     return dirFrom(x, y, z, dist);
@@ -372,16 +375,17 @@ PREC AreaLight::attenuate(PREC const &x, PREC const &y, PREC const &z) const
     auto nrm2 = (_center.x - x)*(_center.x - x) +
                 (_center.y - y)*(_center.y - y) +
                 (_center.z - z)*(_center.z - z);
-    return nrm2 < FLT_MIN ? FLT_MAX : 1.0 / nrm2;
+    return nrm2 < EPSILON ? FLT_MAX : 1.0 / 4 / PI / std::sqrt(nrm2);
 }
 
 __device__
-Direction AreaLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
+Direction AreaLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                                   curandState_t * const &state) const
 {
 
-    auto dx = _center.x - x;
-    auto dy = _center.y - y;
-    auto dz = _center.z - z;
+    auto dx = _center.x - x + _radius * rnd::rnd_gpu(state);
+    auto dy = _center.y - y + _radius * rnd::rnd_gpu(state);
+    auto dz = _center.z - z + _radius * rnd::rnd_gpu(state);
 
     dist = std::sqrt(dx * dx + dy * dy + dz * dz);
     return Direction(dx, dy, dz);
@@ -389,10 +393,9 @@ Direction AreaLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, 
 
 Direction AreaLight::dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
-
-    auto dx = _center.x - x;
-    auto dy = _center.y - y;
-    auto dz = _center.z - z;
+    auto dx = _center.x - x + _radius * rnd::rnd_cpu();
+    auto dy = _center.y - y + _radius * rnd::rnd_cpu();
+    auto dz = _center.z - z + _radius * rnd::rnd_cpu();
 
     dist = std::sqrt(dx*dx + dy*dy + dz*dz);
     return Direction(dx, dy, dz);

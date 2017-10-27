@@ -37,14 +37,14 @@ const BaseGeometry * BaseBox::hitCheck(Ray const &ray,
     if (tymax < tmax)
         tmax = tymax;
 
-    auto tzmin = ((ray.direction.z < 0 ? _vertex_max.z : _vertex_min.z) - ray.original.z) / ray.direction.z;
-    auto tzmax = ((ray.direction.z < 0 ? _vertex_min.z : _vertex_max.z) - ray.original.z) / ray.direction.z;
+    tymin = ((ray.direction.z < 0 ? _vertex_max.z : _vertex_min.z) - ray.original.z) / ray.direction.z;
+    tymax = ((ray.direction.z < 0 ? _vertex_min.z : _vertex_max.z) - ray.original.z) / ray.direction.z;
 
-    if (tmin > tzmax || tzmin > tmax)
+    if (tmin > tymax || tymin > tmax)
         return nullptr;
 
-    if (tzmin > tmin)
-        tmin = tzmin;
+    if (tymin > tmin)
+        tmin = tymin;
 
     if (tmin > t_start && tmin < t_end)
     {
@@ -52,8 +52,8 @@ const BaseGeometry * BaseBox::hitCheck(Ray const &ray,
         return this;
     }
 
-    if (tzmax < tmax)
-        tmax = tzmax;
+    if (tymax < tmax)
+        tmax = tymax;
 
     if (tmax > t_start && tmax < t_end)
     {
@@ -67,120 +67,284 @@ const BaseGeometry * BaseBox::hitCheck(Ray const &ray,
 PX_CUDA_CALLABLE
 Direction BaseBox::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
-    if (std::abs(x-_vertex_min.x) < 1e-12)
+    auto v1 = std::abs(x-_vertex_min.x);
+    auto v2 = std::abs(x-_vertex_max.x);
+
+    if (v1 < v2)
     {
-        if (z > _vertex_min.z && z < _vertex_max.z && y > _vertex_min.y && y < _vertex_max.y)
+        v2 = std::abs(y-_vertex_min.y);
+        if (v1 < v2)
         {
-            return {-1, 0, 0};
-        }
-    }
-    else if (std::abs(x-_vertex_max.x) < 1e-12)
-    {
-        if (z > _vertex_min.z && z < _vertex_max.z && y > _vertex_min.y && y < _vertex_max.y)
-        {
-            return {1, 0, 0};
-        }
-    }
-    else if (std::abs(y-_vertex_min.y) < 1e-12)
-    {
-        if (z > _vertex_min.z && z < _vertex_max.z && x > _vertex_min.x && x < _vertex_max.x)
-        {
-            return {0, -1, 0};
-        }
-    }
-    else if (std::abs(y-_vertex_max.y) < 1e-12)
-    {
-        if (z > _vertex_min.z && z < _vertex_max.z && x > _vertex_min.x && x < _vertex_max.x)
-        {
+            v2 = std::abs(y-_vertex_max.y);
+            if (v1 < v2)
+            {
+                v2 = std::abs(z-_vertex_min.z);
+                if (v1 < v2)
+                {
+                    v2 = std::abs(z-_vertex_max.z);
+                    if (v1 < v2)
+                        return {-1, 0, 0};
+                    return {0, 0, 1};
+                }
+                v1 = std::abs(z-_vertex_max.z);
+                if (v1 < v2)
+                    return {0, 0, 1};
+                return {0, 0, -1};
+            }
+            v1 = std::abs(z-_vertex_min.z);
+            if (v1 < v2)
+            {
+                v2 = std::abs(z-_vertex_max.z);
+                if (v1 < v2)
+                    return {0, 0, -1};
+                return {0, 0, 1};
+            }
+            v1 = std::abs(z-_vertex_max.z);
+            if (v1 < v2)
+                return {0, 0, 1};
             return {0, 1, 0};
         }
-    }
-    else if (std::abs(z-_vertex_min.z) < 1e-12)
-    {
-        if (y > _vertex_min.y && y < _vertex_max.y && x > _vertex_min.x && x < _vertex_max.x)
+        v1 = std::abs(y-_vertex_max.y);
+        if (v1 < v2)
         {
+            v2 = std::abs(z-_vertex_min.z);
+            if (v1 < v2)
+            {
+                v2 = std::abs(z - _vertex_max.z);
+                if (v1 < v2)
+                    return {0, 1, 0};
+            }
+            v1 = std::abs(z - _vertex_max.z);
+            if (v1 < v2)
+                return {0, 0, 1};
             return {0, 0, -1};
         }
-    }
-    else if (std::abs(z-_vertex_max.z) < 1e-12)
-    {
-        if (y > _vertex_min.y && y < _vertex_max.y && x > _vertex_min.x && x < _vertex_max.x)
+        v1 =std::abs(z-_vertex_min.z);
+        if (v1 < v2)
         {
+            v2 = std::abs(z - _vertex_max.z);
+            if (v1 < v2)
+                return {0, 0, -1};
             return {0, 0, 1};
         }
+        v1 = std::abs(z - _vertex_max.z);
+        if (v1 < v2)
+            return {0, 0, 1};
+        return {0, -1, 0};
     }
-    return {x-_center.x, y-_center.y, z-_center.z}; // Undefined action
+
+    v1 = std::abs(y-_vertex_min.y);
+    if (v1 < v2)
+    {
+        v2 = std::abs(y-_vertex_max.y);
+        if (v1 < v2)
+        {
+            v2 = std::abs(z-_vertex_min.z);
+            if (v1 < v2)
+            {
+                v2 = std::abs(z-_vertex_max.z);
+                if (v1 < v2)
+                    return {0, -1, 0};
+                return {0, 0, 1};
+            }
+            v1 = std::abs(z-_vertex_max.z);
+            if (v1 < v2)
+                return {0, 0, 1};
+            return {0, 0, -1};
+        }
+        v1 = std::abs(z-_vertex_min.z);
+        if (v1 < v2)
+        {
+            v2 = std::abs(z-_vertex_max.z);
+            if (v1 < v2)
+                return {0, 0, -1};
+            return {0, 0, 1};
+        }
+        v1 = std::abs(z-_vertex_max.z);
+        if (v1 < v2)
+            return {0, 0, 1};
+        return {0, 1, 0};
+    }
+    v1 = std::abs(y-_vertex_max.y);
+    if (v1 < v2)
+    {
+        v2 = std::abs(z-_vertex_min.z);
+        if (v1 < v2)
+        {
+            v2 = std::abs(z - _vertex_max.z);
+            if (v1 < v2)
+                return {0, 1, 0};
+        }
+        v1 = std::abs(z - _vertex_max.z);
+        if (v1 < v2)
+            return {0, 0, 1};
+        return {0, 0, -1};
+    }
+    v1 =std::abs(z-_vertex_min.z);
+    if (v1 < v2)
+    {
+        v2 = std::abs(z - _vertex_max.z);
+        if (v1 < v2)
+            return {0, 0, -1};
+        return {0, 0, 1};
+    }
+    v1 = std::abs(z - _vertex_max.z);
+    if (v1 < v2)
+        return {0, 0, 1};
+    return {1, 0, 0};
 }
 
 PX_CUDA_CALLABLE
 Vec3<PREC> BaseBox::getTextureCoord(PREC const &x, PREC const &y,
                                             PREC const &z) const
 {
-    if (std::abs(x-_vertex_min.x) < 1e-12) // left side
+
+    auto v1 = std::abs(x-_vertex_min.x);
+    auto v2 = std::abs(x-_vertex_max.x);
+    if (v1 < v2)
     {
-        if (!(z <= _vertex_min.z || z > _vertex_max.z || y < _vertex_min.y || y > _vertex_max.y))
+        v2 = std::abs(y-_vertex_min.y);
+        if (v1 < v2)
         {
-            return {_vertex_max.z - z, _side.z + _vertex_max.y - y, 0};
-        }
-    }
-    else if (std::abs(x-_vertex_max.x) < 1e-12) // right side
-    {
-        if (z > _vertex_min.z && z < _vertex_max.z && y > _vertex_min.y && y < _vertex_max.y)
-        {
-            return {_side.z + _side.x + z - _vertex_min.z, _side.z + _vertex_max.y - y, 0};
-        }
-    }
-    else if (std::abs(y-_vertex_min.y) < 1e-12) // bottom side
-    {
-        if (z > _vertex_min.z && z < _vertex_max.z && x > _vertex_min.x && x < _vertex_max.x)
-        {
-            return {_side.z + x - _vertex_min.x, _side.z + _side.y + z - _vertex_min.z, 0};
-        }
-    }
-    else if (std::abs(y-_vertex_max.y) < 1e-12) // top side
-    {
-        if (z > _vertex_min.z && z < _vertex_max.z && x > _vertex_min.x && x < _vertex_max.x)
-        {
+            v2 = std::abs(y-_vertex_max.y);
+            if (v1 < v2)
+            {
+                v2 = std::abs(z-_vertex_min.z);
+                if (v1 < v2)
+                {
+                    v2 = std::abs(z-_vertex_max.z);
+                    if (v1 < v2)
+                        return {_vertex_max.z - z, _side.z + _vertex_max.y - y, 0};
+                    return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+                }
+                v1 = std::abs(z-_vertex_max.z);
+                if (v1 < v2)
+                    return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+                return {_side.z + x - _vertex_min.x, _side.z + _vertex_max.y - y, 0};
+            }
+            v1 = std::abs(z-_vertex_min.z);
+            if (v1 < v2)
+            {
+                v2 = std::abs(z-_vertex_max.z);
+                if (v1 < v2)
+                    return {_side.z + x - _vertex_min.x, _side.z + _vertex_max.y - y, 0};
+                return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+            }
+            v1 = std::abs(z-_vertex_max.z);
+            if (v1 < v2)
+                return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
             return {_side.z + x - _vertex_min.x, _vertex_max.z - z, 0};
         }
-    }
-    else if (std::abs(z-_vertex_min.z) < 1e-12) // forward side
-    {
-        if (y > _vertex_min.y && y < _vertex_max.y && x > _vertex_min.x && x < _vertex_max.x)
+        v1 = std::abs(y-_vertex_max.y);
+        if (v1 < v2)
         {
+            v2 = std::abs(z-_vertex_min.z);
+            if (v1 < v2)
+            {
+                v2 = std::abs(z - _vertex_max.z);
+                if (v1 < v2)
+                    return {_side.z + x - _vertex_min.x, _vertex_max.z - z, 0};
+            }
+            v1 = std::abs(z - _vertex_max.z);
+            if (v1 < v2)
+                return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
             return {_side.z + x - _vertex_min.x, _side.z + _vertex_max.y - y, 0};
         }
-    }
-    else if (std::abs(z-_vertex_max.z) < 1e-12) // backward side
-    {
-        if (y > _vertex_min.y && y < _vertex_max.y && x > _vertex_min.x && x < _vertex_max.x)
+        v1 =std::abs(z-_vertex_min.z);
+        if (v1 < v2)
         {
+            v2 = std::abs(z - _vertex_max.z);
+            if (v1 < v2)
+                return {_side.z + x - _vertex_min.x, _side.z + _vertex_max.y - y, 0};
             return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
         }
+        v1 = std::abs(z - _vertex_max.z);
+        if (v1 < v2)
+            return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+        return {_side.z + x - _vertex_min.x, _side.z + _side.y + z - _vertex_min.z, 0};
     }
-    return {x-_center.x, y-_center.y, z-_center.z}; // Undefined action
+
+    v1 = std::abs(y-_vertex_min.y);
+    if (v1 < v2)
+    {
+        v2 = std::abs(y-_vertex_max.y);
+        if (v1 < v2)
+        {
+            v2 = std::abs(z-_vertex_min.z);
+            if (v1 < v2)
+            {
+                v2 = std::abs(z-_vertex_max.z);
+                if (v1 < v2)
+                    return {_side.z + x - _vertex_min.x, _side.z + _side.y + z - _vertex_min.z, 0};
+                return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+            }
+            v1 = std::abs(z-_vertex_max.z);
+            if (v1 < v2)
+                return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+            return {_side.z + x - _vertex_min.x, _side.z + _vertex_max.y - y, 0};
+        }
+        v1 = std::abs(z-_vertex_min.z);
+        if (v1 < v2)
+        {
+            v2 = std::abs(z-_vertex_max.z);
+            if (v1 < v2)
+                return {_side.z + x - _vertex_min.x, _side.z + _vertex_max.y - y, 0};
+            return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+        }
+        v1 = std::abs(z-_vertex_max.z);
+        if (v1 < v2)
+            return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+        return {_side.z + x - _vertex_min.x, _vertex_max.z - z, 0};
+    }
+    v1 = std::abs(y-_vertex_max.y);
+    if (v1 < v2)
+    {
+        v2 = std::abs(z-_vertex_min.z);
+        if (v1 < v2)
+        {
+            v2 = std::abs(z - _vertex_max.z);
+            if (v1 < v2)
+                return {_side.z + x - _vertex_min.x, _vertex_max.z - z, 0};
+        }
+        v1 = std::abs(z - _vertex_max.z);
+        if (v1 < v2)
+            return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+        return {_side.z + x - _vertex_min.x, _side.z + _vertex_max.y - y, 0};
+    }
+    v1 =std::abs(z-_vertex_min.z);
+    if (v1 < v2)
+    {
+        v2 = std::abs(z - _vertex_max.z);
+        if (v1 < v2)
+            return {_side.z + x - _vertex_min.x, _side.z + _vertex_max.y - y, 0};
+        return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+    }
+    v1 = std::abs(z - _vertex_max.z);
+    if (v1 < v2)
+        return {_side.z + _side.z + _side.z + _vertex_max.x - x, _side.z + _vertex_max.y - y, 0};
+    return {_side.z + _side.x + z - _vertex_min.z, _side.z + _vertex_max.y - y, 0};
 }
 
 std::shared_ptr<Geometry> Box::create(PREC const &x1, PREC const &x2,
-                                          PREC const &y1, PREC const &y2,
-                                          PREC const &z1, PREC const &z2,
-                                          std::shared_ptr<Material> const &material,
-                                          std::shared_ptr<Transformation> const &trans)
+                                      PREC const &y1, PREC const &y2,
+                                      PREC const &z1, PREC const &z2,
+                                      std::shared_ptr<Material> const &material,
+                                      std::shared_ptr<Transformation> const &trans)
 {
     return std::shared_ptr<Geometry>(new Box(x1, x2,
-                                                 y1, y2,
-                                                 z1, z2,
-                                                 material, trans));
+                                             y1, y2,
+                                             z1, z2,
+                                             material, trans));
 }
 
 std::shared_ptr<Geometry> Box::create(Point const &v1, Point const &v2,
-                                          std::shared_ptr<Material> const &material,
-                                          std::shared_ptr<Transformation> const &trans)
+                                      std::shared_ptr<Material> const &material,
+                                      std::shared_ptr<Transformation> const &trans)
 {
     return std::shared_ptr<Geometry>(new Box(v1.x, v2.x,
-                                                 v1.y, v2.y,
-                                                 v1.z, v2.z,
-                                                 material, trans));
+                                             v1.y, v2.y,
+                                             v1.z, v2.z,
+                                             material, trans));
 }
 
 Box::Box(PREC const &x1, PREC const &x2,

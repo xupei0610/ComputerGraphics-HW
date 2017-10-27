@@ -1,12 +1,19 @@
 #ifndef PX_CG_UTIL_MATH_CONSTANT_HPP
 #define PX_CG_UTIL_MATH_CONSTANT_HPP
 
-#ifndef USE_CUDA
-#include <cmath>
+#ifdef USE_CUDA
+#  include <cfloat>
+#else
+#  include <cmath>
+#  include <limits>
 #endif
 
 namespace px
 {
+
+#define EPSILON 1e-6
+#define DOUBLE_EPSILON 1e-3
+
 #ifdef USE_CUDA
 
 #  define PI 3.14159265358979323846

@@ -29,53 +29,53 @@ bool BaseBoundBox::hitBox(Ray const &ray,
     if (tymax < tmax)
         tmax = tymax;
 
-    auto tzmin = ((ray.direction.z < 0 ? _vertex_max.z : _vertex_min.z) - ray.original.z) / ray.direction.z;
-    auto tzmax = ((ray.direction.z < 0 ? _vertex_min.z : _vertex_max.z) - ray.original.z) / ray.direction.z;
+    tymin = ((ray.direction.z < 0 ? _vertex_max.z : _vertex_min.z) - ray.original.z) / ray.direction.z;
+    tymax = ((ray.direction.z < 0 ? _vertex_min.z : _vertex_max.z) - ray.original.z) / ray.direction.z;
 
-    if (tmin > tzmax || tzmin > tmax)
+    if (tmin > tymax || tymin > tmax)
         return false;
 
-    if (tzmin > tmin)
-        tmin = tzmin;
+    if (tymin > tmin)
+        tmin = tymin;
 
-    if (tmin < t_start || tmin < t_end)
-    {
-        if (tzmax < tmax)
-            tmax = tzmax;
+    if (tmin > t_start && tmin < t_end)
+        return true;
 
-        if (tmax < t_start || tmax > t_end)
-            return false;
-    }
+    if (tymax < tmax)
+        tmax = tymax;
 
-    return true;
+    if (tmax > t_start && tmax < t_end)
+        return true;
+
+    return false;
 }
 
 PX_CUDA_CALLABLE
 const BaseGeometry * BaseBoundBox::hitCheck(Ray const &ray,
-                                 PREC const &t_start,
-                                 PREC const &t_end,
-                                 PREC &hit_at) const
+                              PREC const &t_start,
+                              PREC const &t_end,
+                              PREC &hit_at) const
 {
     if (hitBox(ray, t_start, t_end))
     {
-        const BaseGeometry *obj = nullptr, *tmp;
+        const BaseGeometry *obj = nullptr;
 
         PREC end_range = t_end;
-        auto node = _objects.start;
+        auto node = _objects.first;
+
         while (node != nullptr)
         {
-            tmp = node->data->hit(ray, t_start, end_range, hit_at);
+            auto tmp = node->data->hit(ray, t_start, end_range, hit_at);
 
-            if (tmp == nullptr)
-                continue;
-
-            end_range = hit_at;
-            obj = tmp;
-
+            if (tmp != nullptr)
+            {
+                end_range = hit_at;
+                obj = tmp;
+            }
             node = node->next;
         }
-
-        return obj == nullptr ? nullptr : (hit_at = end_range, obj);
+        hit_at = end_range;
+        return obj;
     }
 
     return nullptr;
@@ -194,6 +194,16 @@ void BaseBoundBox::addObj(BaseGeometry *const &obj)
     int n_vert;
     auto vert = obj->rawVertices(n_vert);
 
+    if (_objects.n == 1)
+    {
+        _vertex_min.x = vert[0].x;
+        _vertex_max.x = vert[0].x;
+        _vertex_min.y = vert[0].y;
+        _vertex_max.y = vert[0].y;
+        _vertex_min.z = vert[0].z;
+        _vertex_max.z = vert[0].z;
+    }
+
 #define SET_VERT(v)                                     \
         if (v.x < _vertex_min.x) _vertex_min.x = v.x;   \
         if (v.x > _vertex_max.x) _vertex_max.x = v.x;   \
@@ -202,15 +212,18 @@ void BaseBoundBox::addObj(BaseGeometry *const &obj)
         if (v.z < _vertex_min.z) _vertex_min.z = v.z;   \
         if (v.z > _vertex_max.z) _vertex_max.z = v.z;
 
-    for (auto i = 0; i < n_vert; ++i)
+    if (obj->transform() == nullptr)
     {
-        if (transform() == nullptr)
+        for (auto i = 0; i < n_vert; ++i)
         {
             SET_VERT(vert[i])
         }
-        else
+    }
+    else
+    {
+        for (auto i = 0; i < n_vert; ++i)
         {
-            auto v = obj->transform()->point(vert[i]);
+            auto v = obj->transform()->pointFromObjCoord(vert[i]);
             SET_VERT(v)
         }
     }

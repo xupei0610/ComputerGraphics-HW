@@ -56,6 +56,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         else
             bound_box.back()->addObj(obj);
     };
+    bool use_bb = false;
 
     while (std::getline(buffer, line, '\n'))
     {
@@ -484,6 +485,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                     auto bb = std::shared_ptr<Geometry>(bound_box.at(s - 1));
                     bound_box.pop_back();
                     addObj(bb);
+                    use_bb = true;
                 }
             }
             else
@@ -510,8 +512,8 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         }
         else
         {
-            throw std::invalid_argument("[Error] Failed to parse script with an unsupported property `" +
-                                        param[0] + "` at line " + std::to_string(ln));
+            throw std::invalid_argument("[Warn] Failed to parse script with an unsupported property `" +
+                                        param[0] + "` at line " + std::to_string(ln) + " (Skipped)");
         }
     }
 
@@ -522,6 +524,8 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         throw std::invalid_argument("[Error] Failed to parse unmatched `transform` parameter at line " +
                                     std::to_string(ln));
 
+    if (scene->mode == Scene::ComputationMode::GPU && use_bb == true)
+        std::cout << "[Warn] \033[41mUse bound box in GPU mode may cause crashing!!!\033[0m" << std::endl;
 //    scene->geometries.insert(std::shared_ptr<Geometry>(bvh));
 
     return outputs;

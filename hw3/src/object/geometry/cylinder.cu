@@ -126,9 +126,9 @@ const BaseGeometry * BaseCylinder::hitCheck(Ray const &ray,
 PX_CUDA_CALLABLE
 Direction BaseCylinder::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
-    if (std::abs(z - _z0) < FLT_MIN)
+    if (std::abs(z - _z0) < EPSILON)
         return {0, 0, -1};
-    if (std::abs(z - _z1) < FLT_MIN)
+    if (std::abs(z - _z1) < EPSILON)
         return {0, 0, 1};
 
     return {_a * (x - _center.x),
@@ -140,10 +140,10 @@ PX_CUDA_CALLABLE
 Vec3<PREC> BaseCylinder::getTextureCoord(PREC const &x, PREC const &y,
                                        PREC const &z) const
 {
-    if (std::abs(z - _z0) < FLT_MIN)
+    if (std::abs(z - _z0) < EPSILON)
         return {x - _center.x,
                 _radius_y + y - _center.y, 0};
-    if (std::abs(z - _z1) < FLT_MIN)
+    if (std::abs(z - _z1) < EPSILON)
         return {x - _center.x,
                 _radius_y + _radius_y + _radius_y + _abs_height + y - _center.y, 0};
 

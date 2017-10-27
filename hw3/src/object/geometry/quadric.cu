@@ -70,19 +70,19 @@ const BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
     {
         if (B == 0) return nullptr;
 
-        auto tmp = - C / B;
-        if (tmp > t_start && tmp < t_end)
+        C = - C / B;
+        if (C > t_start && C < t_end)
         {
-            auto i_x =ray.original.x + ray.direction.x * tmp;
-            if (i_x >_x0 && i_x < _x1)
+            B = ray.original.x + ray.direction.x * C;
+            if (B >_x0 && B < _x1)
             {
-                auto i_y =ray.original.y + ray.direction.y * tmp;
-                if (i_y >_y0 && i_y < _y1)
+                B = ray.original.y + ray.direction.y * C;
+                if (B >_y0 && B < _y1)
                 {
-                    auto i_z =ray.original.z + ray.direction.z * tmp;
-                    if (i_z >_z0 && i_z < _z1)
+                    B = ray.original.z + ray.direction.z * C;
+                    if (B >_z0 && B < _z1)
                     {
-                        hit_at = tmp;
+                        hit_at = C;
                         return this;
                     }
                 }
@@ -91,49 +91,49 @@ const BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
         return nullptr;
     }
 
-    auto discriminant = B * B - 4 * A * C;
-    if (discriminant < 0)
+    C = B * B - 4 * A * C;
+    if (C < 0)
         return nullptr;
 
-    discriminant = std::sqrt(discriminant);
-    auto tmp1 = (-B - discriminant)/ (2.0 * A);
-    auto tmp2 = (-B + discriminant)/ (2.0 * A);
-    if (tmp1 > tmp2)
+    C = std::sqrt(C);
+    xo = (-B - C)/ (2.0 * A);
+    yo = (-B + C)/ (2.0 * A);
+    if (xo > yo)
     {
-        auto tmp = tmp1;
-        tmp1 = tmp2;
-        tmp2 = tmp;
+        zo = xo;
+        xo = yo;
+        yo = zo;
     }
 
-    if (tmp1 > t_start && tmp1 < t_end)
+    if (xo > t_start && xo < t_end)
     {
-        auto i_x =ray.original.x + ray.direction.x * tmp1;
+        auto i_x =ray.original.x + ray.direction.x * xo;
         if (i_x >_x0 && i_x < _x1)
         {
-            auto i_y =ray.original.y + ray.direction.y * tmp1;
+            auto i_y =ray.original.y + ray.direction.y * xo;
             if (i_y >_y0 && i_y < _y1)
             {
-                auto i_z =ray.original.z + ray.direction.z * tmp1;
+                auto i_z =ray.original.z + ray.direction.z * xo;
                 if (i_z >_z0 && i_z < _z1)
                 {
-                    hit_at = tmp1;
+                    hit_at = xo;
                     return this;
                 }
             }
         }
     }
-    if (tmp2 > t_start && tmp2 < t_end)
+    if (yo > t_start && yo < t_end)
     {
-        auto i_x =ray.original.x + ray.direction.x * tmp2;
-        if (i_x >_x0 && i_x < _x1)
+        B = ray.original.x + ray.direction.x * yo;
+        if (B >_x0 && B < _x1)
         {
-            auto i_y =ray.original.y + ray.direction.y * tmp2;
-            if (i_y >_y0 && i_y < _y1)
+            B =ray.original.y + ray.direction.y * yo;
+            if (B >_y0 && B < _y1)
             {
-                auto i_z =ray.original.z + ray.direction.z * tmp2;
-                if (i_z >_z0 && i_z < _z1)
+                B = ray.original.z + ray.direction.z * yo;
+                if (B >_z0 && B < _z1)
                 {
-                    hit_at = tmp2;
+                    hit_at = yo;
                     return this;
                 }
             }

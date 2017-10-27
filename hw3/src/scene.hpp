@@ -18,7 +18,6 @@
 #include <string>
 #include <memory>
 #include <limits>
-#include <atomic>
 
 namespace px
 {
@@ -103,12 +102,12 @@ public:
     int static constexpr DEFAULT_SCENE_WIDTH = 640;
     int static constexpr DEFAULT_SCENE_HEIGHT = 480;
     Light static const DEFAULT_SCENE_BG; // {0, 0, 0}
-    int static constexpr DEFAULT_SAMPLING_RADIUS = 1;
+    int static constexpr DEFAULT_SAMPLING_RADIUS = 0;
     int static constexpr DEFAULT_AREA_LIGHT_SAMPLING = 16;
     int static constexpr DEFAULT_DIFFUSE_SAMPLING = 16;
     int static constexpr DEFAULT_RECURSION_DEPTH = 5;
     int static constexpr DEFAULT_DIFFUSE_RECURSION_DEPTH = 0;
-    PREC static constexpr DEFAULT_HIT_MIN_TOL = 1e-3; // minimum tol to check if a ray hits an object or not.
+    PREC static constexpr DEFAULT_HIT_MIN_TOL = DOUBLE_EPSILON; // minimum tol to check if a ray hits an object or not.
     PREC static constexpr DEFAULT_HIT_MAX_TOL = std::numeric_limits<PREC>::max(); // maximum tol to check if a ray hits an object or not
 #ifdef USE_CUDA
     ComputationMode static constexpr DEFAULT_COMPUTATION_MODE = ComputationMode::GPU;
@@ -170,7 +169,7 @@ public:
     int renderingProgress();
     int renderingTime();
 
-    void setComputationMode(ComputationMode const &mode);
+    bool setComputationMode(ComputationMode const &mode);
 
 protected:
     void renderCpu(int const &width, int const &height,
@@ -198,6 +197,6 @@ private:
     bool _allocate_gpu_pixels;
     bool *_gpu_stop_flag;
 
-    std::atomic<bool>_cpu_stop_flag;
+    bool _cpu_stop_flag;
 };
 #endif // PX_CG_SCENE_HPP

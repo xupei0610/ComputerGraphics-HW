@@ -4,11 +4,6 @@
 
 using namespace px;
 
-#ifndef NDEBUG
-#define NO_STDIO_REDIRECT
-#endif
-#define NO_STDIO_REDIRECT
-
 struct CameraParam
 {
     Direction right_vector;
@@ -32,15 +27,17 @@ struct CameraParam
 __constant__ CameraParam cam_param[1];
 __constant__ Scene::Param scene_param[1];
 
-PX_CUDA_KERNEL rayCast(bool *stop, int *progress,
-                       Light *lights,
+__global__
+void rayCast(bool *stop, int *progress,
+             Light *lights,
                        RayTrace::TraceQueue::Node *node,
                        PREC v_offset, PREC u_offset,
                        int n_nodes)
 {
     RayTrace::TraceQueue tr(nullptr, n_nodes);
 
-    auto tid = blockIdx.x * blockDim.x+threadIdx.x;
+    curandState_t state;
+    curand_init(clock()+blockIdx.x * blockDim.x+threadIdx.x, 0, 0, &state);
 
     PX_CUDA_LOOP(index, scene_param->dimension)
     {
@@ -59,16 +56,15 @@ PX_CUDA_KERNEL rayCast(bool *stop, int *progress,
         auto z = u * cam_param->right_vector.z + v * cam_param->up_vector.z +
                  cam_param->dist * cam_param->dir.z;
 
-        tr.ptr = node + tid*n_nodes;
+        tr.ptr = node + blockIdx.x * blockDim.x+threadIdx.x*n_nodes;
         tr.n = 0;
 
         RayTrace::TraceQueue::Node current({cam_param->pos, {x, y, z}},
                                            {1, 1, 1}, 0);
-
-        PREC t;
         do
         {
-            auto obj = RayTrace::hitCheck(current.ray, scene_param, t);
+            Point intersect;
+            auto obj = RayTrace::hitCheck(current.ray, scene_param, intersect);
 
             if (obj == nullptr)
             {
@@ -76,20 +72,21 @@ PX_CUDA_KERNEL rayCast(bool *stop, int *progress,
             }
             else
             {
-                auto intersect = current.ray[t];;
                 auto texture_coord = obj->textureCoord(intersect);
 
-                Direction r, n;
-                lights[index] += RayTrace::reflect(intersect, current.ray.direction,
-                                           texture_coord, obj, scene_param,
-                                           n, r) * current.coef;
-                if (current.depth < scene_param->recursion_depth)
-                    RayTrace::recursive(intersect, current,
-                                        texture_coord, *obj,
-                                        n, r,
-                                        tr, *scene_param);
+                Direction n(obj->normVec(intersect));
+                Direction r(current.ray.direction-n*(2*current.ray.direction.dot(n)));
+
+                lights[index] += RayTrace::reflect(intersect, texture_coord,
+                                                   obj, scene_param, &state,
+                                                   n, r) * current.coef;
+//                if (current.depth < scene_param->recursion_depth)
+//                    RayTrace::recursive(intersect, current,
+//                                        texture_coord, *obj,
+//                                        n, r,
+//                                        tr, *scene_param);
             }
-            if (tr.n > 0 || *stop == true)
+            if (tr.n > 0 && *stop == false)
             {
                 current = tr.ptr[tr.n - 1];
                 tr.pop();
@@ -98,7 +95,7 @@ PX_CUDA_KERNEL rayCast(bool *stop, int *progress,
                 break;
         } while (true);
 
-            *progress += 5;
+        *progress += 1;
     }
 }
 
@@ -119,6 +116,8 @@ void Scene::renderGpu(int const &width, int const &height,
                       PREC const &sampling_offset,
                       PREC const &sampling_weight)
 {
+    std::cout << "[Info] Upload data to GPU..." << std::flush;
+
     _param->n_geometries = geometries.size();
     _param->n_lights = lights.size();
 
@@ -128,9 +127,8 @@ void Scene::renderGpu(int const &width, int const &height,
     for (auto &l : lights) l->up2Gpu();
     for (auto &g : geometries) g->up2Gpu();
 
-    *_rendering_progress = _param->dimension * 0.2;
 
-    cudaDeviceSynchronize();
+    PX_CUDA_CHECK(cudaDeviceSynchronize());
 
     *_rendering_progress = _param->dimension * 0.4;
 
@@ -161,7 +159,6 @@ void Scene::renderGpu(int const &width, int const &height,
     cp[0].dist = cam_dist;
     cp[0].pos = cam->position;
 
-
     PX_CUDA_CHECK(cudaMemcpyToSymbol(scene_param, _param,
                                      sizeof(Scene::Param), 0,
                                      cudaMemcpyHostToDevice))
@@ -169,7 +166,7 @@ void Scene::renderGpu(int const &width, int const &height,
                                      sizeof(CameraParam), 0,
                                      cudaMemcpyHostToDevice))
 
-    auto n_nodes = 20*_param->recursion_depth;
+    auto n_nodes = 1+_param->recursion_depth;
     RayTrace::TraceQueue::Node *nodes;
     Light *lights;
 
@@ -177,17 +174,17 @@ void Scene::renderGpu(int const &width, int const &height,
                                      sizeof(RayTrace::TraceQueue::Node)*n_nodes))
     PX_CUDA_CHECK(cudaMalloc(&lights, _param->dimension*sizeof(Light)))
     PX_CUDA_CHECK(cudaMemset(lights, 0, _param->dimension*sizeof(Light)))
-
     bool *stop_flag;
     PX_CUDA_CHECK(cudaHostGetDevicePointer(&stop_flag, _gpu_stop_flag, 0))
     int *progress;
     PX_CUDA_CHECK(cudaHostGetDevicePointer(&progress, _rendering_progress, 0))
 
+    std::cout << "\n[Info] Begin rendering..." << std::flush;
+
 #ifndef NDEBUG
     TIC(1)
 #endif
 //    cudaProfilerStart();
-
     if (*_gpu_stop_flag == true)
         return;
 
@@ -220,8 +217,6 @@ void Scene::renderGpu(int const &width, int const &height,
     {
         toColor<<<blocks, threads>>>(lights, _pixels_gpu, _param->dimension, sampling_weight);
     }
-
-
 
 //    cudaProfilerStop();
 

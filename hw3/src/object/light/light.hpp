@@ -34,7 +34,8 @@ public:
     PX_CUDA_CALLABLE
     virtual PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const = 0;
     __device__
-    virtual Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const = 0;
+    virtual Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                                    curandState_t * const &state) const = 0;
     virtual Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const = 0;
     PX_CUDA_CALLABLE
     virtual Type type() const = 0;
@@ -45,9 +46,10 @@ public:
         return attenuate(p.x, p.y, p.z);
     }
     __device__
-    inline Direction dirFromDevice(Point const &p, PREC &dist) const
+    inline Direction dirFromDevice(Point const &p, PREC &dist,
+                                   curandState_t * const &state) const
     {
-        return dirFromDevice(p.x, p.y, p.z, dist);
+        return dirFromDevice(p.x, p.y, p.z, dist, state);
     }
     inline Direction dirFromHost(Point const &p, PREC &dist) const
     {
@@ -81,7 +83,8 @@ public:
     PX_CUDA_CALLABLE
     PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
+    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                            curandState_t * const &state) const override;
     Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
     PX_CUDA_CALLABLE
     Direction dirFrom(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
@@ -119,7 +122,8 @@ public:
     PX_CUDA_CALLABLE
     PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
+    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                            curandState_t * const &state) const override;
     Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
     PX_CUDA_CALLABLE
     Direction dirFrom(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
@@ -159,7 +163,8 @@ public:
     PX_CUDA_CALLABLE
     PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
+    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                            curandState_t * const &state) const override;
     Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
     PX_CUDA_CALLABLE
     Direction dirFrom(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
@@ -218,7 +223,8 @@ public:
     PX_CUDA_CALLABLE
     PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    virtual Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
+    virtual Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                                    curandState_t * const &state) const;
     virtual Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
     PX_CUDA_CALLABLE
     Type type() const override
@@ -247,6 +253,5 @@ protected:
 
     bool _need_upload;
 };
-
 
 #endif // PX_CG_OBJECT_LIGHT_LIGHT_HPP

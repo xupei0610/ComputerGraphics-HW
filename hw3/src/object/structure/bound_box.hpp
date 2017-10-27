@@ -39,7 +39,7 @@ public:
     void addObj(BaseGeometry * const &obj);
 
 protected:
-    struct List
+    struct Stack
     {
         struct Node
         {
@@ -47,42 +47,33 @@ protected:
             Node *next;
 
             PX_CUDA_CALLABLE
-            Node(BaseGeometry * const &obj) : data(obj), next(nullptr)
+            Node(BaseGeometry * const &obj, Node *const &next)
+                    : data(obj), next(next)
             {}
 
             PX_CUDA_CALLABLE
             ~Node() = default;
         };
 
-        Node *start;
-        Node *end;
+        Node *first;
         int n;
 
         PX_CUDA_CALLABLE
-        List() : start(nullptr), end(nullptr), n(0)
+        Stack() : first(nullptr), n(0)
         {}
 
         PX_CUDA_CALLABLE
         void add(BaseGeometry *const &obj)
         {
-            if (start == nullptr)
-            {
-                start = new Node(obj);
-                end = start;
-            }
-            else
-            {
-                end->next = new Node(obj);
-                end = end->next;
-            }
+            first = new Node(obj, first);
             ++n;
         }
 
         PX_CUDA_CALLABLE
-        ~List() = default; // data come from shared_ptr;
+        ~Stack() = default; // data come from shared_ptr
     };
 
-    List _objects;
+    Stack _objects;
 
     Point _vertex_min;
     Point _vertex_max;

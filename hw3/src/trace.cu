@@ -38,40 +38,39 @@ void RayTrace::TraceQueue::pop()
         --n;
 }
 
-#define VAR_LIG(j) (*(scene->lights[j]))
-#define VAR_GEO(i) (*(scene->geometries[i]))
+#define LIGHT(j) (*(scene->lights[j]))
+#define GEOMETRY(i) (*(scene->geometries[i]))
 
 __device__
 const BaseGeometry *RayTrace::hitCheck(Ray const & ray,
                              const Scene::Param *const &scene,
-                             PREC &t)
+                             Point &intersection)
 {
-    auto end_range = scene->hit_max_tol;
+    intersection.y = scene->hit_max_tol;
     const BaseGeometry * obj = nullptr;
     for (auto i = 0; i < scene->n_geometries; ++i)
     {
-        auto tmp_obj = VAR_GEO(i)->hit(ray, scene->hit_min_tol, end_range, t);
+        auto tmp_obj = GEOMETRY(i)->hit(ray, scene->hit_min_tol, intersection.y, intersection.x);
         if (tmp_obj == nullptr)
             continue;
 
-        end_range = t;
+        intersection.y = intersection.x;
         obj = tmp_obj;
     }
+    intersection = ray[intersection.x];
     return obj;
 }
 
 __device__
 Light RayTrace::reflect(Point const &intersect,
-                        Direction const &direction,
                         Point const &texture_coord,
                         const BaseGeometry *const &obj,
                         const Scene::Param *const &scene,
-                        Direction &n, Direction &r)
+                        curandState_t * const &state,
+                        Direction const &n, Direction const &r)
 {
-    n = obj->normVec(intersect); // norm vector at the hit point
-    r = direction-n*(2*direction.dot(n));     // reflect vector
-    Ray I(intersect, {0, 0, 0});      // from hit point to light source
-    Direction h(0, 0, 0);             // half vector
+    Ray I(intersect, {0, 0, 0});      // from hit point2ObjCoord to light source
+//    Direction h(0, 0, 0);             // half vector
 
     auto diffuse = obj->material()->diffuse(texture_coord.x, texture_coord.y, texture_coord.z);
     auto specular = obj->material()->specular(texture_coord.x, texture_coord.y, texture_coord.z);
@@ -83,18 +82,18 @@ Light RayTrace::reflect(Point const &intersect,
     for (auto j = 0; j < scene->n_lights; ++j)
     {
         // soft shadow for area light
-        int sampling = VAR_LIG(j)->type() == BaseLight::Type::AreaLight ? scene->area_light_sampling : 1;
+        int sampling = LIGHT(j)->type() == BaseLight::Type::AreaLight ? scene->area_light_sampling : 1;
         int shadow_hit = sampling;
 
         for (auto k = 0; k < sampling; ++k)
         {
-            I.direction = VAR_LIG(j)->dirFromDevice(intersect, dist);
-            // attenuate represents distance from intersect point to the light here
+            I.direction = LIGHT(j)->dirFromDevice(I.original, dist, state);
+            // attenuate represents distance from intersect point2ObjCoord to the light here
 
 //        h = I.direction - ray.direction;
             for (auto i = 0; i < scene->n_geometries; ++i)
             {
-                if (VAR_GEO(i)->hit(I, scene->hit_min_tol, dist, t))
+                if (GEOMETRY(i)->hit(I, scene->hit_min_tol, dist, t))
                 {
                     --shadow_hit;
                     break;
@@ -102,19 +101,19 @@ Light RayTrace::reflect(Point const &intersect,
             }
         }
 
-        if (shadow_hit != 0) // shadow_hit == 0 means that the pixel is completely in shadow.
-        {
-            dist = VAR_LIG(j)->attenuate(intersect) * shadow_hit / sampling;
-            if (dist == 0)
-                continue;
-            L += diffuseReflect(VAR_LIG(j)->light(), diffuse,
-                                I.direction, n) * dist;
+        if (shadow_hit == 0) // shadow_hit == 0 means that the pixel is completely in shadow.
+            continue;
 
-            L += specularReflect(VAR_LIG(j)->light(), specular,
+        dist = LIGHT(j)->attenuate(intersect) * shadow_hit / sampling;
+        if (dist == 0)
+            continue;
+        L += diffuseReflect(LIGHT(j)->light(), diffuse,
+                            I.direction, n) * dist;
+
+        L += specularReflect(LIGHT(j)->light(), specular,
 //                                 h, n, // Blinn Phong model
-                                 I.direction, r, // Phong model
-                                 specular_exp) * dist;
-        }
+                             I.direction, r, // Phong model
+                             specular_exp) * dist;
     }
     return L;
 }
@@ -131,11 +130,11 @@ void RayTrace::recursive(Point const &intersect,
 {
     auto ref = obj.material()->transmissive(texture_coord.x, texture_coord.y, texture_coord.z);
     ref *= current.coef;
-    if (ref.x > -FLT_MIN && ref.x < FLT_MIN)
+    if (ref.x > -EPSILON && ref.x < EPSILON)
         ref.x = 0;
-    if (ref.y > -FLT_MIN && ref.y < FLT_MIN)
+    if (ref.y > -EPSILON && ref.y < EPSILON)
         ref.y = 0;
-    if (ref.z > -FLT_MIN && ref.z < FLT_MIN)
+    if (ref.z > -EPSILON && ref.z < EPSILON)
         ref.z = 0;
     if (ref.x != 0 || ref.y != 0 || ref.z != 0)
     {
@@ -151,13 +150,13 @@ void RayTrace::recursive(Point const &intersect,
             // refractive vector
             if (cos_phi_2 >= 0)
             {
-                auto t = n * cos_theta;
+                auto t = n;
+                t *= cos_theta;
                 t += current.ray.direction;
                 t *= ior;
                 if (cos_phi_2 != 0)
                     t -= n * std::sqrt(cos_phi_2);
-                trace.prepend(intersect + current.ray.direction*scene.hit_min_tol,
-                              t,
+                trace.prepend(intersect, t,
                               ref, current.depth+1);
             }
 
@@ -166,16 +165,18 @@ void RayTrace::recursive(Point const &intersect,
 
     ref = obj.material()->specular(texture_coord.x, texture_coord.y, texture_coord.z);
     ref *= current.coef;
-    if (ref.x > -FLT_MIN && ref.x < FLT_MIN)
+    if (ref.x > -EPSILON && ref.x < EPSILON)
         ref.x = 0;
-    if (ref.y > -FLT_MIN && ref.y < FLT_MIN)
+    if (ref.y > -EPSILON && ref.y < EPSILON)
         ref.y = 0;
-    if (ref.z > -FLT_MIN && ref.z < FLT_MIN)
+    if (ref.z > -EPSILON && ref.z < EPSILON)
         ref.z = 0;
     if (ref.x != 0 || ref.y != 0 || ref.z != 0)
     {
-        trace.prepend(intersect + r*scene.hit_min_tol, r,
+        trace.prepend(intersect, r,
                       ref, current.depth + 1);
     }
 }
 
+#undef GEOMETRY
+#undef LIGHT

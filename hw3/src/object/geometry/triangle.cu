@@ -27,36 +27,37 @@ const BaseGeometry * BaseTriangle::hitCheck(Ray const &ray,
 {
     auto pvec = ray.direction.cross(_ca);
     auto det = pvec.dot(_ba);
-    if (det < FLT_MIN && det > -FLT_MIN)
+    if (det < EPSILON && det > -EPSILON)
         return nullptr;
 
     auto tvec = ray.original - _raw_vertices[0];
     auto u = tvec.dot(pvec) / det;
     if (u < 0 || u > 1) return nullptr;
 
-    auto qvec = tvec.cross(_ba);
-    auto v = qvec.dot(ray.direction) / det;
+    pvec = tvec.cross(_ba);
+    auto v = pvec.dot(ray.direction) / det;
     if (v < 0 || v + u > 1) return nullptr;
 
-    auto tmp = (_ca).dot(qvec) / det;
-    return (tmp > t_start && tmp < t_end) ? (hit_at = tmp, this) : nullptr;
+    det = (_ca).dot(pvec) / det;
+    return (det > t_start && det < t_end) ? (hit_at = det, this) : nullptr;
 
 //    auto n_dot_d = ray.direction.dot(_norm_vec);
-//    if (n_dot_d < 1e-12 && n_dot_d > -1e-12)
-//        return false;
+//    if (n_dot_d < EPSILON && n_dot_d > EPSILON)
+//        return nullptr;
 //
-//    auto tmp = (_v1_dot_n - ray.original.dot(_norm_vec)) / n_dot_d;
-//    if (tmp > t_start && tmp < t_end)
+//    n_dot_d = (_v1_dot_n - ray.original.dot(_norm_vec)) / n_dot_d;
+//    if (n_dot_d > t_start && n_dot_d < t_end)
 //    {
-//      auto p = ray[tmp];
-//      if (_cb.cross(ray[t,-b).dot(_norm_vec) >= 0 &&
-//        _ca.cross(c-p).dot(_norm_vec) >= 0 &&
-//        _ba.cross(p-a).dot(_norm_vec) >= 0)
+//      auto p = ray[n_dot_d];
+//      if (_cb.cross(p - _raw_vertices[1]).dot(_norm_vec) >= 0 &&
+//          _ca.cross(_raw_vertices[2]-p).dot(_norm_vec) >= 0 &&
+//          _ba.cross(p-_raw_vertices[0]).dot(_norm_vec) >= 0)
 //      {
-//        hit_at = tmp;
+//        hit_at = n_dot_d;
 //        return this;
 //      }
 //    }
+//    return nullptr;
 }
 
 PX_CUDA_CALLABLE

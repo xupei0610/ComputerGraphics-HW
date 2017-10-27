@@ -1,33 +1,35 @@
 max_depth 10
-
+mode gpu
 camera 0 0 -30 0 0 1 0 1 0 30
 film_resolution 1024 768
 background .25 0 0
 output_image foo.bmp
 
-area_light 100 100 100 0 0 0 0.1
-area_light_sampling 32
-directional_light 0 2 0 0 0 1
-spot_light 0 0 50 3 3 0 0 0 1 5 20
+area_light 100 100 100 0 0 -1 0.5
+#point_light 100 100 100 0 0 0
+area_light_sampling 64
+#directional_light 0 2 0 0 0 1
+#spot_light 0 0 50 3 3 0 0 0 1 5 20
 
 group begin
 
 material 0 0 0 1 .2 .2 .8 .8 .8 100 0 0 0 1
-group begin
-group begin
-sphere 4 4 5 2 
+#group begin
+#group begin
+sphere 4 4 5 2
 sphere -4 4 5 2
 group end
-group begin
+#group begin
 sphere 4 -4 5 2
 sphere -4 -4 5 2
-group end
-group end
+#group end
+#group end
 
 material 0 0 0 1 0 1 .2 .2 .2 100 0 0 0 1
-box -15 15 -15 15 7.1 11
+box -30 30 -30 30 7.1 11
+#sphere 0 0 0 4
 
-group end
+#group end
 
-ambient_light 1 1 1
+#ambient_light 1 1 1
 

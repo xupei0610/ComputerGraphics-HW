@@ -30,7 +30,7 @@ const BaseGeometry *BaseGeometry::hit(Ray const &ray,
     if (_transformation == nullptr)
         return hitCheck(ray, range_start, range_end, hit_at);
 
-    Ray trans_ray(_transformation->point(ray.original),
+    Ray trans_ray(_transformation->point2ObjCoord(ray.original),
                   _transformation->direction(ray.direction));
 
     return hitCheck(trans_ray, range_start, range_end, hit_at);
@@ -44,7 +44,8 @@ Direction BaseGeometry::normal(PREC const &x,
     // TODO bump mapping
     if (_transformation == nullptr)
         return normalVec(x, y, z);
-    return _transformation->normal(normalVec(_transformation->point(x, y, z)));
+    return _transformation->normal(normalVec(
+            _transformation->point2ObjCoord(x, y, z)));
 }
 
 PX_CUDA_CALLABLE
@@ -54,6 +55,6 @@ Vec3<PREC> BaseGeometry::textureCoord(PREC const &x,
 {
     if (_transformation == nullptr)
         return getTextureCoord(x, y, z);
-    auto p = _transformation->point(x, y, z);
+    auto p = _transformation->point2ObjCoord(x, y, z);
     return getTextureCoord(p.x, p.y, p.z);
 }

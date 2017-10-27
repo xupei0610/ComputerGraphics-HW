@@ -68,15 +68,17 @@ Scene::Scene()
                                 cudaHostAllocMapped));
 #else
     _gpu_stop_flag = nullptr;
-    _rendering_progress = new PREC;
+    _rendering_progress = new int;
 #endif
 }
 
 Scene::~Scene()
 {
     clearPixels();
+#ifdef USE_CUDA
     if (_gpu_stop_flag != nullptr)
         PX_CUDA_CHECK(cudaFreeHost(_gpu_stop_flag));
+#endif
     if (_rendering_progress != nullptr)
     {
 #ifdef USE_CUDA
@@ -202,11 +204,15 @@ void Scene::setHitMaxTol(PREC const &tol)
 
 }
 
-void Scene::setComputationMode(ComputationMode const &mode)
+bool Scene::setComputationMode(ComputationMode const &mode)
 {
 #ifdef USE_CUDA
     _mode = mode;
+#else
+    if (_mode == ComputationMode::GPU)
+        return false;
 #endif
+    return true;
 }
 
 void Scene::stopRendering()
@@ -236,10 +242,11 @@ int Scene::renderingTime()
 void Scene::render()
 {
     _is_rendering = true;
+#ifdef USE_CUDA
     *_gpu_stop_flag = false;
+#endif
     _cpu_stop_flag = false;
     *_rendering_progress = 0;
-
 
     clearPixels();
     allocatePixels();
@@ -265,9 +272,10 @@ void Scene::render()
 
     if (_cpu_stop_flag)
         _cpu_stop_flag = false;
+#ifdef USE_CUDA
     if (*_gpu_stop_flag)
         *_gpu_stop_flag = false;
-
+#endif
     _is_rendering = false;
 
 
@@ -286,6 +294,8 @@ void Scene::renderCpu(int const &width,
     // TODO Zoom Lens
 
     // TODO Ambient Occlusion
+
+    std::cout << "\r[Info] Begin rendering..." << std::flush;
 #ifndef NDEBUG
     TIC(1)
 #endif
@@ -322,8 +332,8 @@ void Scene::renderCpu(int const &width,
                 auto v = v0 + k0  * sampling_offset;
                 auto u = u0 + k1  * sampling_offset;
 #else
-                auto v = v0 + (k0 + rnd()) * sampling_offset;
-                auto u = u0 + (k1 + rnd()) * sampling_offset;
+                auto v = v0 + (k0 + rnd::rnd_cpu()) * sampling_offset;
+                auto u = u0 + (k1 + rnd::rnd_cpu()) * sampling_offset;
 #endif
 
                 auto x = u * cam->right_vector.x + v * cam->up_vector.x +
@@ -335,7 +345,8 @@ void Scene::renderCpu(int const &width,
 
                 ray.direction.set(x, y, z);
 
-                light += RayTrace::traceCpu(this, ray);
+                light += RayTrace::traceCpu(_cpu_stop_flag,
+                                            this, ray);
 
 #ifdef ADAPTIVE_SAMPLING
                 max_r = std::max(light.x, max_r);
@@ -366,8 +377,8 @@ void Scene::renderCpu(int const &width,
             {
                 for (auto k1 = -sampling_r + 1; k1 < sampling_r; k1 += 2)
                 {
-                    auto v = v0 + (k0 + rnd()) * sampling_offset;
-                    auto u = u0 + (k1 + rnd()) * sampling_offset;
+                    auto v = v0 + (k0 + rnd::rnd_cpu()) * sampling_offset;
+                    auto u = u0 + (k1 + rnd::rnd_cpu()) * sampling_offset;
 
                     auto x = u * cam->right_vector.x + v * cam->up_vector.x +
                              cam_dist * cam->direction.x;
@@ -378,7 +389,7 @@ void Scene::renderCpu(int const &width,
 
                     ray.direction.set(x, y, z);
 
-                    light += trace(ray);
+                    light += RayTrace::traceCpu(this, ray);
 
                 }
             }

@@ -136,14 +136,24 @@ void Transformation::clearGpuData()
 }
 
 PX_CUDA_CALLABLE
-Point Transformation::point(PREC const &x,
-                            PREC const &y,
-                            PREC const &z) const noexcept
+Point Transformation::point2ObjCoord(PREC const &x,
+                                     PREC const &y,
+                                     PREC const &z) const noexcept
 {
     return {_r00 * x + _r10 * y + _r20 * z + _t00,
             _r01 * x + _r11 * y + _r21 * z + _t01,
             _r02 * x + _r12 * y + _r22 * z + _t02};
 }
+PX_CUDA_CALLABLE
+Point Transformation::pointFromObjCoord(PREC const &x,
+                                        PREC const &y,
+                                        PREC const &z) const noexcept
+{
+    return {_r00 * (x-_t0) + _r01 * (y-_t1) + _r02 * (z-_t2),
+            _r10 * (x-_t0) + _r11 * (y-_t1) + _r12 * (z-_t2),
+            _r20 * (x-_t0) + _r21 * (y-_t1) + _r22 * (z-_t2)};
+}
+
 PX_CUDA_CALLABLE
 Direction Transformation::direction(Direction const &d) const noexcept
 {

@@ -14,11 +14,11 @@ T ambientReflect(T  const &light,
 {
     return light * material;
 }
-template<typename T>
+
 PX_CUDA_CALLABLE
 inline
-T diffuseReflect(T const &light,
-                 T const &material,
+Light diffuseReflect(Light const &light,
+                 Light const &material,
                  Direction const &to_light_vec,
                  Direction const &norm_vec)
 {
@@ -36,7 +36,7 @@ Light specularReflect(Light const &light,
                       int const &specular_exponent)
 {
     auto f = to_light_vec.dot(reflect_vec);
-    if (f < 0) return Light(0, 0, 0);
+    if (f < 0) return {0, 0, 0};
     return light * material * std::pow(f, specular_exponent);
 }
 PX_CUDA_CALLABLE
@@ -52,7 +52,8 @@ PREC specularReflect(PREC const &light,
     return light * material * std::pow(f, specular_exponent);
 }
 
-Light traceCpu(const Scene *const &scene,
+Light traceCpu(bool const &stop_flag,
+               const Scene *const &scene,
                Ray const &ray,
                PREC const &refractive_index = 1.0,
                int const &depth = 0);
@@ -76,7 +77,7 @@ struct TraceQueue
 
     Node *ptr;
     int n;
-    int size;
+    const int &size;
 
     PX_CUDA_CALLABLE
     TraceQueue(Node *const &ptr, int const &size);
@@ -93,14 +94,14 @@ struct TraceQueue
 __device__
 const BaseGeometry *hitCheck(Ray const & ray,
                              const Scene::Param *const &scene,
-                             PREC &t);
+                             Point &intersection);
 __device__
 Light reflect(Point const &intersect,
-              Direction const &direction,
               Point const &texture_coord,
               const BaseGeometry *const &obj,
               const Scene::Param *const &scene,
-              Direction &n, Direction &r);
+              curandState_t * const &state,
+              Direction const &n, Direction const &r);
 __device__
 void recursive(Point const &intersect,
                 TraceQueue::Node const &current,

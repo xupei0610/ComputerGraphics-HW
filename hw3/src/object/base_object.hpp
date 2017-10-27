@@ -155,16 +155,23 @@ public:
                                                   std::shared_ptr<Transformation> const &parent = nullptr);
 
     PX_CUDA_CALLABLE
-    Point point(PREC const &x, PREC const &y, PREC const &z) const noexcept;
+    Point point2ObjCoord(PREC const &x, PREC const &y, PREC const &z) const noexcept;
+    PX_CUDA_CALLABLE
+    Point pointFromObjCoord(PREC const &x, PREC const &y, PREC const &z) const noexcept;
     PX_CUDA_CALLABLE
     Direction direction(Direction const &d) const noexcept;
     PX_CUDA_CALLABLE
     Direction normal(Direction const &n) const noexcept;
 
     PX_CUDA_CALLABLE
-    inline Point point(Point const &p) const noexcept
+    inline Point point2ObjCoord(Point const &p) const noexcept
     {
-        return point(p.x, p.y, p.z);
+        return point2ObjCoord(p.x, p.y, p.z);
+    }
+    PX_CUDA_CALLABLE
+    inline Point pointFromObjCoord(Point const &p) const noexcept
+    {
+        return pointFromObjCoord(p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
     inline Direction direction(PREC const &x, PREC const &y, PREC const &z) const noexcept

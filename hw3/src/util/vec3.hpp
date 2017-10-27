@@ -31,6 +31,14 @@ public:
     PX_CUDA_CALLABLE
     ~Vec3() = default;
 
+    T absMax() const
+    {
+        auto abs_x = std::abs(x);
+        auto abs_y = std::abs(y);
+        auto abs_z = std::abs(z);
+        return abs_x > abs_y ? (abs_x > abs_z ? abs_x : abs_z) : (abs_y > abs_z ? abs_y : abs_z);
+    }
+
     template<typename T_IN>
     PX_CUDA_CALLABLE
     Vec3<T> &operator=(Vec3<T_IN> const &v)

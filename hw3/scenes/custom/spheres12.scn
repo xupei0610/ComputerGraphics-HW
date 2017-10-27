@@ -4,7 +4,7 @@ output_image spheres1.bmp
 
 #"ground" sphere
 material .75 .75 .75 .75 .75 .75 .3 .3 .3 32 .2 .2 .2 1.5
-sphere 0 -50 0 50
+#sphere 0 -50 0 50
 
 #red shpere
 material 1 0 0 1 0 0 .3 .3 .3 32 .2 .2 .2 1.5
@@ -16,7 +16,14 @@ sphere 0 1.25 0 1
 
 #blue shpere
 material 0 0 1 0 0 1 0 0 0 16 0 0 0 1.0
-sphere 3 1.5 0 1.25
+#sphere 3 1.5 0 1.25
+ellipsoid 3 1.5 0 1 2 3
+
+disk 0 0 0 0 1 0 2
+#plane 0 0 0 0 1 0
+
+#texture 1 1 1 1 1 1 0 0 0 1 0 0 0 1 images.bin rgb 0.01171875 0.01171875
+quadric 0 2 0 1 1 0 0 0 0 0 0 0 -1 -10 10 -10 10 -2 2
 
 #white overhad light
 point_light 10 10 10 0 5 0

@@ -13,7 +13,8 @@ BaseDisk::BaseDisk(Point const &pos,
                    const BaseMaterial *const &material,
                    const Transformation *const &trans)
         : BaseGeometry(material, trans, 8),
-          _center(pos), _radius(radius), _radius2(radius*radius),
+          _center(pos), _norm_vec(norm_vec),
+          _radius(radius), _radius2(radius*radius),
           _p_dot_n(pos.dot(norm_vec))
 {
     updateVertices();

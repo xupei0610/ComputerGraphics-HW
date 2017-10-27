@@ -719,5 +719,8 @@ void GpuCreator::BVH(BaseGeometry **const &dev_ptr,
          BaseGeometry ***const &objs,
          int const &n)
 {
-    createBVH<<<1, 1>>>(dev_ptr, objs, n);
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+    createBVH<<<1, 1, 0, stream>>>(dev_ptr, objs, n);
+    cudaStreamDestroy(stream);
 }

@@ -2,7 +2,7 @@
 
 using namespace px;
 
-#define WIN_TITLE "HW1 Demo - by Pei Xu"
+#define WIN_TITLE "HW3 Demo - by Pei Xu"
 #define WIN_INIT_WIDTH  500
 #define WIN_INIT_HEIGHT 500
 #define WIN_INIT_POS_X  SDL_WINDOWPOS_CENTERED
@@ -40,7 +40,7 @@ void Window::setScene(std::shared_ptr<Scene> const &scene)
 
 void Window::setTitle(std::string const &title)
 {
-    SDL_SetWindowTitle(window, title.data());
+    SDL_SetWindowTitle(window, (title + " - by Pei Xu").data());
 }
 
 void Window::render()

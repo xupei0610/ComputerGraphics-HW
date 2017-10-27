@@ -2,18 +2,14 @@
 
 using namespace px;
 
-Light RayTrace::traceCpu(const Scene *const &scene,
-                         Ray const & ray,
+Light RayTrace::traceCpu(bool const &stop_flag,
+                         const Scene *const &scene,
+                         Ray const &ray,
                          PREC const &refractive_index,
                          int const &depth)
 {
-//    if (stop_rendering)
-//        return bg;
-
-    // this function is basically the same to the GPU one but the following function
-#define FN_LIGHT_DIR(p,d) dirFromHost(p,d)
-#define FN_RND rnd::rnd_cpu()
-#define FN_TRACE traceCpu
+    if (stop_flag)
+        return {0, 0, 0};
 
     auto end_range = scene->hit_max_tol;
     PREC t;
@@ -21,7 +17,7 @@ Light RayTrace::traceCpu(const Scene *const &scene,
 
     for (const auto &g : scene->geometries)
     {
-        tmp_obj = g->obj()->hit(ray, 0, end_range, t);
+        tmp_obj = g->obj()->hit(ray, scene->hit_min_tol, end_range, t);
         if (tmp_obj == nullptr)
             continue;
 
@@ -34,10 +30,10 @@ Light RayTrace::traceCpu(const Scene *const &scene,
 
 
     auto intersect = ray[t];
-    auto n = obj->normVec(intersect); // norm vector at the hit point
-    Ray I(intersect, {0, 0, 0});      // from hit point to light source
+    auto n = obj->normVec(intersect); // norm vector at the hit point2ObjCoord
+    Ray I(intersect, {0, 0, 0});      // from hit point2ObjCoord to light source
 //    Direction h(0, 0, 0);             // half vector
-    Direction r = ray.direction-n*(2*ray.direction.dot(n));     // reflect vector
+    Direction r(ray.direction);     // reflect vector
 
     auto texture_coord = obj->textureCoord(intersect);
     auto diffuse = obj->material()->diffuse(texture_coord);
@@ -49,13 +45,13 @@ Light RayTrace::traceCpu(const Scene *const &scene,
     for (const auto &light : scene->lights)
     {
         // soft shadow for area light
-        int sampling = 1;// light->type() == BaseLight::Type::AreaLight ? scene->area_light_sampling : 1;
+        int sampling = light->type() == BaseLight::Type::AreaLight ? scene->area_light_sampling : 1;
         int shadow_hit = sampling;
 
         for (auto k = 0; k < sampling; ++k)
         {
-            I.direction = light->FN_LIGHT_DIR(intersect, attenuate);
-            // attenuate represents distance from intersect point to the light here
+            I.direction = light->dirFromHost(intersect, attenuate);
+            // attenuate represents distance from intersect point2ObjCoord to the light here
 
 //        h = I.direction - ray.direction;
             for (const auto &g : scene->geometries)
@@ -68,28 +64,28 @@ Light RayTrace::traceCpu(const Scene *const &scene,
             }
         }
 
-        if (shadow_hit != 0) // shadow_hit == 0 means that the pixel is completely in shadow.
-        {
-            attenuate = light->attenuate(intersect) * shadow_hit / sampling;
+        if (shadow_hit == 0) // shadow_hit == 0 means that the pixel is completely in shadow.
+            continue;
 
-            if (attenuate == 0)
-                continue;
+        attenuate = light->attenuate(intersect) * shadow_hit / sampling;
 
-            L += diffuseReflect(light->light(), diffuse,
-                                I.direction, n) * attenuate;
+        if (attenuate == 0)
+            continue;
 
-            L += specularReflect(light->light(), specular,
+        L += diffuseReflect(light->light(), diffuse,
+                            I.direction, n) * attenuate;
+
+        L += specularReflect(light->light(), specular,
 //                                 h, n, // Blinn Phong model
-                                 I.direction, r, // Phong model
-                                 specular_exp) * attenuate;
-        }
+                             I.direction, r, // Phong model
+                             specular_exp) * attenuate;
+
     }
 
     if (depth < scene->recursion_depth)
     {
         auto ref = obj->material()->transmissive(texture_coord);
         if (ref.x != 0 || ref.y != 0 || ref.z != 0)
-//        if (ref.norm2() > 1e-5)
         {
             // refract
             auto cos_theta = ray.direction.dot(n);
@@ -106,18 +102,20 @@ Light RayTrace::traceCpu(const Scene *const &scene,
                 t *= n_ratio;
                 if (cos_phi_2 != 0)
                     t -= n * std::sqrt(cos_phi_2);
-                ref *= FN_TRACE(scene,
-                             {intersect+t*scene->hit_min_tol, t}, nt, depth + 1);
+                ref *= traceCpu(stop_flag,
+                                scene,
+                                {intersect, t}, nt, depth + 1);
                 L += ref;
             }
         }
 
         // reflect
         if (specular.x != 0 || specular.y != 0 || specular.z != 0)
-//        if (specular.norm2() > 1e-5)
         {
-            specular *= FN_TRACE(scene,
-                         {intersect+r*scene->hit_min_tol, r}, refractive_index, depth+1);
+            specular *= traceCpu(stop_flag,
+                                     scene,
+                                     {intersect, r},
+                                     refractive_index, depth+1);
             L += specular;
         }
 
@@ -130,8 +128,8 @@ Light RayTrace::traceCpu(const Scene *const &scene,
                 Light indirect_diffuse(0, 0, 0);
                 for (auto i = 0; i < N; ++i)
                 {
-                    auto r1 = std::abs(FN_RND);
-                    auto r2 = std::abs(FN_RND);
+                    auto r1 = std::abs(rnd::rnd_cpu());
+                    auto r2 = std::abs(rnd::rnd_cpu());
 
                     auto s = std::sqrt(1 - r1 * r1);
                     auto phi = 2 * PI * r2;
@@ -156,9 +154,9 @@ Light RayTrace::traceCpu(const Scene *const &scene,
                                      x * Nb.y + r1 * n.y + z * Nt.y,
                                      x * Nb.z + r1 * n.z + z * Nt.z);
 
-                    indirect_diffuse += FN_TRACE(
+                    indirect_diffuse += traceCpu(stop_flag,
                             scene,
-                            {intersect + sample * scene->hit_min_tol, sample},
+                            {intersect, sample},
                             refractive_index,
                             depth + 1) * r1;
                 }
@@ -168,10 +166,5 @@ Light RayTrace::traceCpu(const Scene *const &scene,
         }
     }
 
-
     return L;
-
-#undef FN_LIGHT_DIR
-#undef FN_RND
-#undef FN_TRACE
 }

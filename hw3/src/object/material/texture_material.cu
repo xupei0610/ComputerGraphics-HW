@@ -98,23 +98,17 @@ Light Texture::rgb(PREC const &u, PREC const &v) const
 {
     // TODO bilinear interploration
 
-    auto uu = std::abs(u/_scale_u);
+    auto uu = std::abs(u/_scale_u);;
     auto uv = std::abs(v/_scale_v);
 
-    auto iu = static_cast<int>(uu) / _width;
-    auto iv = static_cast<int>(uv) / _height;
+    auto iu = static_cast<int>((static_cast<int>(uu) / _width) % 2 == 1 ? _width - std::fmod(uu, static_cast<decltype(u)>(_width)) : std::fmod(uu, static_cast<decltype(u)>(_width)));
+    auto iv = static_cast<int>((static_cast<int>(uv) / _height) % 2 == 1 ? _height - std::fmod(uv, static_cast<decltype(u)>(_height)) : std::fmod(uv, static_cast<decltype(u)>(_height)));
 
-    auto dsu = std::fmod(uu, static_cast<decltype(u)>(_width));
-    auto dsv = std::fmod(uv, static_cast<decltype(u)>(_height));
+    iu = (iv * _width + iu) * _comp;
 
-    auto su = static_cast<int>(iu % 2 == 1 ? _width - dsu : dsu);
-    auto sv = static_cast<int>(iv % 2 == 1 ? _height - dsv : dsv);
-
-    auto tar = (sv * _width + su) * _comp;
-
-    return {_texture[tar] /  PREC(255.0),
-            _texture[tar+1] / PREC(255.0),
-            _texture[tar+2] / PREC(255.0)};
+    return {_texture[iu] /  PREC(255.0),
+            _texture[iu+1] / PREC(255.0),
+            _texture[iu+2] / PREC(255.0)};
 }
 
 
@@ -126,21 +120,35 @@ PREC Texture::alpha(PREC const &u, PREC const &v) const
     if (_format == Format::RGB)
         return 1.0;
 
-    auto uu = std::abs(u/_scale_u);
+    auto uu = std::abs(u/_scale_u);;
     auto uv = std::abs(v/_scale_v);
 
-    auto iu = static_cast<int>(uu) / _width;
-    auto iv = static_cast<int>(uv) / _height;
+    auto iu = static_cast<int>((static_cast<int>(uu) / _width) % 2 == 1 ?
+                               _width - std::fmod(uu, static_cast<decltype(u)>(_width)) :
+                               std::fmod(uu, static_cast<decltype(u)>(_width)));
+    auto iv = static_cast<int>((static_cast<int>(uv) / _height) % 2 == 1 ?
+                               _height - std::fmod(uv, static_cast<decltype(u)>(_height)) :
+                               std::fmod(uv, static_cast<decltype(u)>(_height)));
 
-    auto dsu = std::fmod(uu, static_cast<PREC>(_width));
-    auto dsv = std::fmod(uv, static_cast<PREC>(_height));
+    iu = (iv * _width + iu) * _comp;
 
-    auto su = static_cast<int>(iu % 2 == 1 ? _width - dsu : dsu);
-    auto sv = static_cast<int>(iv % 2 == 1 ? _height - dsv : dsv);
+    return 1.0 - _texture[iu+3] / PREC(255.0);
 
-    auto tar = (sv * _width + su) * _comp;
-
-    return 1.0 - _texture[tar+3] / 255.0;
+//    auto uu = std::abs(u/_scale_u);
+//    auto uv = std::abs(v/_scale_v);
+//
+//    auto iu = static_cast<int>(uu) / _width;
+//    auto iv = static_cast<int>(uv) / _height;
+//
+//    auto dsu = std::fmod(uu, static_cast<PREC>(_width));
+//    auto dsv = std::fmod(uv, static_cast<PREC>(_height));
+//
+//    auto su = static_cast<int>(iu % 2 == 1 ? _width - dsu : dsu);
+//    auto sv = static_cast<int>(iv % 2 == 1 ? _height - dsv : dsv);
+//
+//    auto tar = (sv * _width + su) * _comp;
+//
+//    return 1.0 - _texture[tar+3] / 255.0;
 }
 
 Texture *Texture::devPtr()
@@ -160,9 +168,9 @@ void Texture::up2Gpu()
             PX_CUDA_CHECK(cudaFree(_texture_gpu));
 
         PX_CUDA_CHECK(cudaMalloc(&_texture_gpu,
-                                 sizeof(std::uint8_t)*_height*_width));
+                                 sizeof(std::uint8_t)*_comp*_height*_width));
         PX_CUDA_CHECK(cudaMemcpy(_texture_gpu, _texture,
-                                 sizeof(std::uint8_t)*_height*_width,
+                                 sizeof(std::uint8_t)*_comp*_height*_width,
                                  cudaMemcpyHostToDevice));
 
         std::swap(_texture_gpu, _texture);
@@ -192,6 +200,7 @@ void Texture::clearGpuData()
 
     _dev_ptr = nullptr;
     _need_upload = true;
+    _texture_gpu = nullptr;
 #endif
 }
 

@@ -37,11 +37,14 @@ int main(int argc, char *argv[])
 #include "default_scene.dat"
     };
 
+    std::string window_title;
+
     std::string f;
     if (argc == 1)
     {
         f = DEFAULT_SCENE;
         std::cout << "[Info] Default scene loaded." << std::endl;
+        window_title = "HW3 Demo";
     }
     else if (argc == 2)
     {
@@ -58,6 +61,7 @@ int main(int argc, char *argv[])
             throw std::invalid_argument("[Error] Failed to read scene file `" + std::string(argv[1]) + "`.");
         }
         std::cout << "[Info] Loaded scene file `" << argv[1] << "`" << std::endl;
+        window_title = argv[1];
     }
     else
     {
@@ -78,6 +82,9 @@ int main(int argc, char *argv[])
     Window w(scene);
     auto t = std::thread([&]
     {
+        std::cout << "[Info] Computation Mode: "
+                  << (scene->mode == Scene::ComputationMode::CPU ? "CPU" : "GPU")
+                  << "\n" << std::flush;
         w.render();
         if (stop_request == false)
         {
@@ -86,11 +93,9 @@ int main(int argc, char *argv[])
         }
     });
 
+    w.setTitle(window_title);
+
     while (w.run() && stop_request == false);
-
-
-    if (stop_request == false)
-        std::cout << "\033[1K\r[Info] Process time: " << scene->renderingTime() << "ms" << std::endl;
 
     if (t.joinable())
     {
@@ -104,13 +109,18 @@ int main(int argc, char *argv[])
     auto t = std::thread([&]
     {
         started_rendering = true;
+        std::cout << "[Info] Computation Mode: "
+                  << (scene->mode == Scene::ComputationMode::CPU ? "CPU" : "GPU")
+                  << "\n" << std::flush;
 	    scene->render();
         if (stop_request == false)
             outputImg(outputs, scene);
     });
 
     while (started_rendering == false)
+    {
         std::cout << "\r[Info] Begin rendering..." << std::flush;
+    }
     while (scene->is_rendering && stop_request == false)
         std::cout << "\r[Info] Rendering: "
                   << scene->renderingProgress() << " / " << scene->dimension
