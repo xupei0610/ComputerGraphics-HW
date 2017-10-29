@@ -33,11 +33,27 @@ public:
                        const Transformation * const &trans);
     PX_CUDA_CALLABLE
     ~BaseNormalTriangle() = default;
-protected:
+
+
     PX_CUDA_CALLABLE
-    void setParam(Point const &vertex1, Direction const &normal1,
-                  Point const &vertex2, Direction const &normal2,
-                  Point const &vertex3, Direction const &normal3);
+    void setVertices(Point const &a,
+                     Point const &b,
+                     Point const &c);
+
+    PX_CUDA_CALLABLE
+    void setNormals(Direction const &na,
+                    Direction const &nb,
+                    Direction const &nc);
+protected:
+    Point _center;
+    Vec3<PREC> _ba;
+    Vec3<PREC> _cb;
+    Vec3<PREC> _ca;
+    Direction _na;
+    Direction _nb;
+    Direction _nc;
+    Direction _n;
+    PREC _n_norm;
 
     BaseNormalTriangle &operator=(BaseNormalTriangle const &) = delete;
     BaseNormalTriangle &operator=(BaseNormalTriangle &&) = delete;
@@ -58,21 +74,19 @@ public:
     void up2Gpu() override;
     void clearGpuData() override;
 
-    void setParam(Point const &vertex1, Direction const &normal1,
-                  Point const &vertex2, Direction const &normal2,
-                  Point const &vertex3, Direction const &normal3);
+    void setVertices(Point const &a,
+                     Point const &b,
+                     Point const &c);
+    void setNormals(Direction const &na,
+                    Direction const &nb,
+                    Direction const &nc);
 
     ~NormalTriangle();
 protected:
     BaseNormalTriangle *_obj;
     BaseGeometry *_base_obj;
 
-    Point _a;
-    Direction _na;
-    Point _b;
-    Direction _nb;
-    Point _c;
-    Direction _nc;
+    Point _a, _b, _c;
 
     std::shared_ptr<Material> _material_ptr;
     std::shared_ptr<Transformation> _transformation_ptr;

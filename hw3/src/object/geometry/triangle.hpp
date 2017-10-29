@@ -34,7 +34,6 @@ public:
     PX_CUDA_CALLABLE
     ~BaseTriangle() = default;
 
-
     PX_CUDA_CALLABLE
     void setVertices(Point const &a,
                      Point const &b,
@@ -45,7 +44,7 @@ protected:
     Vec3<PREC> _ba;
     Vec3<PREC> _cb;
     Vec3<PREC> _ca;
-    PREC _v1_dot_n;
+//    PREC _v1_dot_n;
 
     BaseTriangle &operator=(BaseTriangle const &) = delete;
     BaseTriangle &operator=(BaseTriangle &&) = delete;

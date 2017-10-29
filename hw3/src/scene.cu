@@ -28,11 +28,12 @@ __constant__ CameraParam cam_param[1];
 __constant__ Scene::Param scene_param[1];
 
 __global__
-void rayCast(bool *stop, int *progress,
-             Light *lights,
-                       RayTrace::TraceQueue::Node *node,
-                       PREC v_offset, PREC u_offset,
-                       int n_nodes)
+void rayCast(bool * stop,
+             int  * progress,
+             Light * lights,
+             RayTrace::TraceQueue::Node * node,
+             PREC v_offset, PREC u_offset,
+             int n_nodes)
 {
     RayTrace::TraceQueue tr(nullptr, n_nodes);
 
@@ -80,11 +81,11 @@ void rayCast(bool *stop, int *progress,
                 lights[index] += RayTrace::reflect(intersect, texture_coord,
                                                    obj, scene_param, &state,
                                                    n, r) * current.coef;
-//                if (current.depth < scene_param->recursion_depth)
-//                    RayTrace::recursive(intersect, current,
-//                                        texture_coord, *obj,
-//                                        n, r,
-//                                        tr, *scene_param);
+                if (current.depth < scene_param->recursion_depth)
+                    RayTrace::recursive(intersect, current,
+                                        texture_coord, *obj,
+                                        n, r,
+                                        tr, *scene_param);
             }
             if (tr.n > 0 && *stop == false)
             {
@@ -99,7 +100,7 @@ void rayCast(bool *stop, int *progress,
     }
 }
 
-PX_CUDA_KERNEL toColor(Light *input,
+__global__ void toColor(Light *input,
                        Scene::Color *output,
                        int dim,
                        PREC weight)

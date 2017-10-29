@@ -256,7 +256,6 @@ void Scene::render()
     auto sampling_r      = sampling_radius == 0 ? 1.0 : sampling_radius*2;
     auto sampling_offset = sampling_radius == 0 ? 1.0 : 0.25/sampling_radius;
 
-
 #ifdef USE_CUDA
     if (mode == ComputationMode::GPU)
     {

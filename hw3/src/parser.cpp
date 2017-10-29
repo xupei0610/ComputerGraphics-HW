@@ -31,12 +31,15 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
 #define S2D(var) std::stof(var)
 #define S2I(var) std::stoi(var)
 #define PARAM_CHECK(name, param_size, param, line)                                          \
-    if (param.size() != param_size + 1)                                                     \
+    if (param.size() < param_size + 1 ||                                                    \
+        (param.size() > param_size + 1 && param[param_size+1][0]!='#'))                     \
+    {                                                                                       \
         throw std::invalid_argument("[Error] Failed to parse `" name                        \
                                     "` at line " +                                          \
                                     std::to_string(line) + " (" +                           \
                                     std::to_string(param_size) + " parameters expected, " + \
-                                    std::to_string(param.size() - 1) + " provided)");
+                                    std::to_string(param.size() - 1) + " provided)");       \
+    }
 #define PARSE_TRY(cmd, name, line)                                   \
     try                                                              \
     {                                                                \
@@ -113,18 +116,18 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                                               transform.back())),
                       "triangle", ln)
         }
-        else if (param[0] == "normalVec")
+        else if (param[0] == "normal")
         {
-            PARAM_CHECK("normalVec", 3, param, ln)
+            PARAM_CHECK("normal", 3, param, ln)
             PARSE_TRY(normals.emplace_back(S2D(param[1]), S2D(param[2]), S2D(param[3])),
-                      "normalVec", ln)
+                      "normal", ln)
         }
         else if (param[0] == "normal_triangle")
         {
             PARAM_CHECK("triangle", 6, param, ln)
-            PARSE_TRY(addObj(NormalTriangle::create(vertices.at(S2I(param[1])), normals.at(S2I(param[2])),
-                                                    vertices.at(S2I(param[3])), normals.at(S2I(param[4])),
-                                                    vertices.at(S2I(param[5])), normals.at(S2I(param[6])),
+            PARSE_TRY(addObj(NormalTriangle::create(vertices.at(S2I(param[1])), normals.at(S2I(param[4])),
+                                                    vertices.at(S2I(param[2])), normals.at(S2I(param[5])),
+                                                    vertices.at(S2I(param[3])), normals.at(S2I(param[6])),
                                                     material,
                                                     transform.back())),
                       "normal_triangle", ln)
@@ -525,7 +528,8 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                                     std::to_string(ln));
 
     if (scene->mode == Scene::ComputationMode::GPU && use_bb == true)
-        std::cout << "[Warn] \033[41mUse bound box in GPU mode may cause crashing!!!\033[0m" << std::endl;
+        std::cout << "[Warn] \033[41mBound boxes are not fully supported in GPU!!!\033[0m" << std::endl;
+
 //    scene->geometries.insert(std::shared_ptr<Geometry>(bvh));
 
     return outputs;

@@ -170,7 +170,7 @@ void BaseTriangle::setVertices(Point const &a, Point const &b, Point const &c)
 
     _norm_vec = _ba.cross(_ca);
 
-    _v1_dot_n = _raw_vertices[0].dot(_norm_vec);
+//    _v1_dot_n = _raw_vertices[0].dot(_norm_vec);
 
     _center = _raw_vertices[0];
     _center += _raw_vertices[1];
