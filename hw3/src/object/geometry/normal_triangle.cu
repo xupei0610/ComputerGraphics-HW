@@ -46,8 +46,8 @@ const BaseGeometry * BaseNormalTriangle::hitCheck(Ray const &ray,
 PX_CUDA_CALLABLE
 Direction BaseNormalTriangle::normalVec(PREC const &x, PREC const &y, PREC const &z) const
 {
-    auto u = _cb.cross(Vec3<PREC>(x-_raw_vertices[1].x, y-_raw_vertices[1].y, z-_raw_vertices[1].z)).dot(_n)/_n_norm;
-    auto v = _ca.cross(Vec3<PREC>(_raw_vertices[2].x-x, _raw_vertices[2].y-y, _raw_vertices[2].z-z)).dot(_n)/_n_norm;
+    auto u = _cb.cross(Vec3<PREC>(x-_raw_vertices[1].x, y-_raw_vertices[1].y, z-_raw_vertices[1].z)).norm()/_n_norm;
+    auto v = _ca.cross(Vec3<PREC>(_raw_vertices[2].x-x, _raw_vertices[2].y-y, _raw_vertices[2].z-z)).norm()/_n_norm;
 
     return {_na.x * u + _nb.x * v + _nc.x * (1 - u - v),
             _na.y * u + _nc.y * v + _nc.y * (1 - u - v),
@@ -58,8 +58,8 @@ PX_CUDA_CALLABLE
 Vec3<PREC> BaseNormalTriangle::getTextureCoord(PREC const &x, PREC const &y,
                                                PREC const &z) const
 {
-    auto u = _cb.cross(Vec3<PREC>(x-_raw_vertices[1].x, y-_raw_vertices[1].y, z-_raw_vertices[1].z)).dot(_n)/_n_norm;
-    auto v = _ca.cross(Vec3<PREC>(_raw_vertices[2].x-x, _raw_vertices[2].y-y, _raw_vertices[2].z-z)).dot(_n)/_n_norm;
+    auto u = _cb.cross(Vec3<PREC>(x-_raw_vertices[1].x, y-_raw_vertices[1].y, z-_raw_vertices[1].z)).norm()/_n_norm;
+    auto v = _ca.cross(Vec3<PREC>(_raw_vertices[2].x-x, _raw_vertices[2].y-y, _raw_vertices[2].z-z)).norm()/_n_norm;
 
     Direction norm_vec(_na.x * u + _nb.x * v + _nc.x * (1 - u - v),
                        _na.y * u + _nc.y * v + _nc.y * (1 - u - v),

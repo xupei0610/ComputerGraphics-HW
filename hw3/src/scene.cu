@@ -36,7 +36,6 @@ void rayCast(bool * stop,
              int n_nodes)
 {
     RayTrace::TraceQueue tr(nullptr, n_nodes);
-
     curandState_t state;
     curand_init(clock()+blockIdx.x * blockDim.x+threadIdx.x, 0, 0, &state);
 
@@ -57,7 +56,7 @@ void rayCast(bool * stop,
         auto z = u * cam_param->right_vector.z + v * cam_param->up_vector.z +
                  cam_param->dist * cam_param->dir.z;
 
-        tr.ptr = node + blockIdx.x * blockDim.x+threadIdx.x*n_nodes;
+        tr.ptr = node + (blockIdx.x * blockDim.x+threadIdx.x)*n_nodes;
         tr.n = 0;
 
         RayTrace::TraceQueue::Node current({cam_param->pos, {x, y, z}},
@@ -82,10 +81,12 @@ void rayCast(bool * stop,
                                                    obj, scene_param, &state,
                                                    n, r) * current.coef;
                 if (current.depth < scene_param->recursion_depth)
+                {
                     RayTrace::recursive(intersect, current,
                                         texture_coord, *obj,
                                         n, r,
                                         tr, *scene_param);
+                }
             }
             if (tr.n > 0 && *stop == false)
             {
@@ -101,9 +102,9 @@ void rayCast(bool * stop,
 }
 
 __global__ void toColor(Light *input,
-                       Scene::Color *output,
-                       int dim,
-                       PREC weight)
+                        Scene::Color *output,
+                        int dim,
+                        PREC weight)
 {
     PX_CUDA_LOOP(index, dim)
     {

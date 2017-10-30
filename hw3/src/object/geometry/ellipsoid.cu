@@ -8,7 +8,8 @@ using namespace px;
 
 PX_CUDA_CALLABLE
 BaseEllipsoid::BaseEllipsoid(Point const &center,
-                             PREC const &radius_x, PREC const &radius_y,
+                             PREC const &radius_x,
+                             PREC const &radius_y,
                              PREC const &radius_z,
                              const BaseMaterial *const &material,
                              const Transformation *const &trans)
@@ -44,36 +45,36 @@ const BaseGeometry * BaseEllipsoid::hitCheck(Ray const &ray,
     {
         if (B == 0) return nullptr;
 
-        auto tmp = - C / B;
-        if (tmp > t_start && tmp < t_end)
+        C = - C / B;
+        if (C > t_start && C < t_end)
         {
-            hit_at = tmp;
+            hit_at = C;
             return this;
         }
         return nullptr;
     }
 
-    auto discriminant = B * B - 4 * A * C;
-    if (discriminant < 0)
+    C = B * B - 4 * A * C;
+    if (C < 0)
         return nullptr;
 
-    discriminant = std::sqrt(discriminant);
-    auto tmp1 = (-B - discriminant)/ (2.0 * A);
-    auto tmp2 = (-B + discriminant)/ (2.0 * A);
-    if (tmp1 > tmp2)
+    C = std::sqrt(C);
+    xo = (-B - C)/ (2.0 * A);
+    yo = (-B + C)/ (2.0 * A);
+    if (xo > yo)
     {
-        auto tmp = tmp1;
-        tmp1 = tmp2;
-        tmp2 = tmp;
+        zo = yo;
+        yo = xo;
+        xo = zo;
     }
-    if (tmp1 > t_start && tmp1 < t_end)
+    if (xo > t_start && xo < t_end)
     {
-        hit_at = tmp1;
+        hit_at = xo;
         return this;
     }
-    if (tmp2 > t_start && tmp2 < t_end)
+    if (yo > t_start && yo < t_end)
     {
-        hit_at = tmp2;
+        hit_at = yo;
         return this;
     }
 
@@ -187,14 +188,14 @@ void Ellipsoid::clearGpuData()
 
 PX_CUDA_CALLABLE
 void BaseEllipsoid::setParams(Point const &center,
-                          PREC const &radius_x,
-                          PREC const &radius_y,
-                          PREC const &radius_z)
+                              PREC const &radius_x,
+                              PREC const &radius_y,
+                              PREC const &radius_z)
 {
     _center = center;
     _radius_x = radius_x;
     _radius_y = radius_y;
-    _radius_y = radius_z;
+    _radius_z = radius_z;
 
     _a = 1.0 / (radius_x*radius_x);
     _b = 1.0 / (radius_y*radius_y);
