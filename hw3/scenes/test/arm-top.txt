@@ -1,4 +1,4 @@
-
+sampling_radius 2
 
 #Camera Set-up
 camera 20 5 -5 -.95 -.3 .15 0 -1 0 26
