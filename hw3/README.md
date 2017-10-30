@@ -36,8 +36,8 @@ Attention: This code is not tested under Windows!! My Windows laptop broke last 
 
   I uses stack instead of recursion in the GPU code to prevent using too much registers by a GPU thread. However, there is still two problems using GPU computation in the program.
   
-  1. No bound box support. So far, the bound box structure is allowed to be put into another bound box such that a deep function calls may be involved when using bound box and cause the GPU kernel crashing. I have got an idea to flatten the warpping of bound box. I will revise this problem later.
-  2. Object Initialization. The code is written in modern C++ design pattern. Lots of virtual functions are used, which cause a huge problem when initializing objects on the GPU code. I will talk about it in the summary section. This is the flaw of my code design. I will modify the code later to verify this problem.
+  1. No bound box support. So far, the bound box structure is allowed to be put into another bound box such that a deep function call may be involved when using bound box or other composition structure and cause the GPU kernel crashing. I have got an idea to flatten the warping of bound box. I will revise this problem later.
+  2. Object Initialization. The CPU code is written in modern C++ design pattern original. Lots of virtual functions are used, which cause a huge problem when directly using them on GPU. In order to use virtual functions, objects must be initialized on the device (GPU) directly instead of copying it from the host to device directly. I will talk about it in details in the summary section. This is the flaw of my code design. I will modify the code later to verify this problem.
 
 #### GUI with progress bar (approximation)
 #### Progress bar in CMD mode
