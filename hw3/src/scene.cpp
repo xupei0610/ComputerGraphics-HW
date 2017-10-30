@@ -22,6 +22,15 @@ Scene::Param::Param(int const &width, int const &height, int const &dimension,
 
 
 Light const Scene::DEFAULT_SCENE_BG = Light(0, 0, 0);
+int const Scene::DEFAULT_SCENE_WIDTH = 640;
+int const Scene::DEFAULT_SCENE_HEIGHT = 480;
+int const Scene::DEFAULT_SAMPLING_RADIUS = 0;
+int const Scene::DEFAULT_AREA_LIGHT_SAMPLING = 16;
+int const Scene::DEFAULT_DIFFUSE_SAMPLING = 16;
+int const Scene::DEFAULT_RECURSION_DEPTH = 5;
+int const Scene::DEFAULT_DIFFUSE_RECURSION_DEPTH = 0;
+PREC const Scene::DEFAULT_HIT_MIN_TOL = DOUBLE_EPSILON; // minimum tol to check if a ray hits an object or not.
+PREC const Scene::DEFAULT_HIT_MAX_TOL = std::numeric_limits<PREC>::max(); // maximum tol to check if a ray hits an object or not
 
 Scene::Scene()
         : _param(new Param(DEFAULT_SCENE_WIDTH, DEFAULT_SCENE_HEIGHT,

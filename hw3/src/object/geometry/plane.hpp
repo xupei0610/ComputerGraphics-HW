@@ -53,7 +53,7 @@ public:
                                                 Direction const &norm_vec,
                                                 std::shared_ptr<Material> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry *const &obj() const noexcept;
+    BaseGeometry *const &obj() const noexcept override;
     BaseGeometry **devPtr() override;
     void up2Gpu() override;
     void clearGpuData() override;

@@ -99,16 +99,16 @@ private:
 
 public:
 
-    int static constexpr DEFAULT_SCENE_WIDTH = 640;
-    int static constexpr DEFAULT_SCENE_HEIGHT = 480;
+    int static const DEFAULT_SCENE_WIDTH;
+    int static const DEFAULT_SCENE_HEIGHT;
     Light static const DEFAULT_SCENE_BG; // {0, 0, 0}
-    int static constexpr DEFAULT_SAMPLING_RADIUS = 0;
-    int static constexpr DEFAULT_AREA_LIGHT_SAMPLING = 16;
-    int static constexpr DEFAULT_DIFFUSE_SAMPLING = 16;
-    int static constexpr DEFAULT_RECURSION_DEPTH = 5;
-    int static constexpr DEFAULT_DIFFUSE_RECURSION_DEPTH = 0;
-    PREC static constexpr DEFAULT_HIT_MIN_TOL = DOUBLE_EPSILON; // minimum tol to check if a ray hits an object or not.
-    PREC static constexpr DEFAULT_HIT_MAX_TOL = std::numeric_limits<PREC>::max(); // maximum tol to check if a ray hits an object or not
+    int static const DEFAULT_SAMPLING_RADIUS;
+    int static const DEFAULT_AREA_LIGHT_SAMPLING;
+    int static const DEFAULT_DIFFUSE_SAMPLING;
+    int static const DEFAULT_RECURSION_DEPTH;
+    int static const DEFAULT_DIFFUSE_RECURSION_DEPTH;
+    PREC static const DEFAULT_HIT_MIN_TOL; // minimum tol to check if a ray hits an object or not.
+    PREC static const DEFAULT_HIT_MAX_TOL; // maximum tol to check if a ray hits an object or not
 #ifdef USE_CUDA
     ComputationMode static constexpr DEFAULT_COMPUTATION_MODE = ComputationMode::GPU;
 #else

@@ -223,9 +223,9 @@ public:
     PX_CUDA_CALLABLE
     PREC attenuate(PREC const &x, PREC const &y, PREC const &z) const override;
     __device__
-    virtual Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
-                                    curandState_t * const &state) const;
-    virtual Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const;
+    Direction dirFromDevice(PREC const &x, PREC const &y, PREC const &z, PREC &dist,
+                                    curandState_t * const &state) const override;
+    Direction dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const override;
     PX_CUDA_CALLABLE
     Type type() const override
     {

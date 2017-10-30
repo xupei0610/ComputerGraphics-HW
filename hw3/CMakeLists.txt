@@ -100,14 +100,13 @@ if (USE_CUDA)
     set(CUDA_SEPARABLE_COMPILATION ON)
     set(CUDA_NVCC_FLAGS
         -std=c++11
-        -arch=compute_61
-        -code=sm_61
+        #-arch=compute_61
+        #-code=sm_61
         -use_fast_math
 #        --ptxas-options=-v
         -maxrregcount=120
         -O3)
     cuda_add_executable(${EXE_NAME}
-                        ${HEADER_FILES}
                         ${EXE_COMMON_SRC_FILES}
                         ${EXE_CPU_SRC_FILES}
                         ${EXE_CUDA_SRC_FILES}
@@ -115,11 +114,8 @@ if (USE_CUDA)
                         ${PROJECT_SOURCE_DIR}/src/main.cpp)
 else()
     set_source_files_properties(${EXE_COMMON_SRC_FILES} PROPERTIES LANGUAGE CXX)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        add_definitions("-x c++")
-    endif()
+    add_definitions("-x c++")
     add_executable(${EXE_NAME}
-                   ${HEADER_FILES}
                    ${EXE_COMMON_SRC_FILES}
                    ${EXE_CPU_SRC_FILES}
                    ${EXE_GUI_FILES}
