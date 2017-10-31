@@ -18,7 +18,7 @@ CMake Compile Options:
   + `USE_JITTER=<n>`: enable Jitter supersampling, `n` is the number of samplings per pixel; default: `OFF`. No GPU support for Jitter supersampling due to performance reason.
   + `USE_ADAPATIVE`: enable adaptive supersampling. This function is done, but not so smart.  
 
-This code was tested under Ubuntu 16.04 with CUDA 8 and GTX1080 Ti and MacOS 10.12 with CUDA 9 and GT650M (it is an old laptop, XD).
+This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 10.12 with CUDA 9 and GT650M (it is an old laptop, XD).
 
 **Attention**: This code is not tested under Windows!! My Windows laptop broke last week. It is still on the way sending to the Product Service Center located in Texas.
 
@@ -177,21 +177,21 @@ Test environment:
     Ubuntu 16.04, G++ 5.4.1, CUDA 9.0
     Intel i7-7700K, Nvidia GTX1080 Ti
 
-Test case: `test/gear.txt`
+Test case: `complex/test.scn`
 
-\# of triangles: 6676; Recursion Depth: 2
+\# of triangles: `1800`; \# of spheres: `4`;  Recursion Depth: `10` 
 
-|         | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread | GPU 
-|----------------------------------------------------------------------
+|         | GPU | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
+|-----------------------------------------------------------------------
 |Original |
-|BoundBox |
-|Octree   |  IMPLEMENT later
+|BoundBox | 342 |   8676   |   4055   |   3485   |   2586   |   2192   |
+|Octree   | IMPLEMENT later|
 
-|3x3 Sampling | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread | GPU 
-|-------------------------------------------------------------------------
-|Original |
-|BoundBox |
-|Octree   |  IMPLEMENT later
+|3x3 Sampling | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
+|----------------------------------------------------------------------------
+|Original     | 6539 |  333150  |  324527  |          |          |  76214   |
+|BoundBox     | 1347 |  32003   |  22463   |  14084   |  10000   |  8551    |
+|Octree       | IMPLEMENT later |
 
 
 ### TODO Lists

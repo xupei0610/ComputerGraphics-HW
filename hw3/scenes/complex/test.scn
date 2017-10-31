@@ -1,19 +1,19 @@
 max_depth 10 
-
+mode cpu
 camera 0 0 -20 0 0 1 0 1 0 30
 film_resolution 1024 768
 output_image foo2.bmp
-
+sampling_radius 1
 max_vertices 10000
 max_normals 10000
 
 material 0 0 0 1 .2 .2 .8 .8 .8 100 0 0 0 1
-group begin
+
 sphere 4 4 5 2 
 sphere -4 4 5 2
 sphere 4 -4 5 2
 sphere -4 -4 5 2
-group end
+
 #sphere 0 0 8 3
 background .25 0 0
 
@@ -986,7 +986,7 @@ vertex 12 15 10
 vertex 13 15 10
 vertex 14 15 10
 vertex 15 15 10
-group begin
+
 triangle 0 1 31
 triangle 31 1 32
 triangle 1 2 32
@@ -2787,4 +2787,4 @@ triangle 927 928 958
 triangle 958 928 959
 triangle 928 929 959
 triangle 959 929 960
-group end
+

@@ -1,6 +1,6 @@
 max_depth 10
-mode cpu
-camera 0 0 -30 0 0 1 0 1 0 30
+#mode cpu
+camera 0  0 -30 0 0 1 0 1 0 30
 film_resolution 1024 768
 background .25 0 0
 output_image foo.bmp
