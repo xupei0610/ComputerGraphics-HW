@@ -142,8 +142,6 @@ int main(int argc, char *argv[])
     {
         std::ifstream file(argv[1]);
 
-        std::cout << argv[1] << std::endl;
-
         if (!file.is_open())
             throw std::invalid_argument("[Error] Failed to open scene file `" + std::string(argv[1]) + "`.");
         try
@@ -200,32 +198,24 @@ int main(int argc, char *argv[])
         t.join();
     }
 #else
+    std::cout << "[Info] Computation Mode: "
+              << (scene->mode == Scene::ComputationMode::CPU ? "CPU" : "GPU")
+              << "\n[Info] Begin rendering..." << std::flush;
+
     bool started_rendering = false;
     auto t = std::thread([&]
     {
-        started_rendering = true;
-        std::cout << "[Info] Computation Mode: "
-                  << (scene->mode == Scene::ComputationMode::CPU ? "CPU" : "GPU")
-                  << "\n" << std::flush;
 	    scene->render();
+        started_rendering = true;
         if (stop_request == false)
             outputImg(outputs, scene);
     });
-
-    while (started_rendering == false)
-    {
-        std::cout << "\r[Info] Begin rendering..." << std::flush;
-    }
-    while (scene->is_rendering && stop_request == false)
-        std::cout << "\r[Info] Rendering: "
+    while (stop_request == false && (started_rendering == false || scene->is_rendering))
+        std::cout << "\033[1K\r[Info] Rendering: "
                   << scene->renderingProgress() << " / " << scene->dimension
                   << " (" << std::setprecision(2)
-                  << (scene->renderingProgress() * 100.0 / scene->dimension)
+                  << (std::max(0, scene->renderingProgress()) * 100.0 / scene->dimension)
                   << "%)" << std::flush;
-
-#ifdef NDEBUG
-    std::cout << "\r\n";
-#endif
 
     if (stop_request == false)
     {
@@ -235,7 +225,7 @@ int main(int argc, char *argv[])
     if (t.joinable())
     {
         if (scene->is_rendering)
-            std::cout << "[Info] Stop rendering..." << std::endl;
+            std::cout << "\n[Info] Stop rendering..." << std::endl;
         scene->stopRendering();
         t.join();
     }

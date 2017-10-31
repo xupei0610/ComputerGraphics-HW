@@ -1,5 +1,4 @@
 
-
 #Camera Set-up
 camera 1.8 -13 -3 -0 .8 .4 1 .4 .4 26
 output_image arm.bmp

@@ -33,7 +33,7 @@ Light RayTrace::traceCpu(bool const &stop_flag,
     auto n = obj->normVec(intersect); // norm vector at the hit point2ObjCoord
     Ray I(intersect, {0, 0, 0});      // from hit point2ObjCoord to light source
 //    Direction h(0, 0, 0);             // half vector
-    Direction r(ray.direction);     // reflect vector
+    Direction r(ray.direction-n*(2*ray.direction.dot(n)));     // reflect vector
 
     auto texture_coord = obj->textureCoord(intersect);
     auto diffuse = obj->material()->diffuse(texture_coord);

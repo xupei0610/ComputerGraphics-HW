@@ -365,6 +365,7 @@ AreaLight::AreaLight(Light const &light,
           TYPE(Type::AreaLight),
           _center(center),
           _radius(radius),
+          _radius2(radius*radius),
           _need_upload(true)
 
 {}
@@ -375,7 +376,7 @@ PREC AreaLight::attenuate(PREC const &x, PREC const &y, PREC const &z) const
     auto nrm2 = (_center.x - x)*(_center.x - x) +
                 (_center.y - y)*(_center.y - y) +
                 (_center.z - z)*(_center.z - z);
-    return nrm2 < EPSILON ? FLT_MAX : 1.0 / 4 / PI / std::sqrt(nrm2);
+    return nrm2 < _radius2 ? FLT_MAX : PREC(0.25) / (PREC(PI) * std::sqrt(nrm2));
 }
 
 __device__
@@ -383,21 +384,51 @@ Direction AreaLight::dirFromDevice(PREC const &x, PREC const &y, PREC const &z, 
                                    curandState_t * const &state) const
 {
 
-    auto dx = _center.x - x + _radius * rnd::rnd_gpu(state);
-    auto dy = _center.y - y + _radius * rnd::rnd_gpu(state);
-    auto dz = _center.z - z + _radius * rnd::rnd_gpu(state);
+    auto dx = _center.x - x;// + _radius * rnd::rnd_gpu(state);
+    auto dy = _center.y - y;// + _radius * rnd::rnd_gpu(state);
+    auto dz = _center.z - z;// + _radius * rnd::rnd_gpu(state);
 
     dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+    if (dist < _radius)
+    {
+        // inside the light source
+        dist = 0;
+        return {0, 0, 0};
+    }
+    auto r = _radius * rnd::rnd_gpu(state);
+    dx += r;
+    dist += r*r;
+    r = _radius * rnd::rnd_gpu(state);
+    dy += r;
+    dist += r*r;
+    r = _radius * rnd::rnd_gpu(state);
+    dz += r;
+    dist += r*r;
     return Direction(dx, dy, dz);
 }
 
 Direction AreaLight::dirFromHost(PREC const &x, PREC const &y, PREC const &z, PREC &dist) const
 {
-    auto dx = _center.x - x + _radius * rnd::rnd_cpu();
-    auto dy = _center.y - y + _radius * rnd::rnd_cpu();
-    auto dz = _center.z - z + _radius * rnd::rnd_cpu();
+    auto dx = _center.x - x;
+    auto dy = _center.y - y;
+    auto dz = _center.z - z;
 
-    dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+    dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+    if (dist < _radius)
+    {
+        // inside the light source
+        dist = 0;
+        return {0, 0, 0};
+    }
+    auto r = _radius * rnd::rnd_cpu();
+    dx += r;
+    dist += r*r;
+    r = _radius * rnd::rnd_cpu();
+    dy += r;
+    dist += r*r;
+    r = _radius * rnd::rnd_cpu();
+    dz += r;
+    dist += r*r;
     return Direction(dx, dy, dz);
 }
 

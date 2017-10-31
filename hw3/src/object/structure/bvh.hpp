@@ -5,7 +5,7 @@
 
 namespace px
 {
-// TODO OctTree
+// TODO OCTree
 class BVH;
 class BaseBVH;
 }

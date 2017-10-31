@@ -25,7 +25,7 @@ Light const Scene::DEFAULT_SCENE_BG = Light(0, 0, 0);
 int const Scene::DEFAULT_SCENE_WIDTH = 640;
 int const Scene::DEFAULT_SCENE_HEIGHT = 480;
 int const Scene::DEFAULT_SAMPLING_RADIUS = 0;
-int const Scene::DEFAULT_AREA_LIGHT_SAMPLING = 16;
+int const Scene::DEFAULT_AREA_LIGHT_SAMPLING = 32;
 int const Scene::DEFAULT_DIFFUSE_SAMPLING = 16;
 int const Scene::DEFAULT_RECURSION_DEPTH = 5;
 int const Scene::DEFAULT_DIFFUSE_RECURSION_DEPTH = 0;
@@ -336,9 +336,10 @@ void Scene::renderCpu(int const &width,
         {
             for (auto k1 = -sampling_r + 1; k1 < sampling_r; k1 += 2)
             {
+                // FIXME adaptive sampling
 #if defined(ADAPTIVE_SAMPLING) || !defined(JITTER_SAMPLING)
-                auto v = v0 + k0  * sampling_offset;
-                auto u = u0 + k1  * sampling_offset;
+                auto v = v0 + k0 * sampling_offset;
+                auto u = u0 + k1 * sampling_offset;
 #else
                 auto v = v0 + (k0 + rnd::rnd_cpu()) * sampling_offset;
                 auto u = u0 + (k1 + rnd::rnd_cpu()) * sampling_offset;
@@ -397,7 +398,8 @@ void Scene::renderCpu(int const &width,
 
                     ray.direction.set(x, y, z);
 
-                    light += RayTrace::traceCpu(this, ray);
+                    light += RayTrace::traceCpu(_cpu_stop_flag,
+                                                this, ray);
 
                 }
             }

@@ -146,7 +146,10 @@ public:
     void up2Gpu();
     void clearGpuData();
 
-    static std::shared_ptr<Transformation> create(PREC const &rotate_x,
+    static std::shared_ptr<Transformation> create(PREC const &s_x,
+                                                  PREC const &s_y,
+                                                  PREC const &s_z,
+                                                  PREC const &rotate_x,
                                                   PREC const &rotate_y,
                                                   PREC const &rotate_z,
                                                   PREC const &t_x,
@@ -184,7 +187,10 @@ public:
         return direction(Direction(x, y, z));
     }
 
-    void setParams(PREC const &rotate_x,
+    void setParams(PREC const &s_x,
+                   PREC const &s_y,
+                   PREC const &s_z,
+                   PREC const &rotate_x,
                    PREC const &rotate_y,
                    PREC const &rotate_z,
                    PREC const &t_x,
@@ -192,33 +198,39 @@ public:
                    PREC const &t_z,
                    std::shared_ptr<Transformation> const &parent = nullptr);
 
-    inline PREC const & r00() const noexcept { return _r00; }
-    inline PREC const & r01() const noexcept { return _r01; }
-    inline PREC const & r02() const noexcept { return _r02; }
-    inline PREC const & r10() const noexcept { return _r10; }
-    inline PREC const & r11() const noexcept { return _r11; }
-    inline PREC const & r12() const noexcept { return _r12; }
-    inline PREC const & r20() const noexcept { return _r20; }
-    inline PREC const & r21() const noexcept { return _r21; }
-    inline PREC const & r22() const noexcept { return _r22; }
-    inline PREC const & t0() const noexcept { return _t0; }
-    inline PREC const & t1() const noexcept { return _t1; }
-    inline PREC const & t2() const noexcept { return _t2; }
+    inline PREC const & m00() const noexcept { return _m00; }
+    inline PREC const & m01() const noexcept { return _m01; }
+    inline PREC const & m02() const noexcept { return _m02; }
+    inline PREC const & m10() const noexcept { return _m10; }
+    inline PREC const & m11() const noexcept { return _m11; }
+    inline PREC const & m12() const noexcept { return _m12; }
+    inline PREC const & m20() const noexcept { return _m20; }
+    inline PREC const & m21() const noexcept { return _m21; }
+    inline PREC const & m22() const noexcept { return _m22; }
+    inline PREC const & m03() const noexcept { return _m03; }
+    inline PREC const & m13() const noexcept { return _m13; }
+    inline PREC const & m23() const noexcept { return _m23; }
 
     ~Transformation();
 protected:
     PREC _rotate_x, _rotate_y, _rotate_z;
-
-    PREC _r00, _r01, _r02;
-    PREC _r10, _r11, _r12;
-    PREC _r20, _r21, _r22;
     PREC _t0,  _t1,  _t2;
-    PREC _t00, _t01, _t02;
+
+    PREC _m00, _m01, _m02, _m03;
+    PREC _m10, _m11, _m12, _m13;
+    PREC _m20, _m21, _m22, _m23;
+
+    PREC _inv00, _inv01, _inv02, _inv03;
+    PREC _inv10, _inv11, _inv12, _inv13;
+    PREC _inv20, _inv21, _inv22, _inv23;
 
     Transformation * _dev_ptr;
     bool _need_upload;
 
-    Transformation(PREC const &rotate_x,
+    Transformation(PREC const &s_x,
+                   PREC const &s_y,
+                   PREC const &s_z,
+                   PREC const &rotate_x,
                    PREC const &rotate_y,
                    PREC const &rotate_z,
                    PREC const &t_x,

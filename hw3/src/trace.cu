@@ -88,17 +88,21 @@ Light RayTrace::reflect(Point const &intersect,
         for (auto k = 0; k < sampling; ++k)
         {
             I.direction = LIGHT(j)->dirFromDevice(I.original, dist, state);
-            // attenuate represents distance from intersect point2ObjCoord to the light here
 
 //        h = I.direction - ray.direction;
-            for (auto i = 0; i < scene->n_geometries; ++i)
+            if (dist > scene->hit_min_tol)
             {
-                if (GEOMETRY(i)->hit(I, scene->hit_min_tol, dist, t))
+                for (auto i = 0; i < scene->n_geometries; ++i)
                 {
-                    --shadow_hit;
-                    break;
+                    if (GEOMETRY(i)->hit(I, scene->hit_min_tol, dist, t))
+                    {
+                        --shadow_hit;
+                        break;
+                    }
                 }
             }
+            else
+                break;
         }
 
         if (shadow_hit == 0) // shadow_hit == 0 means that the pixel is completely in shadow.
@@ -107,13 +111,19 @@ Light RayTrace::reflect(Point const &intersect,
         dist = LIGHT(j)->attenuate(intersect) * shadow_hit / sampling;
         if (dist == 0)
             continue;
-        L += diffuseReflect(LIGHT(j)->light(), diffuse,
-                            I.direction, n) * dist;
 
-        L += specularReflect(LIGHT(j)->light(), specular,
+        if (dist < FLT_MAX)
+        {
+            L += diffuseReflect(LIGHT(j)->light(), diffuse,
+                                I.direction, n) * dist;
+
+            L += specularReflect(LIGHT(j)->light(), specular,
 //                                 h, n, // Blinn Phong model
-                             I.direction, r, // Phong model
-                             specular_exp) * dist;
+                                 I.direction, r, // Phong model
+                                 specular_exp) * dist;
+        }
+        else
+            L = Light(1, 1, 1);
     }
     return L;
 }

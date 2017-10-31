@@ -14,7 +14,7 @@ BaseRing::BaseRing(Point const &pos,
                    const BaseMaterial *const &material,
                    const Transformation *const &trans)
         : BaseGeometry(material, trans, 8),
-          _center(pos),
+          _center(pos), _norm_vec(norm_vec),
           _inner_radius(radius1 < radius2 ? radius1 : radius2),
           _outer_radius(radius1 > radius2 ? radius1 : radius2),
           _inner_radius2(_inner_radius*_inner_radius),

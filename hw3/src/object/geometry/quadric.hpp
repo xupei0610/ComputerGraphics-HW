@@ -8,7 +8,7 @@ namespace px
 class Quadric;
 class BaseQuadric;
 }
-
+// Ax2 + By2 + Cz2 + Dxy+ Exz + Fyz + Gx + Hy + Iz + J = 0
 class px::BaseQuadric : public BaseGeometry
 {
 protected:

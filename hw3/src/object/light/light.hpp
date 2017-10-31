@@ -250,6 +250,7 @@ public:
 protected:
     Point _center;
     PREC _radius;
+    PREC _radius2;
 
     bool _need_upload;
 };

@@ -453,13 +453,16 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                 }
                 else
                 {
-                    PARAM_CHECK("transform", 6, param, ln)
-                    transform.push_back(Transformation::create(S2D(param[1]) * DEG2RAD,
-                                                               S2D(param[2]) * DEG2RAD,
-                                                               S2D(param[3]) * DEG2RAD,
-                                                               S2D(param[4]),
-                                                               S2D(param[5]),
-                                                               S2D(param[6]),
+                    PARAM_CHECK("transform", 9, param, ln)
+                    transform.push_back(Transformation::create(S2D(param[1]),
+                                                               S2D(param[2]),
+                                                               S2D(param[3]),
+                                                               S2D(param[4]) * DEG2RAD,
+                                                               S2D(param[5]) * DEG2RAD,
+                                                               S2D(param[6]) * DEG2RAD,
+                                                               S2D(param[7]),
+                                                               S2D(param[8]),
+                                                               S2D(param[9]),
                                                                transform.back()));
                 }
             }
