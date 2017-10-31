@@ -1,9 +1,9 @@
 max_depth 10 
-mode cpu
+sampling_radius 0
 camera 0 0 -20 0 0 1 0 1 0 30
 film_resolution 1024 768
 output_image foo2.bmp
-sampling_radius 1
+
 max_vertices 10000
 max_normals 10000
 

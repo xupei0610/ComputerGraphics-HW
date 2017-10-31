@@ -1,7 +1,7 @@
 #Side view of dragon
 #camera 0 .1 .3 0 0 -1 0 1 0 23
 #directional_light .8 .8 .8 1 -1 -1
-
+sampling_radius 1
 #Front view of dragon
 camera -.3 .1 -.17 1 0 .6 0 1 0 23
 directional_light .9 .9 .9 0.609525 -0.664451 0.432416
@@ -4935,7 +4935,7 @@ vertex -20 0.07 -20
 vertex 20 0.07 -20
 vertex 20 0.02 20
 vertex -20 0.02 20
-
+group begin
 triangle 1242  328  349  
 triangle 3916  196  146  
 triangle 167  4353  3830  
@@ -14936,6 +14936,7 @@ triangle 771  4908  4015
 triangle 771  4581  4908  
 triangle 888  4909  3348  
 triangle 888  2965  4909
+group end
 
 material 1 1 1 .3 .3 .1 .3 .3 .3 5 0 0 0 1
 triangle 4910 4911 4912

@@ -52,14 +52,17 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                                     std::to_string(line));           \
     }
 
+    bool use_bb = false;
     auto addObj = [&](std::shared_ptr<Geometry> const &obj) {
         if (bound_box.empty())
 //            bvh->addObj(obj);
             scene->geometries.insert(obj);
         else
+        {
+            use_bb = true;
             bound_box.back()->addObj(obj);
+        }
     };
-    bool use_bb = false;
 
     while (std::getline(buffer, line, '\n'))
     {
@@ -491,7 +494,6 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                     auto bb = std::shared_ptr<Geometry>(bound_box.at(s - 1));
                     bound_box.pop_back();
                     addObj(bb);
-                    use_bb = true;
                 }
             }
             else
@@ -518,8 +520,8 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         }
         else
         {
-            throw std::invalid_argument("[Warn] Failed to parse script with an unsupported property `" +
-                                        param[0] + "` at line " + std::to_string(ln) + " (Skipped)");
+            std::cout << "[Warn] Failed to parse script with an unsupported property `" +
+                                        param[0] + "` at line " + std::to_string(ln) + " (Skipped)" << std::endl;
         }
     }
 

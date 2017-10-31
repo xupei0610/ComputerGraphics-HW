@@ -35,14 +35,16 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
   Stack instead of recursion is used in the GPU code.There are still two problems when using GPU computation in the program.
   
   1. Not fully support for the bound box structure. So far, the bound box structure is allowed to be put into another bound box such that a deep function call may be involved when using a bound box containing another one and cause the GPU kernel crashing. I have got an idea to flatten the warping of bound boxes. I will revise this problem later.
-  2. Object Initialization. The CPU code is written in modern C++ design pattern originally. Lots of virtual functions are used, which cause a huge problem when running the code on GPU. In order to use virtual functions, objects must be initialized on the device (GPU) directly instead of copying it to the device from the host side. To initalize objects in the device by `new` or `malloc` operation will cause a huge performance problem.  I will talk about it in details in the summary section. This is the flaw of my code design. I will modify the code later, by maintaining function pointers, like `vtable`, manually, to revise this problem.
+  2. Object Initialization. The CPU code is written in modern C++ design pattern originally. Lots of virtual functions are used, which cause a huge problem when running the code on GPU. In order to use virtual functions, objects must be initialized on the device (GPU) directly instead of copying it to the device from the host side. To initalize objects in the device by `new` or `malloc` operation will cause a huge performance problem. This is the flaw of my code design. I will modify the code later, by maintaining function pointers, like `vtable`, manually, to revise this problem.
 
 #### Interactive User Interface
   
   Progress bar in GUI mode
+  
   <img src="./doc/progress_bar.gif" />
 
   Progress report in CMD mode
+  
   <img src="./doc/progress_report.gif" />
 
   **Note**: In GPU computation mode, the progress is approximated.
@@ -162,13 +164,45 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
 
   By default, uniform supersampling is employed. When set `USE_JITTER=<n>` during compiling, Jitter supersampling is employed. For each subsampling regions, randomly sampling `n` times. 
 
+  <img src="./doc/spheres_1x1.bmp" />
+
+  No supersampling (above) vs 3x3 uniform supersampling (below)
+
+  <img src="./doc/spheres_3x3.bmp" />
+
 #### Monte-Carlo Integration for indirect diffuse
+
+  Grammar:
+
+    diffuse_sampling depth n_sampling
+    # depth is the maximum recursive depth
+    # n_sampling is the number of sampling each recursive for each pixel
+
+  Only support in CPU computation mode. Performance killer!
+
 #### BoundBox
 
-#### Other Interesting Demos
-<img src="./arm-top.bmp" />
+  Grammar:
 
-<img src="./watch.bmp" />
+    group begin
+    ...
+    group end
+
+  Objects between `group begin` and `group end` will be put into a bound box. It allows to nest bound boxes.
+
+  When checking if a ray hits an object, the program will first do hit check for the bound box and then check the objects in the box if the ray hits the box.
+
+  The structure of bound box can obviously improve the program's performance. See Performance Comparison section for details. 
+
+#### Other Interesting Demos
+
+  <img src="./doc/arm-top.bmp" />
+
+  <img src="./doc/watch.bmp" />
+
+  <img src="./doc/dragon.bmp" />
+
+  <img src="./doc/dragon_front.bmp" />
 
 ### Performance Comparsion
 
@@ -181,18 +215,19 @@ Test case: `complex/test.scn`
 
 \# of triangles: `1800`; \# of spheres: `4`;  Recursion Depth: `10` 
 
-|         | GPU | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
-|-----------------------------------------------------------------------
-|Original |
-|BoundBox | 342 |   8676   |   4055   |   3485   |   2586   |   2192   |
-|Octree   | IMPLEMENT later|
+|         | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
+|---------| :--: |   :---:  |  :---:   |  :---:   |  :---:   |  :---:   |
+|Original | 1673 |   84547  |  41432   |  28337   |  22298   |  18813   |
+|BoundBox | 342  |   8676   |  4055    |  3485    |  2586    |  2192    |
+|Octree   | IMPLEMENT later |
 
 |3x3 Sampling | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
-|----------------------------------------------------------------------------
-|Original     | 6539 |  333150  |  324527  |          |          |  76214   |
+|-------------| :--: |  :----:  |  :----:  |  :----:  |  :---:   |  :---:   |
+|Original     | 6539 |  333150  |  324527  |  107947  |  89789   |  76214   |
 |BoundBox     | 1347 |  32003   |  22463   |  14084   |  10000   |  8551    |
 |Octree       | IMPLEMENT later |
 
+In the bound box test case, only one bound box is used to group all triangles together. The acceleration effect of the bound box is very obvious.
 
 ### TODO Lists
 
@@ -213,6 +248,5 @@ Test case: `complex/test.scn`
   + Heightfields
 
   It looks like a huge project.
-
 
 
