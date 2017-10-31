@@ -192,7 +192,7 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
 
   When checking if a ray hits an object, the program will first do hit check for the bound box and then check the objects in the box if the ray hits the box.
 
-  The structure of bound box can obviously improve the program's performance. See Performance Comparison section for details. 
+  The structure of bound box can significantly improve the program's performance. See Performance Comparison section for details. 
 
 #### Other Interesting Demos
 
