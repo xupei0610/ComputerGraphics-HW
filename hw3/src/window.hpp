@@ -28,6 +28,9 @@ protected:
     SDL_Window *window;
     SDL_Renderer *renderer;
 
+    decltype(SDL_GetTicks()) last_time, current_time;
+    double last_pos;
+
     std::shared_ptr<Scene> scene;
 
     bool _need_update;

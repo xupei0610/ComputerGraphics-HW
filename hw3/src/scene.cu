@@ -28,10 +28,9 @@ __constant__ CameraParam cam_param[1];
 __constant__ Scene::Param scene_param[1];
 
 __global__
-void rayCast(bool * stop,
-             int  * progress,
-             Light * lights,
-             RayTrace::TraceQueue::Node * node,
+void rayCast(bool *  __restrict__ stop,
+             Light *  __restrict__ lights,
+             RayTrace::TraceQueue::Node *  __restrict__ node,
              PREC v_offset, PREC u_offset,
              int n_nodes)
 {
@@ -86,21 +85,20 @@ void rayCast(bool * stop,
                                         n, r,
                                         tr, *scene_param);
             }
-            if (tr.n > 0 && *stop == false)
+
+            if (tr.n > 0)
             {
                 current = tr.ptr[tr.n - 1];
                 tr.pop();
             }
             else
                 break;
-        } while (true);
-
-        *progress += 1;
+        } while (*stop == false);
     }
 }
 
-__global__ void toColor(Light *input,
-                        Scene::Color *output,
+__global__ void toColor(Light * __restrict__ input,
+                        Scene::Color *  __restrict__ output,
                         int dim,
                         PREC weight)
 {
@@ -128,8 +126,6 @@ void Scene::renderGpu(int const &width, int const &height,
     for (auto &g : geometries) g->up2Gpu();
 
     PX_CUDA_CHECK(cudaDeviceSynchronize());
-
-    *_rendering_progress = _param->dimension * 0.4;
 
     auto i = 0;
     for (auto &l : lights) pl[i++] = l->devPtr();
@@ -175,8 +171,6 @@ void Scene::renderGpu(int const &width, int const &height,
     PX_CUDA_CHECK(cudaMemset(lights, 0, _param->dimension*sizeof(Light)))
     bool *stop_flag;
     PX_CUDA_CHECK(cudaHostGetDevicePointer(&stop_flag, _gpu_stop_flag, 0))
-    int *progress;
-    PX_CUDA_CHECK(cudaHostGetDevicePointer(&progress, _rendering_progress, 0))
 
     std::cout << "\n[Info] Begin rendering..." << std::flush;
 
@@ -187,8 +181,6 @@ void Scene::renderGpu(int const &width, int const &height,
     if (*_gpu_stop_flag == true)
         return;
 
-    *_rendering_progress = _param->dimension * 0.5;
-
     for (auto k0 = -sampling_r + 1; k0 < sampling_r; k0 += 2)
     {
         for (auto k1 = -sampling_r + 1; k1 < sampling_r; k1 += 2)
@@ -197,7 +189,7 @@ void Scene::renderGpu(int const &width, int const &height,
             auto u_offset = k1 * sampling_offset;
 
             rayCast<<<blocks, threads>>> (
-                    stop_flag, progress,
+                    stop_flag,
                     lights, nodes,
                     v_offset, u_offset,
                     n_nodes);
@@ -209,8 +201,6 @@ void Scene::renderGpu(int const &width, int const &height,
     }
 
     PX_CUDA_CHECK(cudaDeviceSynchronize());
-
-    *_rendering_progress = _param->dimension * 0.95;
 
     if (*_gpu_stop_flag == false)
     {

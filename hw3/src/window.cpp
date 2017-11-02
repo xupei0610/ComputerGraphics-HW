@@ -87,13 +87,32 @@ bool Window::run()
             SDL_SetWindowSize(window, w, h);
         }
 
-        SDL_Rect progressbar = {30, h/2-10, static_cast<int>(scene->renderingProgress() * 1.0/ scene->dimension * (w - 60)), 20};
-        SDL_SetRenderDrawColor(renderer,
-                               0,
-                               255,
-                               0,
-                               255);
-        SDL_RenderFillRect(renderer, &progressbar);
+        if (scene->mode == Scene::ComputationMode::CPU)
+        {
+            SDL_Rect progressbar = {30, h/2-10, static_cast<int>(scene->renderingProgress() * 1.0/ scene->dimension * (w - 60)), 20};
+            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+            SDL_RenderFillRect(renderer, &progressbar);
+        }
+        else
+        {
+            SDL_Rect progressbar_bg = {30, h/2-10, w-60, 20};
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+            SDL_RenderFillRect(renderer, &progressbar_bg);
+
+            current_time = SDL_GetTicks();
+
+            last_pos = (current_time - last_time) * 0.1 + last_pos;
+            if (last_pos > w-110)
+                last_pos = 0;
+
+            SDL_Rect progressbar_fg = {static_cast<int>(30 + last_pos), h/2-10, 50, 20};
+            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+            SDL_RenderFillRect(renderer, &progressbar_fg);
+
+            last_time = current_time;
+
+        }
+
         SDL_RenderPresent(renderer);
 
         _need_update = true;

@@ -186,7 +186,7 @@ protected:
 
 private:
     bool _is_rendering;
-    int *_rendering_progress; // not atomic
+    int _rendering_progress; // not atomic
     int _rendering_time;
 
     int _sampling_radius;

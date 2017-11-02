@@ -129,15 +129,13 @@ protected:
     friend class BVH;
 };
 
-class px::BVH : public Geometry
+class px::BVH : public BaseGeometry
 {
 public:
     BVH();
 
-    void addObj(std::shared_ptr<Geometry> const &obj);
+    void addObj(std::shared_ptr<BaseGeometry> const &obj);
 
-    BaseGeometry *const &obj() const noexcept override;
-    BaseGeometry **devPtr() override;
     void up2Gpu() override;
     void clearGpuData() override;
 
@@ -146,7 +144,7 @@ protected:
     BaseBVH *_obj;
     BaseGeometry *_base_obj;
 
-    std::unordered_set<std::shared_ptr<Geometry> > _objects_ptr;
+    std::unordered_set<std::shared_ptr<BaseGeometry> > _objects_ptr;
 
     BaseGeometry **_dev_ptr;
     bool _need_upload;
