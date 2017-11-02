@@ -25,5 +25,3 @@ background 0 0 1
 directional_light 1 1 1 -1 -1 1 
 directional_light 1 0 0 0 -1 0
 point_light 0 100 0 0 -9 10
-
-sampling_radius 1

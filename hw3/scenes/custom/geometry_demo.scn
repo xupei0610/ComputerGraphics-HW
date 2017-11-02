@@ -1,7 +1,6 @@
 #material demo
 output_image geometry_demo.bmp
 
-mode cpu
 sampling_radius 1
 max_depth 5
 film_resolution 640 480

@@ -9,60 +9,60 @@ class Triangle;
 class BaseTriangle;
 }
 
-class px::BaseTriangle : public BaseGeometry
+class px::BaseTriangle
 {
-protected:
-    PX_CUDA_CALLABLE
-    const BaseGeometry * hitCheck(Ray const &ray,
-                                  PREC const &range_start,
-                                  PREC const &range_end,
-                                  PREC &hit_at) const override;
-    PX_CUDA_CALLABLE
-    Vec3<PREC> getTextureCoord(PREC const &x,
-                                 PREC const &y,
-                                 PREC const &z) const override;
-    PX_CUDA_CALLABLE
-    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
-
 public:
     PX_CUDA_CALLABLE
-    BaseTriangle(Point const &a,
-                 Point const &b,
-                 Point const &c,
-                 const BaseMaterial * const &material,
-                 const Transformation * const &trans);
+    static GeometryObj *hitCheck(void * const &obj,
+                                   Ray const &ray,
+                                   PREC const &range_start,
+                                   PREC const &range_end,
+                                   PREC &hit_at);
     PX_CUDA_CALLABLE
-    ~BaseTriangle() = default;
+    static Vec3<PREC> getTextureCoord(void * const &obj,
+                                      PREC const &x,
+                                      PREC const &y,
+                                      PREC const &z);
+    PX_CUDA_CALLABLE
+    static Direction normalVec(void * const &obj,
+                               PREC const &x, PREC const &y, PREC const &z);
 
-    PX_CUDA_CALLABLE
     void setVertices(Point const &a,
                      Point const &b,
                      Point const &c);
+
+    ~BaseTriangle() = default;
 protected:
+    Point _a;
     Point _center;
     Direction _norm_vec;
     Vec3<PREC> _ba;
-    Vec3<PREC> _cb;
+//    Vec3<PREC> _cb;
     Vec3<PREC> _ca;
 //    PREC _v1_dot_n;
 
+    GeometryObj *_dev_obj;
+
+    BaseTriangle(Point const &a,
+                 Point const &b,
+                 Point const &c);
+
     BaseTriangle &operator=(BaseTriangle const &) = delete;
     BaseTriangle &operator=(BaseTriangle &&) = delete;
+
+    friend class Triangle;
 };
 
-class px::Triangle : public Geometry
+class px::Triangle : public BaseGeometry
 {
 public:
-    static std::shared_ptr<Geometry> create(Point const &a,
+    static std::shared_ptr<BaseGeometry> create(Point const &a,
                                                 Point const &b,
                                                 Point const &c,
-                                                std::shared_ptr<Material> const &material,
+                                                std::shared_ptr<BaseMaterial> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry **devPtr() override;
     void up2Gpu() override;
     void clearGpuData() override;
-
-    BaseGeometry * const &obj() const noexcept override;
 
     void setVertices(Point const &a,
                      Point const &b,
@@ -71,22 +71,27 @@ public:
     ~Triangle();
 protected:
     BaseTriangle *_obj;
-    BaseGeometry *_base_obj;
-
-    Point _a;
-    Point _b;
-    Point _c;
-
-    std::shared_ptr<Material> _material_ptr;
-    std::shared_ptr<Transformation> _transformation_ptr;
-
-    BaseGeometry **_dev_ptr;
+    void *_gpu_obj;
     bool _need_upload;
+
+    void _updateVertices(Point const &a,
+                         Point const &b,
+                         Point const &c);
+
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                                       PREC const &y,
+                                       PREC const &z) const override;
+    const BaseGeometry * hitCheck(Ray const &ray,
+                                          PREC const &range_start,
+                                          PREC const &range_end,
+                                          PREC &hit_at) const override;
+    Direction normalVec(PREC const &x, PREC const &y,
+                                PREC const &z) const override;
 
     Triangle(Point const &a,
              Point const &b,
              Point const &c,
-             std::shared_ptr<Material> const &material,
+             std::shared_ptr<BaseMaterial> const &material,
              std::shared_ptr<Transformation> const &trans);
 
     Triangle &operator=(Triangle const &) = delete;

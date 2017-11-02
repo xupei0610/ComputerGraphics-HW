@@ -32,10 +32,9 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
 
   in the scene file to enable CPU computation.
 
-  Stack instead of recursion is used in the GPU code.There are still two problems when using GPU computation in the program.
+  Stack instead of recursion is used in the GPU code.
   
-  1. Not fully support for the bound box structure. So far, the bound box structure is allowed to be put into another bound box such that a deep function call may be involved when using a bound box containing another one and cause the GPU kernel crashing. I have got an idea to flatten the warping of bound boxes. I will revise this problem later.
-  2. Object Initialization. The CPU code is written in modern C++ design pattern originally. Lots of virtual functions are used, which cause a huge problem when running the code on GPU. In order to use virtual functions, objects must be initialized on the device (GPU) directly instead of copying it to the device from the host side. To initalize objects in the device by `new` or `malloc` operation will cause a huge performance problem. This is the flaw of my code design. I will modify the code later, by maintaining function pointers, like `vtable`, manually, to revise this problem.
+  Note: no fully support for the bound box structure. So far, the bound box structure is allowed to be put into another bound box such that a deep function call may be involved when using a bound box containing another one and cause the GPU kernel crashing.
 
 #### Interactive User Interface
   
@@ -68,6 +67,7 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
     ring c_x c_y c_z norm_x norm_y norm_z radius1 radius2
 
     box x1 x2 y1 y2 z1 z2
+    box vertex_id1 vertex_id2
     
     ellipsoid c_x c_y c_z radius_x radius_y radius_z
 
@@ -200,6 +200,8 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
 
   <img src="./doc/watch.bmp" />
 
+  <img src="./doc/watch2.bmp" />
+
   <img src="./doc/dragon.bmp" />
 
   <img src="./doc/dragon_front.bmp" />
@@ -217,21 +219,20 @@ Test case: `complex/test.scn`
 
 |         | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
 |---------| :--: |   :---:  |  :---:   |  :---:   |  :---:   |  :---:   |
-|Original | 1673 |   84547  |  41432   |  28337   |  22298   |  18813   |
-|BoundBox | 342  |   8676   |  4055    |  3485    |  2586    |  2192    |
+|Original | 1031 |   84547  |  41432   |  28337   |  22298   |  18813   |
+|BoundBox | 252  |   8676   |  4055    |  3485    |  2586    |  2192    |
 |Octree   | IMPLEMENT later |
 
 |3x3 Sampling | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
 |-------------| :--: |  :----:  |  :----:  |  :----:  |  :---:   |  :---:   |
-|Original     | 6539 |  333150  |  324527  |  107947  |  89789   |  76214   |
-|BoundBox     | 1347 |  32003   |  22463   |  14084   |  10000   |  8551    |
+|Original     | 4208 |  333150  |  324527  |  107947  |  89789   |  76214   |
+|BoundBox     | 1038 |  32003   |  22463   |  14084   |  10000   |  8551    |
 |Octree       | IMPLEMENT later |
 
 In the bound box test case, only one bound box is used to group all triangles together. The acceleration effect of the bound box is very obvious.
 
 ### TODO Lists
 
-  + Revise GPU code. Reduce time to transfer data from the host to device.
   + BVH using OCtree.
   + Revise adpative supersampling.
   + Polygon

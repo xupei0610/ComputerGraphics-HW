@@ -1,12 +1,7 @@
 #include "object/geometry/quadric.hpp"
 
-#ifdef USE_CUDA
-#include "gpu_creator.hpp"
-#endif
-
 using namespace px;
 
-PX_CUDA_CALLABLE
 BaseQuadric::BaseQuadric(Point const &center,
                          PREC const &a,
                          PREC const &b,
@@ -20,70 +15,70 @@ BaseQuadric::BaseQuadric(Point const &center,
                          PREC const &j,
                          PREC const &x0, PREC const &x1,
                          PREC const &y0, PREC const &y1,
-                         PREC const &z0, PREC const &z1,
-                         const BaseMaterial *const &material,
-                         const Transformation *const &trans)
-        : BaseGeometry(material, trans, 8),
-          _center(center)
+                         PREC const &z0, PREC const &z1)
+        : _center(center), _dev_obj(nullptr)
 {
     setCoef(a, b, c, d, e, f, g, h, i, j, x0, x1, y0, y1, z0, z1);
 }
 
 PX_CUDA_CALLABLE
-const BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
-                                     PREC const &t_start,
-                                     PREC const &t_end,
-                                     PREC &hit_at) const
+GeometryObj * BaseQuadric::hitCheck(void * const &obj,
+                           Ray const &ray,
+                           PREC const &t_start,
+                           PREC const &t_end,
+                           PREC &hit_at)
 {
-    auto xo = ray.original.x - _center.x;
-    auto yo = ray.original.y - _center.y;
-    auto zo = ray.original.z - _center.z;
+    auto o = reinterpret_cast<BaseQuadric*>(obj);
+
+    auto xo = ray.original.x - o->_center.x;
+    auto yo = ray.original.y - o->_center.y;
+    auto zo = ray.original.z - o->_center.z;
 
     // @see http://www.bmsc.washington.edu/people/merritt/graphics/quadrics.html
-    auto A =  _a * ray.direction.x * ray.direction.x +
-              _b * ray.direction.y * ray.direction.y +
-              _c * ray.direction.z * ray.direction.z +
-              _d * ray.direction.x * ray.direction.y +
-              _e * ray.direction.x * ray.direction.z +
-              _f * ray.direction.y * ray.direction.z;
-    auto B =  2 * _a * xo * ray.direction.x +
-              2 * _b * yo * ray.direction.y +
-              2 * _c * zo * ray.direction.z +
-              _d * (xo * ray.direction.y + yo * ray.direction.x) +
-              _e * (xo * ray.direction.z + zo * ray.direction.x) +
-              _f * (yo * ray.direction.z + zo * ray.direction.y) +
-              _g * ray.direction.x +
-              _h * ray.direction.y +
-              _i * ray.direction.z;
-    auto C =  _a * xo * xo +
-              _b * yo * yo +
-              _c * zo * zo +
-              _d * xo * yo +
-              _e * xo * zo +
-              _f * yo * zo +
-              _g * xo +
-              _h * yo +
-              _i * zo +
-              _j;
+    auto A = o->_a * ray.direction.x * ray.direction.x +
+             o->_b * ray.direction.y * ray.direction.y +
+             o->_c * ray.direction.z * ray.direction.z +
+             o->_d * ray.direction.x * ray.direction.y +
+             o->_e * ray.direction.x * ray.direction.z +
+             o->_f * ray.direction.y * ray.direction.z;
+    auto B = 2 * o->_a * xo * ray.direction.x +
+             2 * o->_b * yo * ray.direction.y +
+             2 * o->_c * zo * ray.direction.z +
+             o->_d * (xo * ray.direction.y + yo * ray.direction.x) +
+             o->_e * (xo * ray.direction.z + zo * ray.direction.x) +
+             o->_f * (yo * ray.direction.z + zo * ray.direction.y) +
+             o->_g * ray.direction.x +
+             o->_h * ray.direction.y +
+             o->_i * ray.direction.z;
+    auto C = o->_a * xo * xo +
+             o->_b * yo * yo +
+             o->_c * zo * zo +
+             o->_d * xo * yo +
+             o->_e * xo * zo +
+             o->_f * yo * zo +
+             o->_g * xo +
+             o->_h * yo +
+             o->_i * zo +
+             o->_j;
 
     if (A == 0)
     {
-        if (B == 0) return nullptr;
+        if (B == 0) return o->_dev_obj;
 
         C = - C / B;
         if (C > t_start && C < t_end)
         {
             B = ray.original.x + ray.direction.x * C;
-            if (B >_x0 && B < _x1)
+            if (B > o->_x0 && B < o->_x1)
             {
                 B = ray.original.y + ray.direction.y * C;
-                if (B >_y0 && B < _y1)
+                if (B > o->_y0 && B < o->_y1)
                 {
                     B = ray.original.z + ray.direction.z * C;
-                    if (B >_z0 && B < _z1)
+                    if (B > o->_z0 && B < o->_z1)
                     {
                         hit_at = C;
-                        return this;
+                        return o->_dev_obj;
                     }
                 }
             }
@@ -107,17 +102,17 @@ const BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
 
     if (xo > t_start && xo < t_end)
     {
-        auto i_x =ray.original.x + ray.direction.x * xo;
-        if (i_x >_x0 && i_x < _x1)
+        B = ray.original.x + ray.direction.x * xo;
+        if (B > o->_x0 && B < o->_x1)
         {
-            auto i_y =ray.original.y + ray.direction.y * xo;
-            if (i_y >_y0 && i_y < _y1)
+            B = ray.original.y + ray.direction.y * xo;
+            if (B > o->_y0 && B < o->_y1)
             {
-                auto i_z =ray.original.z + ray.direction.z * xo;
-                if (i_z >_z0 && i_z < _z1)
+                B =ray.original.z + ray.direction.z * xo;
+                if (B > o->_z0 && B < o->_z1)
                 {
                     hit_at = xo;
-                    return this;
+                    return o->_dev_obj;
                 }
             }
         }
@@ -125,16 +120,16 @@ const BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
     if (yo > t_start && yo < t_end)
     {
         B = ray.original.x + ray.direction.x * yo;
-        if (B >_x0 && B < _x1)
+        if (B > o->_x0 && B < o->_x1)
         {
             B =ray.original.y + ray.direction.y * yo;
-            if (B >_y0 && B < _y1)
+            if (B >o->_y0 && B < o->_y1)
             {
                 B = ray.original.z + ray.direction.z * yo;
-                if (B >_z0 && B < _z1)
+                if (B >o->_z0 && B < o->_z1)
                 {
                     hit_at = yo;
-                    return this;
+                    return o->_dev_obj;
                 }
             }
         }
@@ -144,234 +139,121 @@ const BaseGeometry * BaseQuadric::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseQuadric::normalVec(PREC const &x, PREC const &y, PREC const &z) const
+Direction BaseQuadric::normalVec(void * const &obj,
+                                 PREC const &x, PREC const &y, PREC const &z)
 {
-    auto dx = x - _center.x;
-    auto dy = y - _center.y;
-    auto dz = z - _center.z;
+    auto o = reinterpret_cast<BaseQuadric*>(obj);
 
-    return {2 * _a * dx + _d * dy + _e * dz + _g,
-            2 * _b * dy + _d * dx + _f * dz + _h,
-            2 * _c * dz + _e * dx + _f * dy + _i};
+    auto dx = x - o->_center.x;
+    auto dy = y - o->_center.y;
+    auto dz = z - o->_center.z;
+
+    return {2 * o->_a * dx + o->_d * dy + o->_e * dz + o->_g,
+            2 * o->_b * dy + o->_d * dx + o->_f * dz + o->_h,
+            2 * o->_c * dz + o->_e * dx + o->_f * dy + o->_i};
 }
 
 PX_CUDA_CALLABLE
-Vec3<PREC> BaseQuadric::getTextureCoord(PREC const &x, PREC const &y,
-                                       PREC const &z) const
+Vec3<PREC> BaseQuadric::getTextureCoord(void * const &obj,
+                                        PREC const &x, PREC const &y, PREC const &z)
 {
+    auto o = reinterpret_cast<BaseQuadric*>(obj);
+
     // FIXME better way for quadric surface texture mapping
-
-    if (_sym_o)
+    if (o->_sym_o)
     {
-        if (_a == 0 && _b == 0)
-            return {x-_center.x, y-_center.y, 0};
-        if (_a == 0 && _c == 0)
-            return {z-_center.z, x-_center.x, 0};
-        if (_b == 0 && _c == 0)
-            return {y-_center.y, z-_center.z, 0};
-        if (_c == 0)
+        if (o->_a == 0 && o->_b == 0)
+            return {x-o->_center.x, y-o->_center.y, 0};
+        if (o->_a == 0 && o->_c == 0)
+            return {z-o->_center.z, x-o->_center.x, 0};
+        if (o->_b == 0 && o->_c == 0)
+            return {y-o->_center.y, z-o->_center.z, 0};
+        if (o->_c == 0)
         {
-            auto discriminant = _h*_h - 4*_b*_j;
-            auto cy = discriminant < 0 ? 0 : (std::sqrt(discriminant) - _h)*PREC(0.5)/_b;
+            auto discriminant = o->_h*o->_h - 4*o->_b*o->_j;
+            auto cy = discriminant < 0 ? 0 : (std::sqrt(discriminant) - o->_h)*PREC(0.5)/o->_b;
 
-//            auto dx = x - _center.x;
-//            auto dy = y - _center.y;
-//            auto dz = z - _center.z;
+//            auto dx = x - o->_center.x;
+//            auto dy = y - o->_center.y;
+//            auto dz = z - o->_center.z;
 //
-//            auto du = (_a*dx*dx/2.0 + _c*dz*dz + _e*dx*dz/2.0 + _g*dx/2.0 + _i*dz + _j) * dx * (dy-cy) +
-//                      (_d*dx*dx/2.0 + _f*dx*dz + _h*dx)/2.0 * (dy*dy - cy*cy) +
-//                      _b*dx/3.0 * (dy*dy*dy - cy*cy*cy) ;
+//            auto du = (o->_a*dx*dx/2.0 + o->_c*dz*dz + o->_e*dx*dz/2.0 + o->_g*dx/2.0 + o->_i*dz + o->_j) * dx * (dy-cy) +
+//                      (o->_d*dx*dx/2.0 + o->_f*dx*dz + o->_h*dx)/2.0 * (dy*dy - cy*cy) +
+//                      o->_b*dx/3.0 * (dy*dy*dy - cy*cy*cy) ;
 
-            return {x-_center.x > 0 ? y - cy : cy - y, z-_center.z, 0};
-//            return {x-_center.x > 0 ? y - _center.y : _center.y - y, z-_center.z, 0};
-//            return {du, z-_center.z, 0};
+            return {x-o->_center.x > 0 ? y - cy : cy - y, z-o->_center.z, 0};
+//            return {x-o->_center.x > 0 ? y - o->_center.y : o->_center.y - y, z-o->_center.z, 0};
+//            return {du, z-o->_center.z, 0};
         }
-        if (_b == 0)
+        if (o->_b == 0)
         {
-            auto discriminant = _g*_g - 4*_a*_j;
-            auto cx = discriminant < 0 ? _center.x : ((std::sqrt(discriminant) - _g)*PREC(0.5)/_a + _center.x);
-            return {z-_center.z > 0 ? x - cx : cx - x, y-_center.y, 0};
+            auto discriminant = o->_g*o->_g - 4*o->_a*o->_j;
+            auto cx = discriminant < 0 ? o->_center.x : ((std::sqrt(discriminant) - o->_g)*PREC(0.5)/o->_a + o->_center.x);
+            return {z-o->_center.z > 0 ? x - cx : cx - x, y-o->_center.y, 0};
         }
-        if (_a == 0)
+        if (o->_a == 0)
         {
-            auto discriminant = _i*_i - 4*_c*_j;
-            auto cz = discriminant < 0 ? _center.z : ((std::sqrt(discriminant) - _i)*PREC(0.5)/_c + _center.z);
-            return {y-_center.y > 0 ? z-cz : cz-z, x-_center.x, 0};
+            auto discriminant = o->_i*o->_i - 4*o->_c*o->_j;
+            auto cz = discriminant < 0 ? o->_center.z : ((std::sqrt(discriminant) - o->_i)*PREC(0.5)/o->_c + o->_center.z);
+            return {y-o->_center.y > 0 ? z-cz : cz-z, x-o->_center.x, 0};
         }
 
-        if (_a > 0 && _b > 0 && _c > 0)
+        if (o->_a > 0 && o->_b > 0 && o->_c > 0)
         {
-            auto dx = x - _center.x;
-            auto dy = y - _center.y;
-            auto dz = z - _center.z;
+            auto dx = x - o->_center.x;
+            auto dy = y - o->_center.y;
+            auto dz = z - o->_center.z;
 
-            return {(1 + std::atan2(dz, dx) / PI) * PREC(0.5),
-                    std::acos(dy / (dx*dx+dy*dy+dz*dz)) / PI,
+            return {(1 + std::atan2(dz, dx) / PREC(PI)) * PREC(0.5),
+                    std::acos(dy / (dx*dx+dy*dy+dz*dz)) / PREC(PI),
                     0};;
         }
 
-        return {x - _center.x,
-                y - _center.y,
+        return {x - o->_center.x,
+                y - o->_center.y,
                 0};;
     }
-    if (_sym_x)
+    if (o->_sym_x)
     {
-        return {y-_center.y, z-_center.z, 0};
+        return {y-o->_center.y, z-o->_center.z, 0};
     }
-    if (_sym_y)
+    if (o->_sym_y)
     {
-        return {x-_center.x, z-_center.z, 0};
+        return {x-o->_center.x, z-o->_center.z, 0};
     }
-    if (_sym_z)
+    if (o->_sym_z)
     {
-        return {x-_center.x, y-_center.y, 0};
+        return {x-o->_center.x, y-o->_center.y, 0};
     }
 
-    if (_sym_xy)
-        return {z-_center.z, x-_center.x, 0};
-    if (_sym_yz)
-        return {x-_center.x, y-_center.y, 0};
-    if (_sym_xz)
-        return {y-_center.y, x-_center.x, 0};
+    if (o->_sym_xy)
+        return {z-o->_center.z, x-o->_center.x, 0};
+    if (o->_sym_yz)
+        return {x-o->_center.x, y-o->_center.y, 0};
+    if (o->_sym_xz)
+        return {y-o->_center.y, x-o->_center.x, 0};
 
-    return {x-_center.x, y-_center.y, 0};
-
+    return {x-o->_center.x, y-o->_center.y, 0};
 }
 
-std::shared_ptr<Geometry> Quadric::create(Point const &center,
-                                              PREC const &a,
-                                              PREC const &b,
-                                              PREC const &c,
-                                              PREC const &d,
-                                              PREC const &e,
-                                              PREC const &f,
-                                              PREC const &g,
-                                              PREC const &h,
-                                              PREC const &i,
-                                              PREC const &j,
-                                              PREC const &x0, PREC const &x1,
-                                              PREC const &y0, PREC const &y1,
-                                              PREC const &z0, PREC const &z1,
-                                           std::shared_ptr<Material> const &material,
-                                           std::shared_ptr<Transformation> const &trans)
+void BaseQuadric::setCenter(Point const &center)
 {
-    return std::shared_ptr<Geometry>(new Quadric(center,
-                                                     a, b, c, d, e, f, g, h, i,
-                                                     j,
-                                                     x0, x1, y0, y1, z0, z1,
-                                                     material, trans));
+    _center = center;
 }
 
-Quadric::Quadric(Point const &center,
-                 PREC const &a,
-                 PREC const &b,
-                 PREC const &c,
-                 PREC const &d,
-                 PREC const &e,
-                 PREC const &f,
-                 PREC const &g,
-                 PREC const &h,
-                 PREC const &i,
-                 PREC const &j,
-                 PREC const &x0, PREC const &x1,
-                 PREC const &y0, PREC const &y1,
-                 PREC const &z0, PREC const &z1,
-           std::shared_ptr<Material> const &material,
-           std::shared_ptr<Transformation> const &trans)
-        : _obj(new BaseQuadric(center, a, b, c, d, e, f, g, h, i, j, x0, x1, y0, y1, z0, z1,
-                      material->obj(), trans.get())),
-          _base_obj(_obj),
-          _material_ptr(material), _transformation_ptr(trans),
-          _dev_ptr(nullptr), _need_upload(true)
-{}
-
-Quadric::~Quadric()
-{
-    delete _obj;
-#ifdef USE_CUDA
-    clearGpuData();
-#endif
-}
-BaseGeometry *const &Quadric::obj() const noexcept
-{
-    return  _base_obj;
-}
-
-BaseGeometry **Quadric::devPtr()
-{
-    return _dev_ptr;
-}
-
-void Quadric::up2Gpu()
-{
-#ifdef USE_CUDA
-    if (_need_upload)
-    {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry**)));
-
-        if (_material_ptr != nullptr)
-            _material_ptr->up2Gpu();
-        if (_transformation_ptr != nullptr)
-            _transformation_ptr->up2Gpu();
-
-        cudaDeviceSynchronize();
-
-        GpuCreator::Quadric(_dev_ptr,
-                            _obj->_center,
-                            _obj->_a, _obj->_b, _obj->_c,
-                            _obj->_d, _obj->_e, _obj->_f,
-                            _obj->_g, _obj->_h, _obj->_i, _obj->_j,
-                            _obj->_x0, _obj->_x1, _obj->_y0, _obj->_y1,
-                            _obj->_z0, _obj->_z1,
-                        _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
-                        _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
-
-        _need_upload = false;
-    }
-#endif
-}
-
-void Quadric::clearGpuData()
-{
-#ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        return;
-
-    if (_transformation_ptr.use_count() == 1)
-        _transformation_ptr->clearGpuData();
-    if (_material_ptr.use_count() == 1)
-        _material_ptr->clearGpuData();
-
-    GpuCreator::destroy(_dev_ptr);
-    _dev_ptr = nullptr;
-    _need_upload = true;
-#endif
-}
-
-
-void Quadric::setCenter(Point const &center)
-{
-    _obj->_center = center;
-//    updateVertices();
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
-}
-PX_CUDA_CALLABLE
 void BaseQuadric::setCoef(PREC const &a,
-                      PREC const &b,
-                      PREC const &c,
-                      PREC const &d,
-                      PREC const &e,
-                      PREC const &f,
-                      PREC const &g,
-                      PREC const &h,
-                      PREC const &i,
-                      PREC const &j,
-                      PREC const &x0, PREC const &x1,
-                      PREC const &y0, PREC const &y1,
-                      PREC const &z0, PREC const &z1)
+                          PREC const &b,
+                          PREC const &c,
+                          PREC const &d,
+                          PREC const &e,
+                          PREC const &f,
+                          PREC const &g,
+                          PREC const &h,
+                          PREC const &i,
+                          PREC const &j,
+                          PREC const &x0, PREC const &x1,
+                          PREC const &y0, PREC const &y1,
+                          PREC const &z0, PREC const &z1)
 {
     if (j < 0)
     {
@@ -397,64 +279,210 @@ void BaseQuadric::setCoef(PREC const &a,
     _x0 = x0 < x1 ? (_x1 = x1, x0) : (_x1 = x0, x1);
     _y0 = y0 < y1 ? (_y1 = y1, y0) : (_y1 = y0, y1);
     _z0 = z0 < z1 ? (_z1 = z1, z0) : (_z1 = z0, z1);
-
-    updateVertices();
 }
 
-PX_CUDA_CALLABLE
-void BaseQuadric::updateVertices()
+std::shared_ptr<BaseGeometry> Quadric::create(Point const &center,
+                                              PREC const &a,
+                                              PREC const &b,
+                                              PREC const &c,
+                                              PREC const &d,
+                                              PREC const &e,
+                                              PREC const &f,
+                                              PREC const &g,
+                                              PREC const &h,
+                                              PREC const &i,
+                                              PREC const &j,
+                                              PREC const &x0, PREC const &x1,
+                                              PREC const &y0, PREC const &y1,
+                                              PREC const &z0, PREC const &z1,
+                                           std::shared_ptr<BaseMaterial> const &material,
+                                           std::shared_ptr<Transformation> const &trans)
 {
-    // FIXME better way to find the bound of vertices of quadric surface
-    _raw_vertices[0].x = _x0;
-    _raw_vertices[0].y = _y0;
-    _raw_vertices[0].z = _z0;
-
-    _raw_vertices[1].x = _x1;
-    _raw_vertices[1].y = _y0;
-    _raw_vertices[1].z = _z0;
-
-    _raw_vertices[2].x = _x0;
-    _raw_vertices[2].y = _y1;
-    _raw_vertices[2].z = _z0;
-
-    _raw_vertices[3].x = _x0;
-    _raw_vertices[3].y = _y0;
-    _raw_vertices[3].z = _z1;
-
-    _raw_vertices[4].x = _x1;
-    _raw_vertices[4].y = _y1;
-    _raw_vertices[4].z = _z0;
-
-    _raw_vertices[5].x = _x1;
-    _raw_vertices[5].y = _y0;
-    _raw_vertices[5].z = _z1;
-
-    _raw_vertices[6].x = _x0;
-    _raw_vertices[6].y = _y1;
-    _raw_vertices[6].z = _z1;
-
-    _raw_vertices[7].x = _x1;
-    _raw_vertices[7].y = _y1;
-    _raw_vertices[7].z = _z1;
+    return std::shared_ptr<BaseGeometry>(new Quadric(center,
+                                                     a, b, c, d, e, f, g, h, i,
+                                                     j,
+                                                     x0, x1, y0, y1, z0, z1,
+                                                     material, trans));
 }
 
-void Quadric::setCoef(PREC const &a,
-             PREC const &b,
-             PREC const &c,
-             PREC const &d,
-             PREC const &e,
-             PREC const &f,
-             PREC const &g,
-             PREC const &h,
-             PREC const &i,
-             PREC const &j,
-             PREC const &x0, PREC const &x1,
-             PREC const &y0, PREC const &y1,
-             PREC const &z0, PREC const &z1)
+Quadric::Quadric(Point const &center,
+                 PREC const &a,
+                 PREC const &b,
+                 PREC const &c,
+                 PREC const &d,
+                 PREC const &e,
+                 PREC const &f,
+                 PREC const &g,
+                 PREC const &h,
+                 PREC const &i,
+                 PREC const &j,
+                 PREC const &x0, PREC const &x1,
+                 PREC const &y0, PREC const &y1,
+                 PREC const &z0, PREC const &z1,
+           std::shared_ptr<BaseMaterial> const &material,
+           std::shared_ptr<Transformation> const &trans)
+        : BaseGeometry(material, trans, 8),
+          _obj(new BaseQuadric(center, a, b, c, d, e, f, g, h, i, j, x0, x1, y0, y1, z0, z1)),
+          _gpu_obj(nullptr), _need_upload(true)
 {
-    _obj->setCoef(a, b, c, d, e, f, g, h, i, j,
-                         x0, x1, y0, y1, z0, z1);
+    _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
+    _updateVertices();
+}
+
+Quadric::~Quadric()
+{
+    delete _obj;
+#ifdef USE_CUDA
+    clearGpuData();
+#endif
+}
+
+#ifdef USE_CUDA
+__device__ fnHit_t __fn_hit_quadric= BaseQuadric::hitCheck;
+__device__ fnNormal_t __fn_normal_quadric= BaseQuadric::normalVec;
+__device__ fnTextureCoord_t __fn_texture_coord_quadric= BaseQuadric::getTextureCoord;
+#endif
+void Quadric::up2Gpu()
+{
+#ifdef USE_CUDA
+    static fnHit_t fn_hit_h = nullptr;
+    static fnNormal_t fn_normal_h;
+    static fnTextureCoord_t fn_texture_coord_h;
+
+    if (_need_upload)
+    {
+        if (dev_ptr == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMalloc(&_gpu_obj, sizeof(BaseQuadric)));
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(GeometryObj)));
+        }
+
+        if (fn_hit_h == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_hit_h, __fn_hit_quadric, sizeof(fnHit_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_normal_h, __fn_normal_quadric, sizeof(fnNormal_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_texture_coord_h, __fn_texture_coord_quadric, sizeof(fnTextureCoord_t)));
+        }
+
+        if (mat != nullptr)
+            mat->up2Gpu();
+
+        if (trans != nullptr)
+            trans->up2Gpu();
+
+        cudaDeviceSynchronize();
+
+        _obj->_dev_obj = dev_ptr;
+        PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseQuadric), cudaMemcpyHostToDevice));
+        _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
+
+        GeometryObj tmp(_gpu_obj, fn_hit_h, fn_normal_h, fn_texture_coord_h,
+                        mat == nullptr ? nullptr : mat->devPtr(),
+                        trans == nullptr ? nullptr : trans->devPtr());
+
+        PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(GeometryObj),
+                                 cudaMemcpyHostToDevice))
+
+        _need_upload = false;
+    }
+#endif
+}
+
+void Quadric::clearGpuData()
+{
+#ifdef USE_CUDA
+    BaseGeometry::clearGpuData();
+    if (_gpu_obj != nullptr)
+    {
+        PX_CUDA_CHECK(cudaFree(_gpu_obj));
+        _gpu_obj = nullptr;
+    }
+    _need_upload = true;
+#endif
+}
+
+void Quadric::setCenter(Point const &center)
+{
+    _obj->setCenter(center);
+//    _updateVertices();
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
+}
+
+
+void Quadric::setCoef(PREC const &a,
+                      PREC const &b,
+                      PREC const &c,
+                      PREC const &d,
+                      PREC const &e,
+                      PREC const &f,
+                      PREC const &g,
+                      PREC const &h,
+                      PREC const &i,
+                      PREC const &j,
+                      PREC const &x0, PREC const &x1,
+                      PREC const &y0, PREC const &y1,
+                      PREC const &z0, PREC const &z1)
+{
+    _obj->setCoef(a, b, c, d, e, f, g, h, i, j, x0, x1, y0, y1, z0, z1);
+    _updateVertices();
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
+}
+
+void Quadric::_updateVertices()
+{
+    // FIXME better way to find the bound of vertices of quadric surface
+    raw_vertices[0].x = _obj->_x0;
+    raw_vertices[0].y = _obj->_y0;
+    raw_vertices[0].z = _obj->_z0;
+
+    raw_vertices[1].x = _obj->_x1;
+    raw_vertices[1].y = _obj->_y0;
+    raw_vertices[1].z = _obj->_z0;
+
+    raw_vertices[2].x = _obj->_x0;
+    raw_vertices[2].y = _obj->_y1;
+    raw_vertices[2].z = _obj->_z0;
+
+    raw_vertices[3].x = _obj->_x0;
+    raw_vertices[3].y = _obj->_y0;
+    raw_vertices[3].z = _obj->_z1;
+
+    raw_vertices[4].x = _obj->_x1;
+    raw_vertices[4].y = _obj->_y1;
+    raw_vertices[4].z = _obj->_z0;
+
+    raw_vertices[5].x = _obj->_x1;
+    raw_vertices[5].y = _obj->_y0;
+    raw_vertices[5].z = _obj->_z1;
+
+    raw_vertices[6].x = _obj->_x0;
+    raw_vertices[6].y = _obj->_y1;
+    raw_vertices[6].z = _obj->_z1;
+
+    raw_vertices[7].x = _obj->_x1;
+    raw_vertices[7].y = _obj->_y1;
+    raw_vertices[7].z = _obj->_z1;
+}
+
+Vec3<PREC> Quadric::getTextureCoord(PREC const &x,
+                                  PREC const &y,
+                                  PREC const &z) const
+{
+    return BaseQuadric::getTextureCoord(_obj, x, y, z);
+}
+const BaseGeometry *Quadric::hitCheck(Ray const &ray,
+                                    PREC const &t_start,
+                                    PREC const &t_end,
+                                    PREC &hit_at) const
+{
+    return BaseQuadric::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
+}
+Direction Quadric::normalVec(PREC const &x, PREC const &y,
+                           PREC const &z) const
+{
+    return BaseQuadric::normalVec(_obj, x, y, z);
 }

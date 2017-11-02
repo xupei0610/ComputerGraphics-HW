@@ -308,7 +308,7 @@ void Scene::renderCpu(int const &width,
     TIC(1)
 #endif
 
-#pragma omp parallel for num_threads(8)
+//#pragma omp parallel for num_threads(8)
     for (auto i = 0; i < _param->dimension; ++i)
     {
         if (_cpu_stop_flag) // OpenMP not support break statement

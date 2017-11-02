@@ -10,7 +10,7 @@ directional_light .8 .8 .8 0 -1 1
 ambient_light .2 .2 .2
 background 0.125 0.5 1
 
-checkerboard_material 1 1 1 1 1 1    0 0 0    1 0 0 0 1 0.5 0
+checkerboard_material 1 1 1 1 1 1 0 0 0 1 0 0 0 1 1 0
 plane 0 0 0 0 1 0
 brick_material .5 0 0 .5 0 0 0 0 0 0 0 0 0 0 .6 .2 0 .6 .2 0 0 0 0 0 0 0 0 0 1 0.1 0.1
 plane 0 0 5 0 0 -1

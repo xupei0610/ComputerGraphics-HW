@@ -9,72 +9,78 @@ class Plane;
 class BasePlane;
 }
 
-class px::BasePlane : public BaseGeometry
+class px::BasePlane
 {
-protected:
-    PX_CUDA_CALLABLE
-    const BaseGeometry * hitCheck(Ray const &ray,
-                                  PREC const &range_start,
-                                  PREC const &range_end,
-                                  PREC &hit_at) const override;
-    PX_CUDA_CALLABLE
-    Vec3<PREC> getTextureCoord(PREC const &x,
-                                 PREC const &y,
-                                 PREC const &z) const override;
-    PX_CUDA_CALLABLE
-    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
-
 public:
     PX_CUDA_CALLABLE
-    BasePlane(Point const &pos,
-              Direction const &norm_vec,
-              const BaseMaterial * const &material,
-              const Transformation * const &trans);
+    static GeometryObj *hitCheck(void * const &obj,
+                                   Ray const &ray,
+                                   PREC const &range_start,
+                                   PREC const &range_end,
+                                   PREC &hit_at);
     PX_CUDA_CALLABLE
+    static Vec3<PREC> getTextureCoord(void * const &obj,
+                                      PREC const &x,
+                                      PREC const &y,
+                                      PREC const &z);
+    PX_CUDA_CALLABLE
+    static Direction normalVec(void * const &obj,
+                               PREC const &x, PREC const &y, PREC const &z);
+
+    void setPos(Point const &p);
+    void setNormal(Direction const &n);
+
     ~BasePlane() = default;
+
 protected:
-    Point _position;
-    Direction _norm_vec;
+    Point _pos;
+    Direction _norm;
     PREC _p_dot_n;
 
-    PX_CUDA_CALLABLE
-    void setNormVec(Direction const &norm_vec);
+    GeometryObj *_dev_obj;
 
+    BasePlane(Point const &pos,
+              Direction const &norm_vec);
     BasePlane &operator=(BasePlane const &) = delete;
     BasePlane &operator=(BasePlane &&) = delete;
 
     friend class Plane;
 };
 
-class px::Plane : public Geometry
+class px::Plane : public BaseGeometry
 {
 public:
-    static std::shared_ptr<Geometry> create(Point const &position,
+    static std::shared_ptr<BaseGeometry> create(Point const &position,
                                                 Direction const &norm_vec,
-                                                std::shared_ptr<Material> const &material,
+                                                std::shared_ptr<BaseMaterial> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry *const &obj() const noexcept override;
-    BaseGeometry **devPtr() override;
     void up2Gpu() override;
     void clearGpuData() override;
 
-    void setPosition(Point const &position);
-    void setNormVec(Direction const &norm_vec);
+    void setPos(Point const &position);
+    void setNormal(Direction const &norm_vec);
 
     ~Plane();
 protected:
     BasePlane *_obj;
-    BaseGeometry *_base_obj;
-
-    std::shared_ptr<Material> _material_ptr;
-    std::shared_ptr<Transformation> _transformation_ptr;
-
-    BaseGeometry **_dev_ptr;
+    void *_gpu_obj;
     bool _need_upload;
+
+    void _updateVertices();
+
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                               PREC const &y,
+                               PREC const &z) const override;
+    const BaseGeometry *hitCheck(Ray const &ray,
+                                 PREC const &range_start,
+                                 PREC const &range_end,
+                                 PREC &hit_at) const override;
+    Direction normalVec(PREC const &x, PREC const &y,
+                        PREC const &z) const override;
 
     Plane(Point const &position,
           Direction const &norm_vec,
-          std::shared_ptr<Material> const &material,
+          std::shared_ptr<BaseMaterial> const &material,
           std::shared_ptr<Transformation> const &trans);
 
     Plane &operator=(Plane const &) = delete;

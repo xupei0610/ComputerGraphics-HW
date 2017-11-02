@@ -13,8 +13,13 @@
 
 namespace px
 {
-class BaseGeometry; // primarily used for gpu
-class Geometry; // a cpu object
+class GeometryObj;
+typedef GeometryObj * (*fnHit_t)(void * const &, Ray const &, PREC const &, PREC const &, PREC &);
+typedef Direction (*fnNormal_t)(void * const &, PREC const &, PREC const &, PREC const&);
+typedef Vec3<PREC> (*fnTextureCoord_t)(void * const &, PREC const &, PREC const &, PREC const&);
+
+
+class BaseGeometry;
 
 // TODO Polygon
 //class Polygon;
@@ -26,107 +31,143 @@ class Geometry; // a cpu object
 // TODO Procedurally generated terrain/heightfields
 }
 
-class px::Geometry
-{
-public:
-    virtual BaseGeometry **devPtr() = 0;
-    virtual void up2Gpu() = 0;
-    virtual void clearGpuData() = 0;
-
-    virtual BaseGeometry * const &obj() const noexcept = 0;
-
-protected:
-    Geometry() = default;
-    ~Geometry() = default;
-
-};
-
-class px::BaseGeometry
+class px::GeometryObj
 {
 protected:
-    const BaseMaterial * _material;
-    const Transformation * _transformation;
+    void *obj;
+    fnHit_t fn_hit;
+    fnNormal_t fn_normal;
+    fnTextureCoord_t fn_texture_coord;
 
-    int _n_vertices;
-    Point * _raw_vertices;
-
+    MaterialObj *mat;
+    Transformation *trans;
 public:
-
     PX_CUDA_CALLABLE
-    inline const BaseMaterial * const &material() const noexcept
+    inline GeometryObj *hit(Ray const &ray,
+                            PREC const &t_start,
+                            PREC const &t_end,
+                            PREC &hit_at)
     {
-        return _material;
-    }
-
-    PX_CUDA_CALLABLE
-    inline const Transformation * const &transform() const noexcept
-    {
-        return _transformation;
-    }
-
-    PX_CUDA_CALLABLE
-    const BaseGeometry * hit(Ray const &ray,
-                       PREC const &range_start,
-                       PREC const &range_end,
-                       PREC &hit_at) const;
-    PX_CUDA_CALLABLE
-    Direction normal(PREC const &x,
-                     PREC const &y,
-                     PREC const &z) const;
-    PX_CUDA_CALLABLE
-    Vec3<PREC> textureCoord(PREC const &x, PREC const &y, PREC const &z) const;
-    PX_CUDA_CALLABLE
-    virtual Point * rawVertices(int &n_vertices) const noexcept
-    {
-        n_vertices = _n_vertices;
-        return _raw_vertices;
+        if (trans == nullptr)
+            return fn_hit(obj, ray, t_start, t_end, hit_at);
+        return fn_hit(obj, {trans->point2ObjCoord(ray.original), trans->direction(ray.direction)},
+                      t_start, t_end, hit_at);
     }
     PX_CUDA_CALLABLE
-    virtual Vec3<PREC> textureCoord(Point const &p) const
+    inline Direction normal(PREC const &x,
+                            PREC const &y,
+                            PREC const &z)
     {
-        return textureCoord(p.x, p.y, p.z);
+        if (trans == nullptr)
+            return fn_normal(obj, x, y, z);
+        auto p = trans->point2ObjCoord(x, y, z);
+        return trans->normal(fn_normal(obj, p.x, p.y, p.z));
     }
     PX_CUDA_CALLABLE
-    Direction normVec(Point const &p) const
+    inline Vec3<PREC> textureCoord(PREC const &x,
+                                   PREC const &y,
+                                   PREC const &z)
+    {
+        if (trans == nullptr)
+            return fn_texture_coord(obj, x, y, z);
+        auto p = trans->point2ObjCoord(x, y, z);
+        return fn_texture_coord(obj, p.x, p.y, p.z);
+    }
+    PX_CUDA_CALLABLE
+    inline Direction normal(Point const &p)
     {
         return normal(p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
-    virtual ~BaseGeometry();
-protected:
-    PX_CUDA_CALLABLE
-    virtual Vec3<PREC> getTextureCoord(PREC const &x,
-                                         PREC const &y,
-                                         PREC const &z) const = 0;
-    PX_CUDA_CALLABLE
-    inline Vec3<PREC> getTextureCoord(Point const &p)
+    inline Vec3<PREC> textureCoord(Point const &p)
     {
-        return getTextureCoord(p.x, p.y, p.z);
+        return textureCoord(p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
+    inline MaterialObj * const &material() const noexcept
+    {
+        return mat;
+    }
+
+    GeometryObj(void *obj,
+                fnHit_t const &fn_hit,
+                fnNormal_t const &fn_normal,
+                fnTextureCoord_t const &fn_texture_coord,
+                MaterialObj *const &mat,
+                Transformation *const &trans);
+    ~GeometryObj() = default;
+protected:
+    GeometryObj &operator=(GeometryObj const &) = delete;
+    GeometryObj &operator=(GeometryObj &&) = delete;
+};
+
+
+class px::BaseGeometry
+{
+protected:
+    std::shared_ptr<BaseMaterial> mat;
+    std::shared_ptr<Transformation> trans;
+
+    int n_vertices;
+    Point * raw_vertices;
+
+    GeometryObj *dev_ptr;
+
+public:
+    inline GeometryObj *devPtr() const noexcept { return dev_ptr; }
+    virtual void up2Gpu() = 0;
+    virtual void clearGpuData();
+
+    const BaseGeometry * hit(Ray const &ray,
+                             PREC const &t_start,
+                             PREC const &t_end,
+                             PREC &hit_at) const;
+    Direction normal(PREC const &x,
+                     PREC const &y,
+                     PREC const &z) const;
+    Vec3<PREC> textureCoord(PREC const &x, PREC const &y, PREC const &z) const;
+
+    inline Direction normal(Point const &p) const
+    {
+        return normal(p.x, p.y, p.z);
+    }
+    inline Vec3<PREC> textureCoord(Point const &p) const
+    {
+        return textureCoord(p.x, p.y, p.z);
+    }
+
+    inline BaseMaterial *material() const noexcept
+    {
+        return mat.get();
+    }
+
+    Point * rawVertices(int &n_vertices) const noexcept;
+    void resetVertices(int const &n_vertices);
+
+    inline std::shared_ptr<Transformation> const & transform()
+    {
+        return trans;
+    }
+
+protected:
+    virtual Vec3<PREC> getTextureCoord(PREC const &x,
+                                       PREC const &y,
+                                       PREC const &z) const = 0;
     virtual const BaseGeometry * hitCheck(Ray const &ray,
                                           PREC const &range_start,
                                           PREC const &range_end,
                                           PREC &hit_at) const = 0;
-    PX_CUDA_CALLABLE
     virtual Direction normalVec(PREC const &x, PREC const &y,
                                 PREC const &z) const = 0;
-    PX_CUDA_CALLABLE
-    inline Direction normalVec(Point const &p) const
-    {
-        return normalVec(p.x, p.y, p.z);
-    }
 
-    PX_CUDA_CALLABLE
-    BaseGeometry(const BaseMaterial * const &material,
-                 const Transformation * const &trans,
+    BaseGeometry(std::shared_ptr<BaseMaterial> const &material,
+                 std::shared_ptr<Transformation> const &trans,
                  int const &n_vertices);
-
-private:
-
+    virtual ~BaseGeometry();
     BaseGeometry &operator=(BaseGeometry const &) = delete;
     BaseGeometry &operator=(BaseGeometry &&) = delete;
 
+    friend class Structure;
 };
 
 #endif // PX_CG_OBJECT_GEOMETRY_BASE_GEOMETRY_HPP

@@ -14,8 +14,7 @@ point_light 8 8 8 -1 2 -.5
 directional_light .2 .2 .2 4 -8 10
 
 ambient_light .4 .4 .4
-background .6 .8 1
-#Sky blue
+background .6 .8 1  #Sky blue
 
 
 max_depth 2

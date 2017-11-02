@@ -19,8 +19,8 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
 
 //    auto bvh = new BVH;
     std::vector<BoundBox *> bound_box;
-    std::vector<std::shared_ptr<Transformation>> transform{nullptr};
-    std::shared_ptr<BumpMapping> bump_mapping = nullptr;
+    std::vector<std::shared_ptr<Transformation> > transform{nullptr};
+//    std::shared_ptr<BumpMapping> bump_mapping = nullptr;
 
     std::istringstream buffer(script_str);
 
@@ -53,7 +53,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
     }
 
     bool use_bb = false;
-    auto addObj = [&](std::shared_ptr<Geometry> const &obj) {
+    auto addObj = [&](std::shared_ptr<BaseGeometry> const &obj) {
         if (bound_box.empty())
 //            bvh->addObj(obj);
             scene->geometries.insert(obj);
@@ -93,7 +93,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                     {S2D(param[7]), S2D(param[8]), S2D(param[9])},
                     S2D(param[10]),
                     {S2D(param[11]), S2D(param[12]), S2D(param[13])},
-                    S2D(param[14]), bump_mapping),
+                    S2D(param[14])),
                       "material", ln);
         }
         else if (param[0] == "sphere")
@@ -370,8 +370,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                                                              {S2D(param[11]), S2D(param[12]), S2D(param[13])},
                                                              S2D(param[14]),
                                                              Texture::create(param[15], Texture::Format::RGB,
-                                                                             S2D(param[17]), S2D(param[18])),
-                                                             bump_mapping),
+                                                                             S2D(param[17]), S2D(param[18]))),
                           "texture", ln)
             else if (param[16] == "rgba")
                 PARSE_TRY(material = TextureMaterial::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
@@ -381,8 +380,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                                                              {S2D(param[11]), S2D(param[12]), S2D(param[13])},
                                                              S2D(param[14]),
                                                              Texture::create(param[15], Texture::Format::RGBA,
-                                                                             S2D(param[17]), S2D(param[18])),
-                                                             bump_mapping),
+                                                                             S2D(param[17]), S2D(param[18]))),
                           "texture", ln)
             else
                 throw std::invalid_argument("[Error] Failed to parse `texture` parameter at line " +
@@ -404,8 +402,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                     S2D(param[24]),
                     {S2D(param[25]), S2D(param[26]), S2D(param[27])},
                     S2D(param[28]),
-                    S2D(param[29]), S2D(param[30]), S2D(param[31]),
-                    bump_mapping),
+                    S2D(param[29]), S2D(param[30]), S2D(param[31])),
                       "brick_material", ln)
         }
         else if (param[0] == "checkerboard_material")
@@ -418,8 +415,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                     S2D(param[10]),
                     {S2D(param[11]), S2D(param[12]), S2D(param[13])},
                     S2D(param[14]),
-                    S2D(param[15]), S2D(param[16]),
-                    bump_mapping),
+                    S2D(param[15]), S2D(param[16])),
                       "checkerboard_material", ln);
         }
         else if (param[0] == "area_light")
@@ -491,7 +487,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
                 }
                 else
                 {
-                    auto bb = std::shared_ptr<Geometry>(bound_box.at(s - 1));
+                    auto bb = std::shared_ptr<BaseGeometry>(bound_box.at(s - 1));
                     bound_box.pop_back();
                     addObj(bb);
                 }

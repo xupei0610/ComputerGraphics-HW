@@ -1,66 +1,77 @@
 #include "object/geometry/plane.hpp"
 
-#ifdef USE_CUDA
-#include "gpu_creator.hpp"
-#endif
-
 #include <cfloat>
 
 using namespace px;
 
-PX_CUDA_CALLABLE
 BasePlane::BasePlane(Point const &pos,
-                     Direction const &norm_vec,
-                     const BaseMaterial * const &material,
-                     const Transformation * const &trans)
-        : BaseGeometry(material, trans, 4),
-          _position(pos)
+                     Direction const &norm_vec)
+        : _pos(pos), _dev_obj(nullptr)
 {
-    setNormVec(norm_vec);
+    setNormal(norm_vec);
 }
 
 PX_CUDA_CALLABLE
-const BaseGeometry * BasePlane::hitCheck(Ray const &ray,
-                                   PREC const &t_start,
-                                   PREC const &t_end,
-                                   PREC &hit_at) const
+GeometryObj *BasePlane::hitCheck(void * const &obj,
+                         Ray const &ray,
+                         PREC const &t_start,
+                         PREC const &t_end,
+                         PREC &hit_at)
 {
-    auto tmp = (_p_dot_n - ray.original.dot(_norm_vec)) / ray.direction.dot(_norm_vec);
-    return (tmp > t_start && tmp < t_end) ? (hit_at = tmp, this) : nullptr;
+    auto o = reinterpret_cast<BasePlane*>(obj);
+    auto tmp = (o->_p_dot_n - ray.original.dot(o->_norm)) / ray.direction.dot(o->_norm);
+    return (tmp > t_start && tmp < t_end) ? (hit_at = tmp, o->_dev_obj) : nullptr;
 }
 
 PX_CUDA_CALLABLE
-Direction BasePlane::normalVec(PREC const &x, PREC const &y, PREC const &z) const
+Direction BasePlane::normalVec(void * const &obj,
+                               PREC const &x, PREC const &y, PREC const &z)
 {
-    return _norm_vec;
+    return reinterpret_cast<BasePlane*>(obj)->_norm;
 }
 
 PX_CUDA_CALLABLE
-Vec3<PREC> BasePlane::getTextureCoord(PREC const &x, PREC const &y,
-                                    PREC const &z) const
+Vec3<PREC> BasePlane::getTextureCoord(void * const &obj,
+                                      PREC const &x, PREC const &y, PREC const &z)
 {
-    return {x - _position.x,
-            -_norm_vec.z*(y - _position.y) + _norm_vec.y*(z - _position.z),
-            (x - _position.x)*_norm_vec.x + (y - _position.y)*_norm_vec.y + (z - _position.z)*_norm_vec.z};
+    auto o = reinterpret_cast<BasePlane*>(obj);
+
+    return {x - o->_pos.x,
+            o->_norm.y*(z - o->_pos.z)-o->_norm.z*(y - o->_pos.y),
+            (x - o->_pos.x)*o->_norm.x + (y - o->_pos.y)*o->_norm.y + (z - o->_pos.z)*o->_norm.z};
 }
 
-std::shared_ptr<Geometry> Plane::create(Point const &position,
+void BasePlane::setPos(Point const &position)
+{
+    _pos = position;
+    _p_dot_n = position.dot(_norm);
+}
+
+void BasePlane::setNormal(Direction const &norm_vec)
+{
+    _norm = norm_vec;
+    _p_dot_n = _pos.dot(norm_vec);
+}
+
+std::shared_ptr<BaseGeometry> Plane::create(Point const &position,
                                             Direction const &norm_vec,
-                                            std::shared_ptr<Material> const &material,
+                                            std::shared_ptr<BaseMaterial> const &material,
                                             std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<Geometry>(new Plane(position, norm_vec, material, trans));
+    return std::shared_ptr<BaseGeometry>(new Plane(position, norm_vec, material, trans));
 }
 
 Plane::Plane(Point const &position,
              Direction const &norm_vec,
-             std::shared_ptr<Material> const &material,
+             std::shared_ptr<BaseMaterial> const &material,
              std::shared_ptr<Transformation> const &trans)
-        : _obj(new BasePlane(position, norm_vec, material->obj(), trans.get())),
-          _base_obj(_obj),
-          _material_ptr(material), _transformation_ptr(trans),
-          _dev_ptr(nullptr), _need_upload(true)
-{}
+        : BaseGeometry(material, trans, 4),
+          _obj(new BasePlane(position, norm_vec)),
+          _gpu_obj(nullptr), _need_upload(true)
+{
+    _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
+    _updateVertices();
+}
 
 Plane::~Plane()
 {
@@ -70,35 +81,51 @@ Plane::~Plane()
 #endif
 }
 
-BaseGeometry *const &Plane::obj() const noexcept
-{
-    return _base_obj;
-}
-
-BaseGeometry **Plane::devPtr()
-{
-    return _dev_ptr;
-}
-
+#ifdef USE_CUDA
+__device__ fnHit_t __fn_hit_plane = BasePlane::hitCheck;
+__device__ fnNormal_t __fn_normal_plane = BasePlane::normalVec;
+__device__ fnTextureCoord_t __fn_texture_coord_plane = BasePlane::getTextureCoord;
+#endif
 void Plane::up2Gpu()
 {
 #ifdef USE_CUDA
+    static fnHit_t fn_hit_h = nullptr;
+    static fnNormal_t fn_normal_h;
+    static fnTextureCoord_t fn_texture_coord_h;
+
     if (_need_upload)
     {
-        clearGpuData();
-        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
+        if (dev_ptr == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMalloc(&_gpu_obj, sizeof(BasePlane)));
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(GeometryObj)));
+        }
 
-        if (_material_ptr != nullptr)
-            _material_ptr->up2Gpu();
-        if (_transformation_ptr != nullptr)
-            _transformation_ptr->up2Gpu();
+        if (fn_hit_h == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_hit_h, __fn_hit_plane, sizeof(fnHit_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_normal_h, __fn_normal_plane, sizeof(fnNormal_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_texture_coord_h, __fn_texture_coord_plane, sizeof(fnTextureCoord_t)));
+        }
+
+        if (mat != nullptr)
+            mat->up2Gpu();
+
+        if (trans != nullptr)
+            trans->up2Gpu();
 
         cudaDeviceSynchronize();
 
-        GpuCreator::Plane(_dev_ptr,
-                          _obj->_position, _obj->_norm_vec,
-                        _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
-                        _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
+        _obj->_dev_obj = dev_ptr;
+        PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BasePlane), cudaMemcpyHostToDevice));
+        _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
+
+        GeometryObj tmp(_gpu_obj, fn_hit_h, fn_normal_h, fn_texture_coord_h,
+                        mat == nullptr ? nullptr : mat->devPtr(),
+                        trans == nullptr ? nullptr : trans->devPtr());
+
+        PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(GeometryObj),
+                                 cudaMemcpyHostToDevice))
 
         _need_upload = false;
     }
@@ -108,116 +135,127 @@ void Plane::up2Gpu()
 void Plane::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        return;
-
-    if (_transformation_ptr.use_count() == 1)
-        _transformation_ptr->clearGpuData();
-    if (_material_ptr.use_count() == 1)
-        _material_ptr->clearGpuData();
-
-    GpuCreator::destroy(_dev_ptr);
-    _dev_ptr = nullptr;
+    BaseGeometry::clearGpuData();
+    if (_gpu_obj != nullptr)
+    {
+        PX_CUDA_CHECK(cudaFree(_gpu_obj));
+        _gpu_obj = nullptr;
+    }
     _need_upload = true;
 #endif
 }
 
-void Plane::setPosition(Point const &position)
+void Plane::setPos(Point const &position)
 {
-    _obj->_position = position;
-    _obj->_p_dot_n = position.dot(_obj->_norm_vec);
+    _obj->setPos(position);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 
-PX_CUDA_CALLABLE
-void BasePlane::setNormVec(Direction const &norm_vec)
+void Plane::setNormal(Direction const &norm_vec)
 {
-    _norm_vec = norm_vec;
-    _p_dot_n = _position.dot(norm_vec);
+    _obj->setNormal(norm_vec);
+    _updateVertices();
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
+}
 
-    if ((_norm_vec.x == 1 || _norm_vec.x == -1) && _norm_vec.y == 0 && _norm_vec.z == 0)
+void Plane::_updateVertices()
+{
+    if ((_obj->_norm.x == 1 || _obj->_norm.x == -1) && _obj->_norm.y == 0 && _obj->_norm.z == 0)
     {
-        _raw_vertices[0].x = 0;
-        _raw_vertices[0].y = -FLT_MAX;
-        _raw_vertices[0].z = -FLT_MAX;
-        _raw_vertices[1].x = 0;
-        _raw_vertices[1].y =  FLT_MAX;
-        _raw_vertices[1].z =  FLT_MAX;
-        _raw_vertices[2].x = 0;
-        _raw_vertices[2].y = -FLT_MAX;
-        _raw_vertices[2].z =  FLT_MAX;
-        _raw_vertices[3].x = 0;
-        _raw_vertices[3].y =  FLT_MAX;
-        _raw_vertices[3].z = -FLT_MAX;
+        raw_vertices[0].x = 0;
+        raw_vertices[0].y = -FLT_MAX;
+        raw_vertices[0].z = -FLT_MAX;
+        raw_vertices[1].x = 0;
+        raw_vertices[1].y =  FLT_MAX;
+        raw_vertices[1].z =  FLT_MAX;
+        raw_vertices[2].x = 0;
+        raw_vertices[2].y = -FLT_MAX;
+        raw_vertices[2].z =  FLT_MAX;
+        raw_vertices[3].x = 0;
+        raw_vertices[3].y =  FLT_MAX;
+        raw_vertices[3].z = -FLT_MAX;
     }
-    else if (_norm_vec.x == 0 && (_norm_vec.y == 1 || _norm_vec.y == -1) && _norm_vec.z == 0)
+    else if (_obj->_norm.x == 0 && (_obj->_norm.y == 1 || _obj->_norm.y == -1) && _obj->_norm.z == 0)
     {
-        _raw_vertices[0].x = -FLT_MAX;
-        _raw_vertices[0].y = 0;
-        _raw_vertices[0].z = -FLT_MAX;
-        _raw_vertices[1].x =  FLT_MAX;
-        _raw_vertices[1].y = 0;
-        _raw_vertices[1].z =  FLT_MAX;
-        _raw_vertices[2].x = -FLT_MAX;
-        _raw_vertices[2].y = 0;
-        _raw_vertices[2].z =  FLT_MAX;
-        _raw_vertices[3].x =  FLT_MAX;
-        _raw_vertices[3].y = 0;
-        _raw_vertices[3].z = -FLT_MAX;
+        raw_vertices[0].x = -FLT_MAX;
+        raw_vertices[0].y = 0;
+        raw_vertices[0].z = -FLT_MAX;
+        raw_vertices[1].x =  FLT_MAX;
+        raw_vertices[1].y = 0;
+        raw_vertices[1].z =  FLT_MAX;
+        raw_vertices[2].x = -FLT_MAX;
+        raw_vertices[2].y = 0;
+        raw_vertices[2].z =  FLT_MAX;
+        raw_vertices[3].x =  FLT_MAX;
+        raw_vertices[3].y = 0;
+        raw_vertices[3].z = -FLT_MAX;
     }
-    else if (_norm_vec.x == 0 && _norm_vec.y == 0 && (_norm_vec.z == 1 || _norm_vec.z == -1))
+    else if (_obj->_norm.x == 0 && _obj->_norm.y == 0 && (_obj->_norm.z == 1 || _obj->_norm.z == -1))
     {
-        _raw_vertices[0].x = -FLT_MAX;
-        _raw_vertices[0].y = -FLT_MAX;
-        _raw_vertices[0].z = 0;
-        _raw_vertices[1].x =  FLT_MAX;
-        _raw_vertices[1].y =  FLT_MAX;
-        _raw_vertices[1].z = 0;
-        _raw_vertices[2].x = -FLT_MAX;
-        _raw_vertices[2].y =  FLT_MAX;
-        _raw_vertices[2].z = 0;
-        _raw_vertices[3].x =  FLT_MAX;
-        _raw_vertices[3].y = -FLT_MAX;
-        _raw_vertices[3].z = 0;
+        raw_vertices[0].x = -FLT_MAX;
+        raw_vertices[0].y = -FLT_MAX;
+        raw_vertices[0].z = 0;
+        raw_vertices[1].x =  FLT_MAX;
+        raw_vertices[1].y =  FLT_MAX;
+        raw_vertices[1].z = 0;
+        raw_vertices[2].x = -FLT_MAX;
+        raw_vertices[2].y =  FLT_MAX;
+        raw_vertices[2].z = 0;
+        raw_vertices[3].x =  FLT_MAX;
+        raw_vertices[3].y = -FLT_MAX;
+        raw_vertices[3].z = 0;
     }
-    else if (_norm_vec.x == 0 && _norm_vec.y == 0 && _norm_vec.z == 0)
+    else if (_obj->_norm.x == 0 && _obj->_norm.y == 0 && _obj->_norm.z == 0)
     {
-        _raw_vertices[0].x = 0;
-        _raw_vertices[0].y = 0;
-        _raw_vertices[0].z = 0;
-        _raw_vertices[1].x = 0;
-        _raw_vertices[1].y = 0;
-        _raw_vertices[1].z = 0;
-        _raw_vertices[2].x = 0;
-        _raw_vertices[2].y = 0;
-        _raw_vertices[2].z = 0;
-        _raw_vertices[3].x = 0;
-        _raw_vertices[3].y = 0;
-        _raw_vertices[3].z = 0;
+        raw_vertices[0].x = 0;
+        raw_vertices[0].y = 0;
+        raw_vertices[0].z = 0;
+        raw_vertices[1].x = 0;
+        raw_vertices[1].y = 0;
+        raw_vertices[1].z = 0;
+        raw_vertices[2].x = 0;
+        raw_vertices[2].y = 0;
+        raw_vertices[2].z = 0;
+        raw_vertices[3].x = 0;
+        raw_vertices[3].y = 0;
+        raw_vertices[3].z = 0;
     }
     else
     {
-        _raw_vertices[0].x = -FLT_MAX;
-        _raw_vertices[0].y = -FLT_MAX;
-        _raw_vertices[0].z = -FLT_MAX;
-        _raw_vertices[1].x =  FLT_MAX;
-        _raw_vertices[1].y =  FLT_MAX;
-        _raw_vertices[1].z =  FLT_MAX;
-        _raw_vertices[2].x = -FLT_MAX;
-        _raw_vertices[2].y =  FLT_MAX;
-        _raw_vertices[2].z =  FLT_MAX;
-        _raw_vertices[3].x =  FLT_MAX;
-        _raw_vertices[3].y = -FLT_MAX;
-        _raw_vertices[3].z = -FLT_MAX;
+        raw_vertices[0].x = -FLT_MAX;
+        raw_vertices[0].y = -FLT_MAX;
+        raw_vertices[0].z = -FLT_MAX;
+        raw_vertices[1].x =  FLT_MAX;
+        raw_vertices[1].y =  FLT_MAX;
+        raw_vertices[1].z =  FLT_MAX;
+        raw_vertices[2].x = -FLT_MAX;
+        raw_vertices[2].y =  FLT_MAX;
+        raw_vertices[2].z =  FLT_MAX;
+        raw_vertices[3].x =  FLT_MAX;
+        raw_vertices[3].y = -FLT_MAX;
+        raw_vertices[3].z = -FLT_MAX;
     }
 }
 
-void Plane::setNormVec(Direction const &norm_vec)
+Vec3<PREC> Plane::getTextureCoord(PREC const &x,
+                                     PREC const &y,
+                                     PREC const &z) const
 {
-    _obj->setNormVec(norm_vec);
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
+    return BasePlane::getTextureCoord(_obj, x, y, z);
+}
+const BaseGeometry *Plane::hitCheck(Ray const &ray,
+                                       PREC const &t_start,
+                                       PREC const &t_end,
+                                       PREC &hit_at) const
+{
+    return BasePlane::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
+}
+Direction Plane::normalVec(PREC const &x, PREC const &y,
+                              PREC const &z) const
+{
+    return BasePlane::normalVec(_obj, x, y, z);
 }

@@ -47,9 +47,9 @@ public:
         PREC hit_max_tol;
 
         int n_geometries;
-        BaseGeometry ***geometries;
+        GeometryObj **geometries;
         int n_lights;
-        BaseLight ***lights;
+        LightObj **lights;
 
         PX_CUDA_CALLABLE
         Param() = default;
@@ -118,7 +118,7 @@ public:
 public:
     bool const &is_rendering;
 
-    std::unordered_set<std::shared_ptr<Geometry> > geometries;
+    std::unordered_set<std::shared_ptr<BaseGeometry> > geometries;
     std::unordered_set<std::shared_ptr<BaseLight> > lights;
 
     Pixels pixels;

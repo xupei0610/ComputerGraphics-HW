@@ -9,32 +9,30 @@ class Cone;
 class BaseCone;
 }
 
-class px::BaseCone : public BaseGeometry
+class px::BaseCone
 {
-protected:
-    PX_CUDA_CALLABLE
-    const BaseGeometry * hitCheck(Ray const &ray,
-                                  PREC const &range_start,
-                                  PREC const &range_end,
-                                  PREC &hit_at) const override;
-    PX_CUDA_CALLABLE
-    Vec3<PREC> getTextureCoord(PREC const &x,
-                                 PREC const &y,
-                                 PREC const &z) const override;
-    PX_CUDA_CALLABLE
-    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
-
 public:
     PX_CUDA_CALLABLE
-    BaseCone(Point const &center_of_bottom_face,
-             PREC const &radius_x,
-             PREC const &radius_y,
-             PREC const &ideal_height,
-             PREC const &real_height,
-             const BaseMaterial * const &material,
-             const Transformation * const &trans);
-
+    static GeometryObj *hitCheck(void * const &obj,
+                         Ray const &ray,
+                         PREC const &range_start,
+                         PREC const &range_end,
+                         PREC &hit_at);
     PX_CUDA_CALLABLE
+    static Vec3<PREC> getTextureCoord(void * const &obj,
+                                      PREC const &x,
+                                      PREC const &y,
+                                      PREC const &z);
+    PX_CUDA_CALLABLE
+    static Direction normalVec(void * const &obj,
+                               PREC const &x, PREC const &y, PREC const &z);
+
+    void setParams(Point const &center_of_bottom_face,
+                   PREC const &radius_x,
+                   PREC const &radius_y,
+                   PREC const &ideal_height,
+                   PREC const &real_height);
+
     ~BaseCone() = default;
 protected:
     Point _center;
@@ -48,12 +46,13 @@ protected:
     PREC _z0, _z1;
     PREC _top_z, _top_r_x, _top_r_y;
 
-    PX_CUDA_CALLABLE
-    void setParams(Point const &center_of_bottom_face,
-                   PREC const &radius_x,
-                   PREC const &radius_y,
-                   PREC const &ideal_height,
-                   PREC const &real_height);
+    GeometryObj *_dev_obj;
+
+    BaseCone(Point const &center_of_bottom_face,
+             PREC const &radius_x,
+             PREC const &radius_y,
+             PREC const &ideal_height,
+             PREC const &real_height);
 
     BaseCone &operator=(BaseCone const &) = delete;
     BaseCone &operator=(BaseCone &&) = delete;
@@ -61,44 +60,49 @@ protected:
     friend class Cone;
 };
 
-class px::Cone : public Geometry
+class px::Cone : public BaseGeometry
 {
 public:
-    static std::shared_ptr<Geometry> create(Point const &center_of_bottom_face,
+    static std::shared_ptr<BaseGeometry> create(Point const &center_of_bottom_face,
                                                 PREC const &radius_x,
                                                 PREC const &radius_y,
                                                 PREC const &ideal_height,
                                                 PREC const &real_height,
-                                                std::shared_ptr<Material> const &material,
+                                                std::shared_ptr<BaseMaterial> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry *const &obj() const noexcept override;
-    BaseGeometry **devPtr() override;
     void up2Gpu() override;
     void clearGpuData() override;
 
     void setParams(Point const &center_of_bottom_face,
-                          PREC const &radius_x,
-                          PREC const &radius_y,
-                           PREC const &ideal_height,
-                           PREC const &real_height);
+                   PREC const &radius_x,
+                   PREC const &radius_y,
+                   PREC const &ideal_height,
+                   PREC const &real_height);
 
     ~Cone();
 protected:
     BaseCone *_obj;
-    BaseGeometry *_base_obj;
-
-    std::shared_ptr<Material> _material_ptr;
-    std::shared_ptr<Transformation> _transformation_ptr;
-
-    BaseGeometry **_dev_ptr;
+    void *_gpu_obj;
     bool _need_upload;
+
+    void _updateVertices();
+
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                               PREC const &y,
+                               PREC const &z) const override;
+    const BaseGeometry *hitCheck(Ray const &ray,
+                                 PREC const &range_start,
+                                 PREC const &range_end,
+                                 PREC &hit_at) const override;
+    Direction normalVec(PREC const &x, PREC const &y,
+                        PREC const &z) const override;
 
     Cone(Point const &center_of_bottom_face,
          PREC const &radius_x,
          PREC const &radius_y,
          PREC const &ideal_height,
          PREC const &real_height,
-         std::shared_ptr<Material> const &material,
+         std::shared_ptr<BaseMaterial> const &material,
          std::shared_ptr<Transformation> const &trans);
 
     Cone &operator=(Cone const &) = delete;

@@ -34,37 +34,34 @@ bool RayTrace::TraceQueue::prepend(Point const &ray_o, Direction const &ray_d,
 PX_CUDA_CALLABLE
 void RayTrace::TraceQueue::pop()
 {
-    if (n>0)
-        --n;
+    if (n>0) --n;
 }
 
-#define LIGHT(j) (*(scene->lights[j]))
-#define GEOMETRY(i) (*(scene->geometries[i]))
+#define LIGHT(j) (scene->lights[j])
+#define GEOMETRY(i) (scene->geometries[i])
 
 __device__
-const BaseGeometry *RayTrace::hitCheck(Ray const & ray,
-                             const Scene::Param *const &scene,
-                             Point &intersection)
+GeometryObj *RayTrace::hitCheck(Ray const & ray,
+                                const Scene::Param *const &scene,
+                                Point &intersection)
 {
     intersection.y = scene->hit_max_tol;
-    const BaseGeometry * obj = nullptr;
+    GeometryObj *obj = nullptr, *tmp_obj;
     for (auto i = 0; i < scene->n_geometries; ++i)
     {
-        auto tmp_obj = GEOMETRY(i)->hit(ray, scene->hit_min_tol, intersection.y, intersection.x);
+        tmp_obj = GEOMETRY(i)->hit(ray, scene->hit_min_tol, intersection.y, intersection.x);
         if (tmp_obj == nullptr)
             continue;
-
         intersection.y = intersection.x;
         obj = tmp_obj;
     }
-    intersection = ray[intersection.x];
-    return obj;
+    return obj == nullptr ? obj : (intersection = ray[intersection.x], obj);
 }
 
 __device__
 Light RayTrace::reflect(Point const &intersect,
                         Point const &texture_coord,
-                        const BaseGeometry *const &obj,
+                        const GeometryObj *const &obj,
                         const Scene::Param *const &scene,
                         curandState_t * const &state,
                         Direction const &n, Direction const &r)
@@ -72,9 +69,9 @@ Light RayTrace::reflect(Point const &intersect,
     Ray I(intersect, {0, 0, 0});      // from hit point2ObjCoord to light source
 //    Direction h(0, 0, 0);             // half vector
 
-    auto diffuse = obj->material()->diffuse(texture_coord.x, texture_coord.y, texture_coord.z);
-    auto specular = obj->material()->specular(texture_coord.x, texture_coord.y, texture_coord.z);
-    auto specular_exp = obj->material()->specularExp(texture_coord.x, texture_coord.y, texture_coord.z);
+    auto diffuse = obj->material()->diffuse(texture_coord);
+    auto specular = obj->material()->specular(texture_coord);
+    auto specular_exp = obj->material()->specularExp(texture_coord);
 
     auto L = ambientReflect(scene->ambient, obj->material()->ambient(texture_coord));
 
@@ -82,12 +79,12 @@ Light RayTrace::reflect(Point const &intersect,
     for (auto j = 0; j < scene->n_lights; ++j)
     {
         // soft shadow for area light
-        int sampling = LIGHT(j)->type() == BaseLight::Type::AreaLight ? scene->area_light_sampling : 1;
+        int sampling = LIGHT(j)->type == LightType::AreaLight ? scene->area_light_sampling : 1;
         int shadow_hit = sampling;
 
         for (auto k = 0; k < sampling; ++k)
         {
-            I.direction = LIGHT(j)->dirFromDevice(I.original, dist, state);
+            I.direction = LIGHT(j)->dirFrom(I.original, dist, state);
 
 //        h = I.direction - ray.direction;
             if (dist > scene->hit_min_tol)
@@ -114,10 +111,10 @@ Light RayTrace::reflect(Point const &intersect,
 
         if (dist < FLT_MAX)
         {
-            L += diffuseReflect(LIGHT(j)->light(), diffuse,
+            L += diffuseReflect(LIGHT(j)->light, diffuse,
                                 I.direction, n) * dist;
 
-            L += specularReflect(LIGHT(j)->light(), specular,
+            L += specularReflect(LIGHT(j)->light, specular,
 //                                 h, n, // Blinn Phong model
                                  I.direction, r, // Phong model
                                  specular_exp) * dist;
@@ -132,13 +129,13 @@ __device__
 void RayTrace::recursive(Point const &intersect,
                          TraceQueue::Node const &current,
                          Point const &texture_coord,
-                         BaseGeometry const &obj,
+                         GeometryObj const &obj,
                          Direction &n,
                          Direction const &r,
                          TraceQueue &trace,
                          Scene::Param const &scene)
 {
-    auto ref = obj.material()->transmissive(texture_coord.x, texture_coord.y, texture_coord.z);
+    auto ref = obj.material()->transmissive(texture_coord);
     ref *= current.coef;
     if (ref.x > -EPSILON && ref.x < EPSILON)
         ref.x = 0;
@@ -151,29 +148,25 @@ void RayTrace::recursive(Point const &intersect,
         auto cos_theta = current.ray.direction.dot(n); // cos_theta
 
         // ior
-        auto ior = cos_theta > 0 ? (n *= PREC(-1), obj.material()->refractiveIndex(texture_coord))
-                          : (cos_theta *= -1, PREC(1.0) / obj.material()->refractiveIndex(texture_coord));
+        auto ior = cos_theta > 0 ? (n *= -1, obj.material()->refractiveIndex(texture_coord))
+                                 : (cos_theta *= -1, PREC(1.0) / obj.material()->refractiveIndex(texture_coord));
+
         // cos_phi_2
         auto cos_phi_2 = 1 - ior * ior * (1 - cos_theta * cos_theta);
         if (cos_phi_2  >= 0)
         {
-            // refractive vector
-            if (cos_phi_2 >= 0)
-            {
-                auto t = n;
-                t *= cos_theta;
-                t += current.ray.direction;
-                t *= ior;
-                if (cos_phi_2 != 0)
-                    t -= n * std::sqrt(cos_phi_2);
-                trace.prepend(intersect, t,
-                              ref, current.depth+1);
-            }
-
+            auto t = n;
+            t *= cos_theta;
+            t += current.ray.direction;
+            t *= ior;
+            if (cos_phi_2 != 0)
+                t -= n * std::sqrt(cos_phi_2);
+            trace.prepend(intersect, t,
+                          ref, current.depth+1);
         }
     }
 
-    ref = obj.material()->specular(texture_coord.x, texture_coord.y, texture_coord.z);
+    ref = obj.material()->specular(texture_coord);
     ref *= current.coef;
     if (ref.x > -EPSILON && ref.x < EPSILON)
         ref.x = 0;

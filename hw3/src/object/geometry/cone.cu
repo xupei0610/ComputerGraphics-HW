@@ -2,19 +2,12 @@
 
 using namespace px;
 
-#ifdef USE_CUDA
-#include "gpu_creator.hpp"
-#endif
-
-PX_CUDA_CALLABLE
 BaseCone::BaseCone(Point const &center_of_bottom_face,
                    PREC const &radius_x,
                    PREC const &radius_y,
                    PREC const &ideal_height,
-                   PREC const &real_height,
-                   const BaseMaterial *const &material,
-                   const Transformation *const &trans)
-        : BaseGeometry(material, trans, 8)
+                   PREC const &real_height)
+        : _dev_obj(nullptr)
 {
     setParams(center_of_bottom_face,
               radius_x, radius_y,
@@ -22,43 +15,46 @@ BaseCone::BaseCone(Point const &center_of_bottom_face,
 }
 
 PX_CUDA_CALLABLE
-const BaseGeometry * BaseCone::hitCheck(Ray const &ray,
-                                        PREC const &t_start,
-                                        PREC const &t_end,
-                                        PREC &hit_at) const
+GeometryObj * BaseCone::hitCheck(void * const &obj,
+                         Ray const &ray,
+                         PREC const &t_start,
+                         PREC const &t_end,
+                         PREC &hit_at)
 {
-    auto xo = ray.original.x - _center.x;
-    auto yo = ray.original.y - _center.y;
-    auto zo = ray.original.z - _quadric_center_z;
+    auto o = reinterpret_cast<BaseCone*>(obj);
+
+    auto xo = ray.original.x - o->_center.x;
+    auto yo = ray.original.y - o->_center.y;
+    auto zo = ray.original.z - o->_quadric_center_z;
 
     // @see http://www.bmsc.washington.edu/people/merritt/graphics/quadrics.html
-    auto A =  _a * ray.direction.x * ray.direction.x +
-              _b * ray.direction.y * ray.direction.y +
-              _c * ray.direction.z * ray.direction.z;
-    auto B = 2 * _a * xo * ray.direction.x +
-             2 * _b * yo * ray.direction.y +
-             2 * _c * zo * ray.direction.z;
-    auto C =  _a * xo * xo +
-              _b * yo * yo +
-              _c * zo * zo;
+    auto A =  o->_a * ray.direction.x * ray.direction.x +
+              o->_b * ray.direction.y * ray.direction.y +
+              o->_c * ray.direction.z * ray.direction.z;
+    auto B = 2 * o->_a * xo * ray.direction.x +
+             2 * o->_b * yo * ray.direction.y +
+             2 * o->_c * zo * ray.direction.z;
+    auto C =  o->_a * xo * xo +
+              o->_b * yo * yo +
+              o->_c * zo * zo;
 
     auto hit_top = false;
 
-    auto tmp1 = (_center.z - ray.original.z) / ray.direction.z;
+    auto tmp1 = (o->_center.z - ray.original.z) / ray.direction.z;
     auto tmp_x = ray.original.x + ray.direction.x * tmp1;
     auto tmp_y = ray.original.y + ray.direction.y * tmp1;
 
     if (tmp1 >= t_start && tmp1 <= t_end &&
-        _a * (tmp_x - _center.x) * (tmp_x - _center.x) +
-        _b * (tmp_y - _center.y) * (tmp_y - _center.y) <= 1)
+            o->_a * (tmp_x - o->_center.x) * (tmp_x - o->_center.x) +
+                o->_b * (tmp_y - o->_center.y) * (tmp_y - o->_center.y) <= 1)
     {
         hit_top= true;
         hit_at = tmp1;
     }
 
-    if (_real_height != _ideal_height)
+    if (o->_real_height != o->_ideal_height)
     {
-        auto tmp2 = (_top_z - ray.original.z) / ray.direction.z;
+        auto tmp2 = (o->_top_z - ray.original.z) / ray.direction.z;
 
         if (tmp2 >= t_start && tmp2 <= t_end &&
             (hit_at == false || tmp2 < tmp1))
@@ -66,8 +62,8 @@ const BaseGeometry * BaseCone::hitCheck(Ray const &ray,
             tmp_x = ray.original.x + ray.direction.x * tmp2;
             tmp_y = ray.original.y + ray.direction.y * tmp2;
 
-            if ((tmp_x - _center.x) * (tmp_x - _center.x) / (_top_r_x*_top_r_x)+
-                (tmp_y - _center.y) * (tmp_y - _center.y) / (_top_r_y*_top_r_y) <= 1)
+            if ((tmp_x - o->_center.x) * (tmp_x - o->_center.x) / (o->_top_r_x*o->_top_r_x)+
+                (tmp_y - o->_center.y) * (tmp_y - o->_center.y) / (o->_top_r_y*o->_top_r_y) <= 1)
             {
                 hit_top = true;
                 hit_at = tmp2;
@@ -83,11 +79,11 @@ const BaseGeometry * BaseCone::hitCheck(Ray const &ray,
         if (tmp > t_start && tmp < t_end)
         {
             auto iz = ray.original.z + ray.direction.z*tmp;
-            if (iz >= _z0 && iz<=_z1)
+            if (iz >= o->_z0 && iz<=o->_z1)
             {
                 if (hit_top == false || hit_at > tmp)
                     hit_at = tmp;
-                return this;
+                return o->_dev_obj;
             }
         }
         return nullptr;
@@ -109,141 +105,55 @@ const BaseGeometry * BaseCone::hitCheck(Ray const &ray,
     if (tmp1 > t_start && tmp1 < t_end)
     {
         auto iz = ray.original.z + ray.direction.z*tmp1;
-        if (iz >= _z0 && iz<=_z1)
+        if (iz >= o->_z0 && iz<=o->_z1)
         {
             if (hit_top == false || hit_at > tmp1)
                 hit_at = tmp1;
-            return this;
+            return o->_dev_obj;
         }
     }
     if (tmp2 > t_start && tmp2 < t_end)
     {
         auto iz = ray.original.z + ray.direction.z*tmp2;
-        if (iz >= _z0 && iz<=_z1)
+        if (iz >= o->_z0 && iz <= o->_z1)
         {
             if (hit_top == false || hit_at > tmp2)
                 hit_at = tmp2;
-            return this;
+            return o->_dev_obj;
         }
     }
 
-    return hit_top ? this : nullptr;
+    return hit_top ? o->_dev_obj : nullptr;
 }
 
 PX_CUDA_CALLABLE
-Direction BaseCone::normalVec(PREC const &x, PREC const &y, PREC const &z) const
+Direction BaseCone::normalVec(void * const &obj,
+                              PREC const &x, PREC const &y, PREC const &z)
 {
-    if (std::abs(z - _z0) < EPSILON)
+    auto o = reinterpret_cast<BaseCone*>(obj);
+
+    if (std::abs(z - o->_z0) < EPSILON)
         return {0, 0, -1};
-    if (std::abs(z - _z1) < EPSILON)
+    if (std::abs(z - o->_z1) < EPSILON)
         return {0, 0, 1};
 
-    return {_a * (x - _center.x),
-            _b * (y - _center.y),
-            _c * (z - _center.z)};
+    return {o->_a * (x - o->_center.x),
+            o->_b * (y - o->_center.y),
+            o->_c * (z - o->_center.z)};
 }
 
 PX_CUDA_CALLABLE
-Vec3<PREC> BaseCone::getTextureCoord(PREC const &x, PREC const &y,
-                                       PREC const &z) const
+Vec3<PREC> BaseCone::getTextureCoord(void * const &obj,
+                                     PREC const &x, PREC const &y, PREC const &z)
 {
-    return {x - _center.x, y - _center.y, 0};
+    auto o = reinterpret_cast<BaseCone*>(obj);
+    return {x - o->_center.x, y - o->_center.y, 0};
 }
 
-std::shared_ptr<Geometry> Cone::create(Point const &center_of_bottom_face,
-                                           PREC const &radius_x,
-                                           PREC const &radius_y,
-                                           PREC const &ideal_height,
-                                           PREC const &real_height,
-                                           std::shared_ptr<Material> const &material,
-                                           std::shared_ptr<Transformation> const &trans)
-{
-    return std::shared_ptr<Geometry>(new Cone(center_of_bottom_face,
-                                                  radius_x, radius_y,
-                                                  ideal_height, real_height,
-                                                  material, trans));
-}
-
-Cone::Cone(Point const &center_of_bottom_face,
-           PREC const &radius_x,
-           PREC const &radius_y,
-           PREC const &ideal_height,
-           PREC const &real_height,
-           std::shared_ptr<Material> const &material,
-           std::shared_ptr<Transformation> const &trans)
-        : _obj(new BaseCone(center_of_bottom_face, radius_x, radius_y,
-                   ideal_height, real_height,
-                   material->obj(), trans.get())),
-          _base_obj(_obj),
-          _material_ptr(material), _transformation_ptr(trans),
-          _dev_ptr(nullptr), _need_upload(true)
-{}
-
-Cone::~Cone()
-{
-    delete _obj;
-#ifdef USE_CUDA
-    clearGpuData();
-#endif
-}
-BaseGeometry *const &Cone::obj() const noexcept
-{
-    return _base_obj;
-}
-
-BaseGeometry **Cone::devPtr()
-{
-    return _dev_ptr;
-}
-
-void Cone::up2Gpu()
-{
-#ifdef USE_CUDA
-    if (_need_upload)
-    {
-        clearGpuData();
-        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
-
-
-        if (_material_ptr != nullptr)
-            _material_ptr->up2Gpu();
-        if (_transformation_ptr != nullptr)
-            _transformation_ptr->up2Gpu();
-
-        cudaDeviceSynchronize();
-
-        GpuCreator::Cone(_dev_ptr,
-                         _obj->_center, _obj->_radius_x, _obj->_radius_y,
-                         _obj->_ideal_height, _obj->_real_height,
-                         _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
-                         _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
-
-        _need_upload = false;
-    }
-#endif
-}
-
-void Cone::clearGpuData()
-{
-#ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        return;
-
-    if (_transformation_ptr.use_count() == 1)
-        _transformation_ptr->clearGpuData();
-    if (_material_ptr.use_count() == 1)
-        _material_ptr->clearGpuData();
-
-    GpuCreator::destroy(_dev_ptr);
-    _dev_ptr = nullptr;
-    _need_upload = true;
-#endif
-}
-PX_CUDA_CALLABLE
 void BaseCone::setParams(Point const &center_of_bottom_face,
-                     PREC const &radius_x, PREC const &radius_y,
-                     PREC const &ideal_height,
-                     PREC const &real_height)
+                         PREC const &radius_x, PREC const &radius_y,
+                         PREC const &ideal_height,
+                         PREC const &real_height)
 {
     _center = center_of_bottom_face;
     _radius_x = radius_x;
@@ -253,15 +163,6 @@ void BaseCone::setParams(Point const &center_of_bottom_face,
     {
         _ideal_height = ideal_height;
         _real_height = real_height;
-
-        if (_n_vertices != 5)
-        {
-            delete [] _raw_vertices;
-            _raw_vertices = new Point[5];
-        }
-        _raw_vertices[4].x = _center.x;
-        _raw_vertices[4].y = _center.y;
-        _raw_vertices[4].z = _center.z + ideal_height;
     }
     else
     {
@@ -275,12 +176,6 @@ void BaseCone::setParams(Point const &center_of_bottom_face,
             _real_height = tmp;
         }
 
-        if (_n_vertices != 8)
-        {
-            delete [] _raw_vertices;
-            _raw_vertices = new Point[8];
-        }
-
         auto ratio = (_ideal_height - _real_height) / _ideal_height;
         _top_r_x = radius_x * ratio;
         _top_r_y = radius_y * ratio;
@@ -290,33 +185,7 @@ void BaseCone::setParams(Point const &center_of_bottom_face,
             _ideal_height *= -1;
             _real_height *= -1;
         }
-
-        _raw_vertices[4].x = _center.x - _top_r_x;
-        _raw_vertices[4].y = _center.y - _top_r_y;
-        _raw_vertices[4].z = _center.z + _real_height;
-        _raw_vertices[5].x = _center.x - _top_r_x;
-        _raw_vertices[5].y = _center.y + _top_r_y;
-        _raw_vertices[5].z = _center.z + _real_height;
-        _raw_vertices[6].x = _center.x + _top_r_x;
-        _raw_vertices[6].y = _center.y + _top_r_y;
-        _raw_vertices[6].z = _center.z + _real_height;
-        _raw_vertices[7].x = _center.x + _top_r_x;
-        _raw_vertices[7].y = _center.y - _top_r_y;
-        _raw_vertices[7].z = _center.z + _real_height;
     }
-
-    _raw_vertices[0].x = _center.x - radius_x;
-    _raw_vertices[0].y = _center.y + radius_y;
-    _raw_vertices[0].z = _center.z;
-    _raw_vertices[1].x = _center.x + radius_x;
-    _raw_vertices[1].y = _center.y + radius_y;
-    _raw_vertices[1].z = _center.z;
-    _raw_vertices[2].x = _center.x + radius_x;
-    _raw_vertices[2].y = _center.y - radius_y;
-    _raw_vertices[2].z = _center.z;
-    _raw_vertices[3].x = _center.x - radius_x;
-    _raw_vertices[3].y = _center.y - radius_y;
-    _raw_vertices[3].z = _center.z;
 
     _a =  1.0 / (radius_x*radius_x);
     _b =  1.0 / (radius_y*radius_y);
@@ -329,13 +198,180 @@ void BaseCone::setParams(Point const &center_of_bottom_face,
     _top_z = _center.z + _real_height;
 }
 
-void Cone::setParams(Point const &center_of_bottom_face, PREC const &radius_x,
-                     PREC const &radius_y, PREC const &ideal_height,
+std::shared_ptr<BaseGeometry> Cone::create(Point const &center_of_bottom_face,
+                                           PREC const &radius_x,
+                                           PREC const &radius_y,
+                                           PREC const &ideal_height,
+                                           PREC const &real_height,
+                                           std::shared_ptr<BaseMaterial> const &material,
+                                           std::shared_ptr<Transformation> const &trans)
+{
+    return std::shared_ptr<BaseGeometry>(new Cone(center_of_bottom_face,
+                                                  radius_x, radius_y,
+                                                  ideal_height, real_height,
+                                                  material, trans));
+}
+
+Cone::Cone(Point const &center_of_bottom_face,
+           PREC const &radius_x,
+           PREC const &radius_y,
+           PREC const &ideal_height,
+           PREC const &real_height,
+           std::shared_ptr<BaseMaterial> const &material,
+           std::shared_ptr<Transformation> const &trans)
+        : BaseGeometry(material, trans, 8),
+          _obj(new BaseCone(center_of_bottom_face, radius_x, radius_y,
+                   ideal_height, real_height)),
+          _gpu_obj(nullptr), _need_upload(true)
+{
+    _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
+    _updateVertices();
+}
+
+Cone::~Cone()
+{
+    delete _obj;
+#ifdef USE_CUDA
+    clearGpuData();
+#endif
+}
+
+
+#ifdef USE_CUDA
+__device__ fnHit_t __fn_hit_cone = BaseCone::hitCheck;
+__device__ fnNormal_t __fn_normal_cone = BaseCone::normalVec;
+__device__ fnTextureCoord_t __fn_texture_coord_cone = BaseCone::getTextureCoord;
+#endif
+void Cone::up2Gpu()
+{
+#ifdef USE_CUDA
+    static fnHit_t fn_hit_h = nullptr;
+    static fnNormal_t fn_normal_h;
+    static fnTextureCoord_t fn_texture_coord_h;
+
+    if (_need_upload)
+    {
+        if (dev_ptr == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMalloc(&_gpu_obj, sizeof(BaseCone)));
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(GeometryObj)));
+        }
+
+        if (fn_hit_h == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_hit_h, __fn_hit_cone, sizeof(fnHit_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_normal_h, __fn_normal_cone, sizeof(fnNormal_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_texture_coord_h, __fn_texture_coord_cone, sizeof(fnTextureCoord_t)));
+        }
+
+        if (mat != nullptr)
+            mat->up2Gpu();
+
+        if (trans != nullptr)
+            trans->up2Gpu();
+
+        cudaDeviceSynchronize();
+
+        _obj->_dev_obj = dev_ptr;
+        PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseCone), cudaMemcpyHostToDevice));
+        _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
+
+        GeometryObj tmp(_gpu_obj, fn_hit_h, fn_normal_h, fn_texture_coord_h,
+                        mat == nullptr ? nullptr : mat->devPtr(),
+                        trans == nullptr ? nullptr : trans->devPtr());
+
+        PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(GeometryObj),
+                                 cudaMemcpyHostToDevice))
+
+        _need_upload = false;
+    }
+#endif
+}
+
+void Cone::clearGpuData()
+{
+#ifdef USE_CUDA
+    BaseGeometry::clearGpuData();
+    if (_gpu_obj != nullptr)
+    {
+        PX_CUDA_CHECK(cudaFree(_gpu_obj));
+        _gpu_obj = nullptr;
+    }
+    _need_upload = true;
+#endif
+}
+
+void Cone::setParams(Point const &center_of_bottom_face,
+                     PREC const &radius_x, PREC const &radius_y,
+                     PREC const &ideal_height,
                      PREC const &real_height)
 {
-    _obj->setParams(center_of_bottom_face, radius_x, radius_y,
-                        ideal_height, real_height);
+    _obj->setParams(center_of_bottom_face,
+                    radius_x, radius_y, ideal_height, real_height);
+    _updateVertices();
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
+}
+
+void Cone::_updateVertices()
+{
+    if (_obj->_ideal_height == _obj->_real_height)
+    {
+        if (n_vertices != 5)
+            resetVertices(5);
+        raw_vertices[4].x = _obj->_center.x;
+        raw_vertices[4].y = _obj->_center.y;
+        raw_vertices[4].z = _obj->_center.z + _obj->_ideal_height;
+    }
+    else
+    {
+        if (n_vertices != 8)
+            resetVertices(8);
+
+        raw_vertices[4].x = _obj->_center.x - _obj->_top_r_x;
+        raw_vertices[4].y = _obj->_center.y - _obj->_top_r_y;
+        raw_vertices[4].z = _obj->_center.z + _obj->_real_height;
+        raw_vertices[5].x = _obj->_center.x - _obj->_top_r_x;
+        raw_vertices[5].y = _obj->_center.y + _obj->_top_r_y;
+        raw_vertices[5].z = _obj->_center.z + _obj->_real_height;
+        raw_vertices[6].x = _obj->_center.x + _obj->_top_r_x;
+        raw_vertices[6].y = _obj->_center.y + _obj->_top_r_y;
+        raw_vertices[6].z = _obj->_center.z + _obj->_real_height;
+        raw_vertices[7].x = _obj->_center.x + _obj->_top_r_x;
+        raw_vertices[7].y = _obj->_center.y - _obj->_top_r_y;
+        raw_vertices[7].z = _obj->_center.z + _obj->_real_height;
+    }
+
+    raw_vertices[0].x = _obj->_center.x - _obj->_radius_x;
+    raw_vertices[0].y = _obj->_center.y + _obj->_radius_y;
+    raw_vertices[0].z = _obj->_center.z;
+    raw_vertices[1].x = _obj->_center.x + _obj->_radius_x;
+    raw_vertices[1].y = _obj->_center.y + _obj->_radius_y;
+    raw_vertices[1].z = _obj->_center.z;
+    raw_vertices[2].x = _obj->_center.x + _obj->_radius_x;
+    raw_vertices[2].y = _obj->_center.y - _obj->_radius_y;
+    raw_vertices[2].z = _obj->_center.z;
+    raw_vertices[3].x = _obj->_center.x - _obj->_radius_x;
+    raw_vertices[3].y = _obj->_center.y - _obj->_radius_y;
+    raw_vertices[3].z = _obj->_center.z;
+}
+
+Vec3<PREC> Cone::getTextureCoord(PREC const &x,
+                                  PREC const &y,
+                                  PREC const &z) const
+{
+    return BaseCone::getTextureCoord(_obj, x, y, z);
+}
+const BaseGeometry *Cone::hitCheck(Ray const &ray,
+                                    PREC const &t_start,
+                                    PREC const &t_end,
+                                    PREC &hit_at) const
+{
+    return BaseCone::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
+}
+Direction Cone::normalVec(PREC const &x, PREC const &y,
+                           PREC const &z) const
+{
+    return BaseCone::normalVec(_obj, x, y, z);
 }

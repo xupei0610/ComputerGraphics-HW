@@ -1,36 +1,30 @@
 #include "object/geometry/sphere.hpp"
 
-#ifdef USE_CUDA
-#include "gpu_creator.hpp"
-#endif
-
 using namespace px;
 
-PX_CUDA_CALLABLE
 BaseSphere::BaseSphere(Point const &pos,
-                       PREC const &radius,
-                       const BaseMaterial *const &material,
-                       const Transformation *const &trans)
-        : BaseGeometry(material, trans, 8),
-          _center(pos),
+                       PREC const &radius)
+        : _center(pos),
           _radius(radius),
-          _radius2(radius*radius)
-{
-    updateVertices();
-}
+          _radius2(radius*radius),
+          _dev_obj(nullptr)
+{}
 
 PX_CUDA_CALLABLE
-const BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
-                                  PREC const &t_start,
-                                  PREC const &t_end,
-                                  PREC &hit_at) const
+GeometryObj *BaseSphere::hitCheck(void * const &obj,
+                         Ray const &ray,
+                         PREC const &t_start,
+                         PREC const &t_end,
+                         PREC &hit_at)
 {
-    auto oc = Vec3<double>(ray.original.x - _center.x,
-                           ray.original.y - _center.y,
-                           ray.original.z - _center.z);
+    auto o = reinterpret_cast<BaseSphere*>(obj);
+
+    auto oc = Vec3<double>(ray.original.x - o->_center.x,
+                           ray.original.y - o->_center.y,
+                           ray.original.z - o->_center.z);
     auto a = ray.direction.dot(ray.direction);
     auto b = ray.direction.dot(oc);
-    auto c = oc.dot(oc) - _radius*_radius;
+    auto c = oc.dot(oc) - o->_radius*o->_radius;
     auto discriminant = b*b - a*c;
     if (discriminant > 0)
     {
@@ -40,15 +34,15 @@ const BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
         if (tmp > t_start && tmp < t_end)
         {
             hit_at = tmp;
-            return this;
+            return o->_dev_obj;
         }
         else
         {
-            tmp = 2*b_by_a-tmp;
+            tmp = b_by_a+b_by_a-tmp;
             if (tmp > t_start && tmp < t_end)
             {
                 hit_at = tmp;
-                return this;
+                return o->_dev_obj;
             }
         }
     }
@@ -56,38 +50,55 @@ const BaseGeometry * BaseSphere::hitCheck(Ray const &ray,
 }
 
 PX_CUDA_CALLABLE
-Direction BaseSphere::normalVec(PREC const &x, PREC const &y, PREC const &z) const
+Direction BaseSphere::normalVec(void * const &obj,
+                               PREC const &x, PREC const &y, PREC const &z)
 {
-    return {x - _center.x, y - _center.y, z - _center.z};
+    auto o = reinterpret_cast<BaseSphere*>(obj);
+    return {x - o->_center.x, y - o->_center.y, z - o->_center.z};
 }
 
 PX_CUDA_CALLABLE
-Vec3<PREC> BaseSphere::getTextureCoord(PREC const &x, PREC const &y,
-                                       PREC const &z) const
+Vec3<PREC> BaseSphere::getTextureCoord(void * const &obj,
+                                       PREC const &x, PREC const &y,
+                                       PREC const &z)
 {
-    return {(1 + std::atan2(z - _center.z, x - _center.x) / PI) *PREC(0.5),
-            std::acos((y - _center.y) / _radius2) / PREC(PI),
+    auto o = reinterpret_cast<BaseSphere*>(obj);
+    return {(1 + std::atan2(z - o->_center.z, x - o->_center.x) / PI) *PREC(0.5),
+            std::acos((y - o->_center.y) / o->_radius2) / PREC(PI),
             0};
 }
 
-std::shared_ptr<Geometry> Sphere::create(Point const &position,
+void BaseSphere::setCenter(Point const &center)
+{
+    _center = center;
+}
+
+void BaseSphere::setRadius(PREC const &r)
+{
+    _radius = r;
+    _radius2 = r*r;
+}
+
+std::shared_ptr<BaseGeometry> Sphere::create(Point const &position,
                                              PREC const &radius,
-                                             std::shared_ptr<Material> const &material,
+                                             std::shared_ptr<BaseMaterial> const &material,
                                              std::shared_ptr<Transformation> const &trans)
 {
-    return std::shared_ptr<Geometry>(new Sphere(position, radius,
+    return std::shared_ptr<BaseGeometry>(new Sphere(position, radius,
                                                     material, trans));
 }
 
 Sphere::Sphere(Point const &position,
                PREC const &radius,
-           std::shared_ptr<Material> const &material,
-           std::shared_ptr<Transformation> const &trans)
-        : _obj(new BaseSphere(position, radius, material->obj(), trans.get())),
-          _base_obj(_obj),
-          _material_ptr(material), _transformation_ptr(trans),
-          _dev_ptr(nullptr), _need_upload(true)
-{}
+               std::shared_ptr<BaseMaterial> const &material,
+               std::shared_ptr<Transformation> const &trans)
+        : BaseGeometry(material, trans, 8),
+          _obj(new BaseSphere(position, radius)),
+          _gpu_obj(nullptr), _need_upload(true)
+{
+    _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
+    _updateVertices();
+}
 
 Sphere::~Sphere()
 {
@@ -97,35 +108,51 @@ Sphere::~Sphere()
 #endif
 }
 
-BaseGeometry *const &Sphere::obj() const noexcept
-{
-    return _base_obj;
-}
-
-BaseGeometry **Sphere::devPtr()
-{
-    return _dev_ptr;
-}
-
+#ifdef USE_CUDA
+__device__ fnHit_t __fn_hit_sphere = BaseSphere::hitCheck;
+__device__ fnNormal_t __fn_normal_sphere = BaseSphere::normalVec;
+__device__ fnTextureCoord_t __fn_texture_coord_sphere = BaseSphere::getTextureCoord;
+#endif
 void Sphere::up2Gpu()
 {
 #ifdef USE_CUDA
+    static fnHit_t fn_hit_h = nullptr;
+    static fnNormal_t fn_normal_h;
+    static fnTextureCoord_t fn_texture_coord_h;
+
     if (_need_upload)
     {
-        clearGpuData();
-        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry **)));
+        if (dev_ptr == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMalloc(&_gpu_obj, sizeof(BaseSphere)));
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(GeometryObj)));
+        }
 
-        if (_material_ptr != nullptr)
-            _material_ptr->up2Gpu();
-        if (_transformation_ptr != nullptr)
-            _transformation_ptr->up2Gpu();
+        if (fn_hit_h == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_hit_h, __fn_hit_sphere, sizeof(fnHit_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_normal_h, __fn_normal_sphere, sizeof(fnNormal_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_texture_coord_h, __fn_texture_coord_sphere, sizeof(fnTextureCoord_t)));
+        }
+
+        if (mat != nullptr)
+            mat->up2Gpu();
+
+        if (trans != nullptr)
+            trans->up2Gpu();
 
         cudaDeviceSynchronize();
 
-        GpuCreator::Sphere(_dev_ptr,
-                           _obj->_center, _obj->_radius,
-                           _material_ptr == nullptr ? nullptr : _material_ptr->devPtr(),
-                           _transformation_ptr == nullptr ? nullptr : _transformation_ptr->devPtr());
+        _obj->_dev_obj = dev_ptr;
+        PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseSphere), cudaMemcpyHostToDevice));
+        _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
+
+        GeometryObj tmp(_gpu_obj, fn_hit_h, fn_normal_h, fn_texture_coord_h,
+                        mat == nullptr ? nullptr : mat->devPtr(),
+                        trans == nullptr ? nullptr : trans->devPtr());
+
+        PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(GeometryObj),
+                                 cudaMemcpyHostToDevice))
 
         _need_upload = false;
     }
@@ -135,24 +162,20 @@ void Sphere::up2Gpu()
 void Sphere::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        return;
-
-    if (_transformation_ptr.use_count() == 1)
-        _transformation_ptr->clearGpuData();
-    if (_material_ptr.use_count() == 1)
-        _material_ptr->clearGpuData();
-
-    GpuCreator::destroy(_dev_ptr);
-    _dev_ptr = nullptr;
+    BaseGeometry::clearGpuData();
+    if (_gpu_obj != nullptr)
+    {
+        PX_CUDA_CHECK(cudaFree(_gpu_obj));
+        _gpu_obj = nullptr;
+    }
     _need_upload = true;
 #endif
 }
 
 void Sphere::setCenter(Point const &center)
 {
-    _obj->_center = center;
-    _obj->updateVertices();
+    _obj->setCenter(center);
+    _updateVertices();
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
@@ -160,45 +183,63 @@ void Sphere::setCenter(Point const &center)
 
 void Sphere::setRadius(PREC const &r)
 {
-    _obj->_radius = r;
-    _obj->_radius2 = r*r;
-    _obj->updateVertices();
+    _obj->setRadius(r);
+    _updateVertices();
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 
-void BaseSphere::updateVertices()
+void Sphere::_updateVertices()
 {
-    _raw_vertices[0].x = _center.x + _radius;
-    _raw_vertices[0].y = _center.y + _radius;
-    _raw_vertices[0].z = _center.z + _radius;
+    raw_vertices[0].x = _obj->_center.x + _obj->_radius;
+    raw_vertices[0].y = _obj->_center.y + _obj->_radius;
+    raw_vertices[0].z = _obj->_center.z + _obj->_radius;
 
-    _raw_vertices[1].x = _center.x - _radius;
-    _raw_vertices[1].y = _center.y + _radius;
-    _raw_vertices[1].z = _center.z + _radius;
+    raw_vertices[1].x = _obj->_center.x - _obj->_radius;
+    raw_vertices[1].y = _obj->_center.y + _obj->_radius;
+    raw_vertices[1].z = _obj->_center.z + _obj->_radius;
 
-    _raw_vertices[2].x = _center.x + _radius;
-    _raw_vertices[2].y = _center.y - _radius;
-    _raw_vertices[2].z = _center.z + _radius;
+    raw_vertices[2].x = _obj->_center.x + _obj->_radius;
+    raw_vertices[2].y = _obj->_center.y - _obj->_radius;
+    raw_vertices[2].z = _obj->_center.z + _obj->_radius;
 
-    _raw_vertices[3].x = _center.x + _radius;
-    _raw_vertices[3].y = _center.y + _radius;
-    _raw_vertices[3].z = _center.z - _radius;
+    raw_vertices[3].x = _obj->_center.x + _obj->_radius;
+    raw_vertices[3].y = _obj->_center.y + _obj->_radius;
+    raw_vertices[3].z = _obj->_center.z - _obj->_radius;
 
-    _raw_vertices[4].x = _center.x - _radius;
-    _raw_vertices[4].y = _center.y - _radius;
-    _raw_vertices[4].z = _center.z + _radius;
+    raw_vertices[4].x = _obj->_center.x - _obj->_radius;
+    raw_vertices[4].y = _obj->_center.y - _obj->_radius;
+    raw_vertices[4].z = _obj->_center.z + _obj->_radius;
 
-    _raw_vertices[5].x = _center.x - _radius;
-    _raw_vertices[5].y = _center.y + _radius;
-    _raw_vertices[5].z = _center.z - _radius;
+    raw_vertices[5].x = _obj->_center.x - _obj->_radius;
+    raw_vertices[5].y = _obj->_center.y + _obj->_radius;
+    raw_vertices[5].z = _obj->_center.z - _obj->_radius;
 
-    _raw_vertices[6].x = _center.x + _radius;
-    _raw_vertices[6].y = _center.y - _radius;
-    _raw_vertices[6].z = _center.z - _radius;
+    raw_vertices[6].x = _obj->_center.x + _obj->_radius;
+    raw_vertices[6].y = _obj->_center.y - _obj->_radius;
+    raw_vertices[6].z = _obj->_center.z - _obj->_radius;
 
-    _raw_vertices[7].x = _center.x - _radius;
-    _raw_vertices[7].y = _center.y - _radius;
-    _raw_vertices[7].z = _center.z - _radius;
+    raw_vertices[7].x = _obj->_center.x - _obj->_radius;
+    raw_vertices[7].y = _obj->_center.y - _obj->_radius;
+    raw_vertices[7].z = _obj->_center.z - _obj->_radius;
+}
+
+Vec3<PREC> Sphere::getTextureCoord(PREC const &x,
+                                  PREC const &y,
+                                  PREC const &z) const
+{
+    return BaseSphere::getTextureCoord(_obj, x, y, z);
+}
+const BaseGeometry *Sphere::hitCheck(Ray const &ray,
+                                    PREC const &t_start,
+                                    PREC const &t_end,
+                                    PREC &hit_at) const
+{
+    return BaseSphere::hitCheck(_obj, ray, t_start, t_end, hit_at) == nullptr ? nullptr : this;
+}
+Direction Sphere::normalVec(PREC const &x, PREC const &y,
+                           PREC const &z) const
+{
+    return BaseSphere::normalVec(_obj, x, y, z);
 }

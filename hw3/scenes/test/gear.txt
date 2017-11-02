@@ -1,9 +1,6 @@
 #Sci-fi glowing gear
 #Model by Moses Adeagbo
 
-
-sampling_radius 1
-
 #Camera Set-up
 camera 2.8 9 5 -.26 -.78 -.45 0 1 0 20
 output_image gear.bmp

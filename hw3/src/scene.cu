@@ -74,19 +74,17 @@ void rayCast(bool * stop,
             {
                 auto texture_coord = obj->textureCoord(intersect);
 
-                Direction n(obj->normVec(intersect));
+                Direction n(obj->normal(intersect));
                 Direction r(current.ray.direction-n*(2*current.ray.direction.dot(n)));
 
                 lights[index] += RayTrace::reflect(intersect, texture_coord,
                                                    obj, scene_param, &state,
                                                    n, r) * current.coef;
                 if (current.depth < scene_param->recursion_depth)
-                {
                     RayTrace::recursive(intersect, current,
                                         texture_coord, *obj,
                                         n, r,
                                         tr, *scene_param);
-                }
             }
             if (tr.n > 0 && *stop == false)
             {
@@ -123,12 +121,11 @@ void Scene::renderGpu(int const &width, int const &height,
     _param->n_geometries = geometries.size();
     _param->n_lights = lights.size();
 
-    BaseLight **pl[_param->n_lights];
-    BaseGeometry **pg[_param->n_geometries];
+    LightObj *pl[_param->n_lights];
+    GeometryObj *pg[_param->n_geometries];
 
     for (auto &l : lights) l->up2Gpu();
     for (auto &g : geometries) g->up2Gpu();
-
 
     PX_CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -140,15 +137,15 @@ void Scene::renderGpu(int const &width, int const &height,
     for (auto &l : geometries) pg[i++] = l->devPtr();
 
     PX_CUDA_CHECK(cudaMalloc(&(_param->lights),
-                             sizeof(BaseLight **) * _param->n_lights));
+                             sizeof(LightObj *) * _param->n_lights));
     PX_CUDA_CHECK(cudaMemcpy(_param->lights, pl,
-                             sizeof(BaseLight **) * _param->n_lights,
+                             sizeof(LightObj *) * _param->n_lights,
                              cudaMemcpyHostToDevice));
 
     PX_CUDA_CHECK(cudaMalloc(&(_param->geometries),
-                             sizeof(BaseGeometry **) * _param->n_geometries));
+                             sizeof(GeometryObj *) * _param->n_geometries));
     PX_CUDA_CHECK(cudaMemcpy(_param->geometries, pg,
-                             sizeof(BaseGeometry **) * _param->n_geometries,
+                             sizeof(GeometryObj *) * _param->n_geometries,
                              cudaMemcpyHostToDevice));
 
     dim3 threads(PX_CUDA_THREADS_PER_BLOCK, 1, 1);

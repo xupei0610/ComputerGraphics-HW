@@ -55,7 +55,6 @@ PREC specularReflect(PREC const &light,
 Light traceCpu(bool const &stop_flag,
                const Scene *const &scene,
                Ray const &ray,
-               PREC const &refractive_index = 1.0,
                int const &depth = 0);
 
 // the following is for gpu
@@ -92,13 +91,13 @@ struct TraceQueue
 };
 
 __device__
-const BaseGeometry *hitCheck(Ray const & ray,
+GeometryObj *hitCheck(Ray const & ray,
                              const Scene::Param *const &scene,
                              Point &intersection);
 __device__
 Light reflect(Point const &intersect,
               Point const &texture_coord,
-              const BaseGeometry *const &obj,
+              const GeometryObj *const &obj,
               const Scene::Param *const &scene,
               curandState_t * const &state,
               Direction const &n, Direction const &r);
@@ -106,7 +105,7 @@ __device__
 void recursive(Point const &intersect,
                 TraceQueue::Node const &current,
                 Point const &texture_coord,
-                BaseGeometry const &obj,
+               GeometryObj const &obj,
                 Direction &n,
                 Direction const &r,
                 TraceQueue &trace,

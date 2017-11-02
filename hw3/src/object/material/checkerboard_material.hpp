@@ -9,67 +9,22 @@ class BaseCheckerboardMaterial;
 class CheckerboardMaterial;
 }
 
-class px::BaseCheckerboardMaterial : public BaseMaterial
-{
-public:
-    PX_CUDA_CALLABLE
-    BaseCheckerboardMaterial(Light const &ambient,
-                             Light const &diffuse,
-                             Light const &specular,
-                             int const &specular_exponent,
-                             Light const &transmissive,
-                             PREC const &refractive_index,
-                             PREC const &dim_scale,
-                             PREC const &color_scale,
-                             const BumpMapping *const &bump_mapping);
-    PX_CUDA_CALLABLE
-    ~BaseCheckerboardMaterial() = default;
-
-    PX_CUDA_CALLABLE
-    int specularExp(PREC const &u, PREC const &v, PREC const &w) const override;
-    PX_CUDA_CALLABLE
-    PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const override;
-
-protected:
-    PX_CUDA_CALLABLE
-    Light getAmbient(PREC const &u, PREC const &v, PREC const &w) const override;
-    PX_CUDA_CALLABLE
-    Light getDiffuse(PREC const &u, PREC const &v, PREC const &w) const override;
-    PX_CUDA_CALLABLE
-    Light getSpecular(PREC const &u, PREC const &v, PREC const &w) const override;
-    PX_CUDA_CALLABLE
-    Light getTransmissive(PREC const &u, PREC const &v, PREC const &w) const override;
-
-    Light _ambient;
-    Light _diffuse;
-    Light _specular;
-    int _specular_exponent;
-    Light _transmissive;
-    PREC _refractive_index;
-    PREC _dim_scale;
-    PREC _color_scale;
-
-    friend class CheckerboardMaterial;
-};
-
-
-class px::CheckerboardMaterial : public Material
+class px::BaseCheckerboardMaterial
 {
 public:
 
-    static std::shared_ptr<Material> create(Light const &ambient,
-                                                Light const &diffuse,
-                                                Light const &specular,
-                                                int const &specular_exponent,
-                                                Light const &transmissive,
-                                                PREC const &refractive_index,
-                                                PREC const &dim_scale,
-                                                PREC const &color_scale,
-                                                std::shared_ptr<BumpMapping> const &bump_mapping=nullptr);
-    BaseMaterial *const &obj() const noexcept override;
-    BaseMaterial **devPtr() override;
-    void up2Gpu() override;
-    void clearGpuData() override ;
+    PX_CUDA_CALLABLE
+    static int getSpecularExp(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
+    PX_CUDA_CALLABLE
+    static PREC getRefractiveIndex(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
+    PX_CUDA_CALLABLE
+    static Light getAmbient(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
+    PX_CUDA_CALLABLE
+    static Light getDiffuse(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
+    PX_CUDA_CALLABLE
+    static Light getSpecular(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
+    PX_CUDA_CALLABLE
+    static Light getTransmissive(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
 
     void setAmbient(Light const &ambient);
     void setDiffuse(Light const &diffuse);
@@ -77,14 +32,76 @@ public:
     void setSpecularExp(int const &specular_exp);
     void setTransmissive(Light const &transmissive);
     void setRefractiveIndex(PREC const &ior);
-    void setBumpMapping(std::shared_ptr<BumpMapping> const &bump_mapping);
-    void setDimScale(PREC const &dim_scale);
-    void setColorScale(PREC const &color_scale);
+    void setDimScale(PREC const &s);
+    void setColorScale(PREC const &s);
+
+protected:
+    Light _ambient;
+    Light _diffuse;
+    Light _specular;
+    int _specular_exponent;
+    Light _transmissive;
+    PREC _refractive_index;
+
+    PREC _dim_scale;
+    PREC _color_scale;
+
+    BaseCheckerboardMaterial(Light const &ambient,
+                      Light const &diffuse,
+                      Light const &specular,
+                      int const &specular_exponent,
+                      Light const &transmissive,
+                      PREC const &refractive_index,
+                      PREC const &dim_scale,
+                      PREC const &color_scale);
+
+    ~BaseCheckerboardMaterial() = default;
+
+    BaseCheckerboardMaterial &operator=(BaseCheckerboardMaterial const &) = delete;
+    BaseCheckerboardMaterial &operator=(BaseCheckerboardMaterial &&) = delete;
+
+    friend class CheckerboardMaterial;
+};
+
+
+class px::CheckerboardMaterial : public BaseMaterial
+{
+public:
+
+    static std::shared_ptr<BaseMaterial> create(Light const &ambient,
+                                            Light const &diffuse,
+                                            Light const &specular,
+                                            int const &specular_exponent,
+                                            Light const &transmissive,
+                                            PREC const &refractive_index,
+                                            PREC const &dim_scale,
+                                            PREC const &color_scale);
+    void up2Gpu() override;
+    void clearGpuData() override ;
+
+    int specularExp(PREC const &u, PREC const &v, PREC const &w) const override;
+    PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const override;
+
+    void setAmbient(Light const &ambient);
+    void setDiffuse(Light const &diffuse);
+    void setSpecular(Light const &specular);
+    void setSpecularExp(int const &specular_exp);
+    void setTransmissive(Light const &transmissive);
+    void setRefractiveIndex(PREC const &ior);
+    void setDimScale(PREC const &s);
+    void setColorScale(PREC const &s);
 
     ~CheckerboardMaterial();
+
 protected:
     BaseCheckerboardMaterial *_obj;
-    BaseMaterial *_base_obj;
+    void *_gpu_obj;
+    bool _need_upload;
+
+    Light getAmbient(PREC const &u, PREC const &v, PREC const &w) const override;
+    Light getDiffuse(PREC const &u, PREC const &v, PREC const &w) const override;
+    Light getSpecular(PREC const &u, PREC const &v, PREC const &w) const override;
+    Light getTransmissive(PREC const &u, PREC const &v, PREC const &w) const override;
 
     CheckerboardMaterial(Light const &ambient,
                          Light const &diffuse,
@@ -93,15 +110,10 @@ protected:
                          Light const &transmissive,
                          PREC const &refractive_index,
                          PREC const &dim_scale,
-                         PREC const &color_scale,
-                         std::shared_ptr<BumpMapping> const &bump_mapping);
+                         PREC const &color_scale);
 
     CheckerboardMaterial &operator=(CheckerboardMaterial const &) = delete;
     CheckerboardMaterial &operator=(CheckerboardMaterial &&) = delete;
-
-    std::shared_ptr<BumpMapping> _bump_mapping_ptr;
-    BaseMaterial **_dev_ptr;
-    bool _need_upload;
 };
 
 #endif // PX_CG_OBJECT_MATERIAL_CHECKERBOARD_MATERIAL_HPP

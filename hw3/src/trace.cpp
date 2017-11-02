@@ -5,7 +5,6 @@ using namespace px;
 Light RayTrace::traceCpu(bool const &stop_flag,
                          const Scene *const &scene,
                          Ray const &ray,
-                         PREC const &refractive_index,
                          int const &depth)
 {
     if (stop_flag)
@@ -17,7 +16,7 @@ Light RayTrace::traceCpu(bool const &stop_flag,
 
     for (const auto &g : scene->geometries)
     {
-        tmp_obj = g->obj()->hit(ray, scene->hit_min_tol, end_range, t);
+        tmp_obj = g->hit(ray, scene->hit_min_tol, end_range, t);
         if (tmp_obj == nullptr)
             continue;
 
@@ -28,9 +27,8 @@ Light RayTrace::traceCpu(bool const &stop_flag,
     if (obj == nullptr)
         return scene->bg;
 
-
     auto intersect = ray[t];
-    auto n = obj->normVec(intersect); // norm vector at the hit point2ObjCoord
+    auto n = obj->normal(intersect); // norm vector at the hit point2ObjCoord
     Ray I(intersect, {0, 0, 0});      // from hit point2ObjCoord to light source
 //    Direction h(0, 0, 0);             // half vector
     Direction r(ray.direction-n*(2*ray.direction.dot(n)));     // reflect vector
@@ -45,18 +43,18 @@ Light RayTrace::traceCpu(bool const &stop_flag,
     for (const auto &light : scene->lights)
     {
         // soft shadow for area light
-        int sampling = light->type() == BaseLight::Type::AreaLight ? scene->area_light_sampling : 1;
+        int sampling = light->type == LightType::AreaLight ? scene->area_light_sampling : 1;
         int shadow_hit = sampling;
 
         for (auto k = 0; k < sampling; ++k)
         {
-            I.direction = light->dirFromHost(intersect, attenuate);
+            I.direction = light->dirFrom(intersect, attenuate);
             // attenuate represents distance from intersect point2ObjCoord to the light here
 
 //        h = I.direction - ray.direction;
             for (const auto &g : scene->geometries)
             {
-                if (g->obj()->hit(I, scene->hit_min_tol, attenuate, t))
+                if (g->hit(I, scene->hit_min_tol, attenuate, t))
                 {
                     --shadow_hit;
                     break;
@@ -89,22 +87,22 @@ Light RayTrace::traceCpu(bool const &stop_flag,
         {
             // refract
             auto cos_theta = ray.direction.dot(n);
-            auto nt = cos_theta > 0 ? (n *= -1, 1.0)
-                                    : (cos_theta *= -1, obj->material()->refractiveIndex(texture_coord));
+            auto ior = cos_theta > 0 ? (n *= -1, obj->material()->refractiveIndex(texture_coord))
+                                    : (cos_theta *= -1, 1.0 / obj->material()->refractiveIndex(texture_coord));
 
-            auto n_ratio = refractive_index / nt;
             auto cos_phi_2 =
-                    1 - n_ratio * n_ratio * (1 - cos_theta * cos_theta);
+                    1 - ior*ior * (1 - cos_theta * cos_theta);
             if (cos_phi_2 >= 0)
             {
-                auto t = n * cos_theta;
+                auto t = n;
+                t *= cos_theta;
                 t += ray.direction;
-                t *= n_ratio;
+                t *= ior;
                 if (cos_phi_2 != 0)
                     t -= n * std::sqrt(cos_phi_2);
                 ref *= traceCpu(stop_flag,
                                 scene,
-                                {intersect, t}, nt, depth + 1);
+                                {intersect, t}, depth + 1);
                 L += ref;
             }
         }
@@ -114,8 +112,7 @@ Light RayTrace::traceCpu(bool const &stop_flag,
         {
             specular *= traceCpu(stop_flag,
                                      scene,
-                                     {intersect, r},
-                                     refractive_index, depth+1);
+                                     {intersect, r}, depth+1);
             L += specular;
         }
 
@@ -157,7 +154,6 @@ Light RayTrace::traceCpu(bool const &stop_flag,
                     indirect_diffuse += traceCpu(stop_flag,
                             scene,
                             {intersect, sample},
-                            refractive_index,
                             depth + 1) * r1;
                 }
                 indirect_diffuse *= diffuse * 2 / (PI * N);

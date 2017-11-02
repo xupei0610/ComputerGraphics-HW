@@ -9,40 +9,39 @@ class Quadric;
 class BaseQuadric;
 }
 // Ax2 + By2 + Cz2 + Dxy+ Exz + Fyz + Gx + Hy + Iz + J = 0
-class px::BaseQuadric : public BaseGeometry
+class px::BaseQuadric
 {
-protected:
-    PX_CUDA_CALLABLE
-    const BaseGeometry * hitCheck(Ray const &ray,
-                                  PREC const &range_start,
-                                  PREC const &range_end,
-                                  PREC &hit_at) const override;
-    PX_CUDA_CALLABLE
-    Vec3<PREC> getTextureCoord(PREC const &x,
-                                 PREC const &y,
-                                 PREC const &z) const override;
-    PX_CUDA_CALLABLE
-    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
-
 public:
     PX_CUDA_CALLABLE
-    BaseQuadric(Point const &center,
-                PREC const &a,
-                PREC const &b,
-                PREC const &c,
-                PREC const &d,
-                PREC const &e,
-                PREC const &f,
-                PREC const &g,
-                PREC const &h,
-                PREC const &i,
-                PREC const &j,
-                PREC const &x0, PREC const &x1,
-                PREC const &y0, PREC const &y1,
-                PREC const &z0, PREC const &z1,
-                const BaseMaterial * const &material,
-                const Transformation * const &trans);
+    static GeometryObj *hitCheck(void * const &obj,
+                         Ray const &ray,
+                         PREC const &range_start,
+                         PREC const &range_end,
+                         PREC &hit_at);
     PX_CUDA_CALLABLE
+    static Vec3<PREC> getTextureCoord(void * const &obj,
+                                      PREC const &x,
+                                      PREC const &y,
+                                      PREC const &z);
+    PX_CUDA_CALLABLE
+    static Direction normalVec(void * const &obj,
+                               PREC const &x, PREC const &y, PREC const &z);
+
+    void setCenter(Point const &position);
+    void setCoef(PREC const &a,
+                 PREC const &b,
+                 PREC const &c,
+                 PREC const &d,
+                 PREC const &e,
+                 PREC const &f,
+                 PREC const &g,
+                 PREC const &h,
+                 PREC const &i,
+                 PREC const &j,
+                 PREC const &x0, PREC const &x1,
+                 PREC const &y0, PREC const &y1,
+                 PREC const &z0, PREC const &z1);
+
     ~BaseQuadric() = default;
 protected:
     Point _center;
@@ -57,22 +56,22 @@ protected:
     PREC _y0, _y1;
     PREC _z0, _z1;
 
-    PX_CUDA_CALLABLE
-    void setCoef(PREC const &a,
-                 PREC const &b,
-                 PREC const &c,
-                 PREC const &d,
-                 PREC const &e,
-                 PREC const &f,
-                 PREC const &g,
-                 PREC const &h,
-                 PREC const &i,
-                 PREC const &j,
-                 PREC const &x0, PREC const &x1,
-                 PREC const &y0, PREC const &y1,
-                 PREC const &z0, PREC const &z1);
-    PX_CUDA_CALLABLE
-    void updateVertices();
+    GeometryObj *_dev_obj;
+
+    BaseQuadric(Point const &center,
+                PREC const &a,
+                PREC const &b,
+                PREC const &c,
+                PREC const &d,
+                PREC const &e,
+                PREC const &f,
+                PREC const &g,
+                PREC const &h,
+                PREC const &i,
+                PREC const &j,
+                PREC const &x0, PREC const &x1,
+                PREC const &y0, PREC const &y1,
+                PREC const &z0, PREC const &z1);
 
     BaseQuadric &operator=(BaseQuadric const &) = delete;
     BaseQuadric &operator=(BaseQuadric &&) = delete;
@@ -80,10 +79,10 @@ protected:
     friend class Quadric;
 };
 
-class px::Quadric : public Geometry
+class px::Quadric : public BaseGeometry
 {
 public:
-    static std::shared_ptr<Geometry> create(Point const &center,
+    static std::shared_ptr<BaseGeometry> create(Point const &center,
                                                 PREC const &a,
                                                 PREC const &b,
                                                 PREC const &c,
@@ -97,13 +96,12 @@ public:
                                                 PREC const &x0, PREC const &x1,
                                                 PREC const &y0, PREC const &y1,
                                                 PREC const &z0, PREC const &z1,
-                                                std::shared_ptr<Material> const &material,
+                                                std::shared_ptr<BaseMaterial> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry *const &obj() const noexcept override;
-    BaseGeometry **devPtr() override;
     void up2Gpu() override;
     void clearGpuData() override;
 
+    void setCenter(Point const &position);
     void setCoef(PREC const &a,
                  PREC const &b,
                  PREC const &c,
@@ -117,18 +115,24 @@ public:
                  PREC const &x0, PREC const &x1,
                  PREC const &y0, PREC const &y1,
                  PREC const &z0, PREC const &z1);
-    void setCenter(Point const &position);
 
     ~Quadric();
 protected:
     BaseQuadric *_obj;
-    BaseGeometry *_base_obj;
-
-    std::shared_ptr<Material> _material_ptr;
-    std::shared_ptr<Transformation> _transformation_ptr;
-
-    BaseGeometry **_dev_ptr;
+    void *_gpu_obj;
     bool _need_upload;
+
+    void _updateVertices();
+
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                               PREC const &y,
+                               PREC const &z) const override;
+    const BaseGeometry *hitCheck(Ray const &ray,
+                                 PREC const &range_start,
+                                 PREC const &range_end,
+                                 PREC &hit_at) const override;
+    Direction normalVec(PREC const &x, PREC const &y,
+                        PREC const &z) const override;
 
     Quadric(Point const &center,
             PREC const &a,
@@ -144,7 +148,7 @@ protected:
             PREC const &x0, PREC const &x1,
             PREC const &y0, PREC const &y1,
             PREC const &z0, PREC const &z1,
-         std::shared_ptr<Material> const &material,
+         std::shared_ptr<BaseMaterial> const &material,
          std::shared_ptr<Transformation> const &trans);
 
     Quadric &operator=(Quadric const &) = delete;

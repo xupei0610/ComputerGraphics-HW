@@ -9,9 +9,16 @@
 
 namespace px
 {
-class Material;
+
+class MaterialObj;
+typedef Light (*fnAmbient_t)(void * const &, PREC const &, PREC const &, PREC const &);
+typedef fnAmbient_t fnDiffuse_t;
+typedef fnAmbient_t fnSpecular_t;
+typedef fnAmbient_t fnTransmissive_t;
+typedef int (*fnSpecularExp_t)(void * const &, PREC const &, PREC const &, PREC const &);
+typedef PREC (*fnRefractiveIndex_t)(void * const &, PREC const &, PREC const &, PREC const &);
+
 class BaseMaterial;
-class BumpMapping;
 
 // TODO Wood
 //class Wood;
@@ -22,131 +29,159 @@ class BumpMapping;
 
 }
 
-// TODO Bump Mapping
-class px::BumpMapping
+class px::MaterialObj
 {
 protected:
-    BumpMapping * _dev_ptr;
-    bool _need_update;
+    void *obj;
+    fnAmbient_t fn_ambient;
+    fnDiffuse_t fn_diffuse;
+    fnSpecular_t fn_specular;
+    fnSpecularExp_t fn_specular_exp;
+    fnTransmissive_t fn_transmissive;
+    fnRefractiveIndex_t fn_refractive_index;
 
 public:
-
     PX_CUDA_CALLABLE
-    Light color(PREC const &u, PREC const &v) const;
+    inline Light ambient(PREC const &u, PREC const &v, PREC const &w)
+    {
+        return fn_ambient(obj, u, v, w);
+    }
+    PX_CUDA_CALLABLE
+    inline Light diffuse(PREC const &u, PREC const &v, PREC const &w)
+    {
+        return fn_diffuse(obj, u, v, w);
+    }
+    PX_CUDA_CALLABLE
+    inline Light specular(PREC const &u, PREC const &v, PREC const &w)
+    {
+        return fn_specular(obj, u, v, w);
+    }
+    PX_CUDA_CALLABLE
+    inline Light transmissive(PREC const &u, PREC const &v, PREC const &w)
+    {
+        return fn_transmissive(obj, u, v, w);
+    }
+    PX_CUDA_CALLABLE
+    inline int specularExp(PREC const &u, PREC const &v, PREC const &w)
+    {
+        return fn_specular_exp(obj, u, v, w);
+    }
+    PX_CUDA_CALLABLE
+    inline PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w)
+    {
+        return fn_refractive_index(obj, u, v, w);
+    }
+    PX_CUDA_CALLABLE
+    inline Light ambient(Point const &p)
+    {
+        return fn_ambient(obj, p.x, p.y, p.z);
+    }
+    PX_CUDA_CALLABLE
+    inline Light diffuse(Point const &p)
+    {
+        return fn_diffuse(obj, p.x, p.y, p.z);
+    }
+    PX_CUDA_CALLABLE
+    inline Light specular(Point const &p)
+    {
+        return fn_specular(obj, p.x, p.y, p.z);
+    }
+    PX_CUDA_CALLABLE
+    inline Light transmissive(Point const &p)
+    {
+        return fn_transmissive(obj, p.x, p.y, p.z);
+    }
+    PX_CUDA_CALLABLE
+    inline int specularExp(Point const &p)
+    {
+        return fn_specular_exp(obj, p.x, p.y, p.z);
+    }
+    PX_CUDA_CALLABLE
+    inline PREC refractiveIndex(Point const &p)
+    {
+        return fn_refractive_index(obj, p.x, p.y, p.z);
+    }
 
-    void up2Gpu();
-    void clearGpuData();
-    BumpMapping * devPtr() { return _dev_ptr; }
+    MaterialObj(void * obj,
+                fnAmbient_t const &fn_ambient, fnDiffuse_t const &fn_diffuse,
+                fnSpecular_t const &fn_specular, fnSpecularExp_t const &fn_specular_exp,
+                fnTransmissive_t const &fn_transmissive, fnRefractiveIndex_t const &fn_refractive_index);
+    ~MaterialObj() = default;
 
-    BumpMapping();
-    ~BumpMapping();
-};
+    MaterialObj &operator=(MaterialObj const &) = delete;
+    MaterialObj &operator=(MaterialObj &&) = delete;
 
-class px::Material
-{
-public:
-    virtual BaseMaterial *const &obj() const noexcept = 0;
-    virtual BaseMaterial** devPtr() = 0;
-    virtual void up2Gpu() = 0;
-    virtual void clearGpuData() = 0;
-
-protected:
-    Material() = default;
-    ~Material() = default;
 };
 
 class px::BaseMaterial
 {
+protected:
+    MaterialObj *dev_ptr;
 public:
+    inline MaterialObj* devPtr() const noexcept { return dev_ptr; }
+    virtual void up2Gpu() = 0;
+    virtual void clearGpuData();
 
-    PX_CUDA_CALLABLE
+    virtual int specularExp(PREC const &u, PREC const &v, PREC const &w) const = 0;
+    virtual PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const = 0;
+
     inline Light ambient(PREC const &u, PREC const &v, PREC const &w) const
     {
-        if (_bump_mapping == nullptr)
-            return getAmbient(u, v, w);
-        return _bump_mapping->color(u, v) * getAmbient(u, v, w);
+        return getAmbient(u, v, w);
     }
-    PX_CUDA_CALLABLE
     inline Light diffuse(PREC const &u, PREC const &v, PREC const &w) const
     {
-        if (_bump_mapping == nullptr)
-            return getDiffuse(u, v, w);
-        return _bump_mapping->color(u, v) * getDiffuse(u, v, w);
+        return getDiffuse(u, v, w);
     }
-    PX_CUDA_CALLABLE
     inline Light specular(PREC const &u, PREC const &v, PREC const &w) const
     {
-        if (_bump_mapping == nullptr)
-            return getSpecular(u, v, w);
-        return _bump_mapping->color(u, v) * getSpecular(u, v, w);
+        return getSpecular(u, v, w);
     }
-    PX_CUDA_CALLABLE
     inline Light transmissive(PREC const &u, PREC const &v, PREC const &w) const
     {
-        if (_bump_mapping == nullptr)
-            return getTransmissive(u, v, w);
-        return _bump_mapping->color(u, v) * getTransmissive(u, v, w);
+        return getTransmissive(u, v, w);
     }
-    PX_CUDA_CALLABLE
-    virtual int specularExp(PREC const &u, PREC const &v, PREC const &w) const = 0;
-    PX_CUDA_CALLABLE
-    virtual PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const = 0;
-    PX_CUDA_CALLABLE
     inline Light ambient(Point const &p) const
     {
         return ambient(p.x, p.y, p.z);
     }
-    PX_CUDA_CALLABLE
+
     inline Light diffuse(Point const &p) const
     {
         return diffuse(p.x, p.y, p.z);
     }
-    PX_CUDA_CALLABLE
+
     inline Light specular(Point const &p) const
     {
         return specular(p.x, p.y, p.z);
     }
-    PX_CUDA_CALLABLE
+
     inline Light transmissive(Point const &p) const
     {
         return transmissive(p.x, p.y, p.z);
     }
-    PX_CUDA_CALLABLE
+
     inline int specularExp(Point const &p) const
     {
         return specularExp(p.x, p.y, p.z);
     }
-    PX_CUDA_CALLABLE
+
     inline PREC refractiveIndex(Point const &p) const
     {
         return refractiveIndex(p.x, p.y, p.z);
     }
-    PX_CUDA_CALLABLE
-    virtual ~BaseMaterial() = default;
-
-    void setBumpMapping(const BumpMapping * const &bm)
-    {
-        _bump_mapping = bm;
-    }
 
 protected:
-    const BumpMapping * _bump_mapping;
-
-    PX_CUDA_CALLABLE
     virtual Light getAmbient(PREC const &u, PREC const &v, PREC const &w) const = 0;
-    PX_CUDA_CALLABLE
     virtual Light getDiffuse(PREC const &u, PREC const &v, PREC const &w) const = 0;
-    PX_CUDA_CALLABLE
     virtual Light getSpecular(PREC const &u, PREC const &v, PREC const &w) const = 0;
-    PX_CUDA_CALLABLE
     virtual Light getTransmissive(PREC const &u, PREC const &v, PREC const &w) const = 0;
 
-    PX_CUDA_CALLABLE
-    BaseMaterial(const BumpMapping * const &bump_mapping);
+    BaseMaterial();
+    virtual ~BaseMaterial() = default;
 
     BaseMaterial &operator=(BaseMaterial const &) = delete;
     BaseMaterial &operator=(BaseMaterial &&) = delete;
-
 };
 
 #endif // PX_CG_MATERIAL_BASE_MATERIAL_HPP

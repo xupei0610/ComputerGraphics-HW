@@ -4,11 +4,15 @@
 #include "util/stb_image_write.h"
 #include <cstring>
 
-#ifdef USE_CUDA
-#include "gpu_creator.hpp"
-#endif
-
 using namespace px;
+
+BaseTexture::BaseTexture(std::uint8_t *const &texture, int const &height,
+                         int const &width, Texture::Format const &format,
+                         PREC const &scale_u, PREC const &scale_v)
+        : _format(format), _scale_u(scale_u), _scale_v(scale_v),
+          _height(height), _width(width), _comp(format == Texture::Format::RGB ? 3 : 4),
+          _texture(texture)
+{}
 
 std::shared_ptr<Texture> Texture::create(std::uint8_t * const &texture,
                                          int const &height,
@@ -31,12 +35,12 @@ Texture::Texture(std::string const &file,
                  Format const &format,
                  PREC const &scale_u,
                  PREC const &scale_v)
-        : _format(format), _scale_u(scale_u), _scale_v(scale_v),
-          _texture(nullptr), _dev_ptr(nullptr), _texture_gpu(nullptr),
-          _need_upload(true), _gpu_data(false)
+        : _texture(nullptr), _texture_gpu(nullptr), _dev_ptr(nullptr),
+          _need_upload(true)
 {
-    _texture = loadTexture(file, _height, _width, format);
-    _comp = format == Format::RGB ? 3 : 4;
+    int height, width;
+    _texture = loadTexture(file, height, width, format);
+    _obj = new BaseTexture(_texture, height, width, format, scale_u, scale_v);
 }
 
 Texture::Texture(std::uint8_t * const &texture,
@@ -45,10 +49,9 @@ Texture::Texture(std::uint8_t * const &texture,
                  Format const &format,
                  PREC const &scale_u,
                  PREC const &scale_v)
-        : _format(format), _scale_u(scale_u), _scale_v(scale_v),
-          _height(height), _width(width), _comp(format == Format::RGB ? 3 : 4),
-          _texture(texture), _dev_ptr(nullptr), _texture_gpu(nullptr),
-          _need_upload(true), _gpu_data(false)
+        : _texture(texture), _texture_gpu(nullptr),
+          _obj(new BaseTexture(texture, height, width, format, scale_u, scale_v)), _dev_ptr(nullptr),
+          _need_upload(true)
 {}
 
 std::uint8_t * Texture::loadTexture(std::string const &file,
@@ -65,36 +68,33 @@ std::uint8_t * Texture::loadTexture(std::string const &file,
     return data;
 }
 
-void Texture::setTexture(const std::uint8_t * const &texture,
+void BaseTexture::setTexture(const std::uint8_t * const &texture,
                          int const &height,
                          int const &width,
-                         Format const &format)
+                         Texture::Format const &format)
 {
     _height = height;
     _width = width;
     _format = format;
-    _comp = format == Format::RGB ? 3 : 4;
+    _comp = format == Texture::Format::RGB ? 3 : 4;
 
     delete [] _texture;
     std::memcpy(_texture, texture, sizeof(std::uint8_t)*_height*_width*_comp);
-
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
 }
 
 
-void Texture::setScale(PREC const &scale_u, PREC const &scale_v)
+void BaseTexture::setScale(PREC const &scale_u, PREC const &scale_v)
 {
     _scale_u = std::abs(scale_u), _scale_v = std::abs(scale_v);
+}
 
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
+BaseTexture* Texture::obj() const
+{
+    return _obj;
 }
 
 PX_CUDA_CALLABLE
-Light Texture::rgb(PREC const &u, PREC const &v) const
+Light BaseTexture::rgb(PREC const &u, PREC const &v) const
 {
     // TODO bilinear interploration
 
@@ -113,11 +113,11 @@ Light Texture::rgb(PREC const &u, PREC const &v) const
 
 
 PX_CUDA_CALLABLE
-PREC Texture::alpha(PREC const &u, PREC const &v) const
+PREC BaseTexture::alpha(PREC const &u, PREC const &v) const
 {
     // TODO bilinear interploration
 
-    if (_format == Format::RGB)
+    if (_comp == 3)
         return 1.0;
 
     auto uu = std::abs(u/_scale_u);;
@@ -151,7 +151,7 @@ PREC Texture::alpha(PREC const &u, PREC const &v) const
 //    return 1.0 - _texture[tar+3] / 255.0;
 }
 
-Texture *Texture::devPtr()
+BaseTexture *Texture::devPtr()
 {
     return _dev_ptr;
 }
@@ -162,25 +162,23 @@ void Texture::up2Gpu()
     if (_need_upload)
     {
         if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(Texture)));
+            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseTexture)));
 
         if (_texture_gpu != nullptr)
             PX_CUDA_CHECK(cudaFree(_texture_gpu));
 
         PX_CUDA_CHECK(cudaMalloc(&_texture_gpu,
-                                 sizeof(std::uint8_t)*_comp*_height*_width));
+                                 sizeof(std::uint8_t)*_obj->_comp*_obj->_height*_obj->_width));
         PX_CUDA_CHECK(cudaMemcpy(_texture_gpu, _texture,
-                                 sizeof(std::uint8_t)*_comp*_height*_width,
+                                 sizeof(std::uint8_t)*_obj->_comp*_obj->_height*_obj->_width,
                                  cudaMemcpyHostToDevice));
 
-        std::swap(_texture_gpu, _texture);
-        _gpu_data = true;
+        _obj->_texture = _texture_gpu;
 
-        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr, this, sizeof(Texture),
+        PX_CUDA_CHECK(cudaMemcpy(_dev_ptr, _obj, sizeof(BaseTexture),
                                  cudaMemcpyHostToDevice));
 
-        std::swap(_texture_gpu, _texture);
-        _gpu_data = false;
+        _obj->_texture = _texture;
 
         _need_upload = false;
     }
@@ -191,16 +189,18 @@ void Texture::clearGpuData()
 {
 #ifdef USE_CUDA
     if (_texture_gpu != nullptr)
+    {
         PX_CUDA_CHECK(cudaFree(_texture_gpu));
+        _texture_gpu = nullptr;
+    }
 
-    if (_dev_ptr == nullptr)
-        return;
+    if (_dev_ptr != nullptr)
+    {
+        PX_CUDA_CHECK(cudaFree(_dev_ptr));
+        _dev_ptr = nullptr;
+    }
 
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
-
-    _dev_ptr = nullptr;
     _need_upload = true;
-    _texture_gpu = nullptr;
 #endif
 }
 
@@ -208,101 +208,149 @@ Texture::~Texture()
 {
 #ifdef USE_CUDA
     clearGpuData();
-    if (_gpu_data == false)
 #endif
     delete [] _texture;
+    delete _obj;
 }
 
+void Texture::setTexture(const std::uint8_t * const &texture,
+                             int const &height,
+                             int const &width,
+                             Format const &format)
+{
+
+    _obj->setTexture(texture, height, width, format);
+
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
+}
+
+
+void Texture::setScale(PREC const &scale_u, PREC const &scale_v)
+{
+    _obj->setScale(scale_u, scale_v);
+#ifdef USE_CUDA
+    _need_upload = true;
+#endif
+}
+
+
 BaseTextureMaterial::BaseTextureMaterial(Light const &ambient,
-                                 Light const &diffuse,
-                                 Light const &specular,
-                                 const int &specular_exponent,
-                                 Light const &transmissive,
-                                 PREC const &refractive_index,
-                                 const Texture * const &texture,
-                                 const BumpMapping * const &bump_mapping)
-        : BaseMaterial(bump_mapping),
-          _ambient(ambient),
+                                         Light const &diffuse,
+                                         Light const &specular,
+                                         int const &specular_exponent,
+                                         Light const &transmissive,
+                                         PREC const &refractive_index,
+                                         const Texture *const & texture)
+        : _ambient(ambient),
           _diffuse(diffuse),
           _specular(specular),
           _specular_exponent(specular_exponent),
           _transmissive(transmissive),
           _refractive_index(refractive_index),
-          _texture(texture)
+          _texture(texture->obj())
 {}
 
 PX_CUDA_CALLABLE
-Light BaseTextureMaterial::getAmbient(PREC const &u, PREC const &v, PREC const &w) const
+Light BaseTextureMaterial::getAmbient(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _ambient * _texture->rgb(u, v);
+    auto o = reinterpret_cast<BaseTextureMaterial*>(obj);
+    return o->_ambient * o->_texture->rgb(u, v);
 }
 
 PX_CUDA_CALLABLE
-Light BaseTextureMaterial::getDiffuse(PREC const &u, PREC const &v, PREC const &w) const
+Light BaseTextureMaterial::getDiffuse(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _diffuse * _texture->rgb(u, v);;
+    auto o = reinterpret_cast<BaseTextureMaterial*>(obj);
+    return o->_diffuse * o->_texture->rgb(u, v);
 }
 
 PX_CUDA_CALLABLE
-Light BaseTextureMaterial::getSpecular(PREC const &, PREC const &, PREC const &) const
+Light BaseTextureMaterial::getSpecular(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _specular;
+    return reinterpret_cast<BaseTextureMaterial*>(obj)->_specular;
 }
 
 PX_CUDA_CALLABLE
-int BaseTextureMaterial::specularExp(PREC const &, PREC const &, PREC const &) const
+int BaseTextureMaterial::getSpecularExp(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _specular_exponent;
+    return reinterpret_cast<BaseTextureMaterial*>(obj)->_specular_exponent;
 }
 
 PX_CUDA_CALLABLE
-Light BaseTextureMaterial::getTransmissive(PREC const &u, PREC const &v, PREC const &w) const
+Light BaseTextureMaterial::getTransmissive(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _transmissive * (1-_texture->alpha(u, v));
+    auto o = reinterpret_cast<BaseTextureMaterial*>(obj);
+    return o->_transmissive * (1-o->_texture->alpha(u, v));;
 }
 
 PX_CUDA_CALLABLE
-PREC BaseTextureMaterial::refractiveIndex(PREC const &, PREC const &, PREC const &) const
+PREC BaseTextureMaterial::getRefractiveIndex(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _refractive_index;
+    return reinterpret_cast<BaseTextureMaterial*>(obj)->_refractive_index;
 }
 
-
-std::shared_ptr<Material> TextureMaterial::create(Light const &ambient,
-                                                      Light const &diffuse,
-                                                      Light const &specular,
-                                                      const int &specular_exponent,
-                                                      Light const &transmissive,
-                                                      PREC const &refractive_index,
-                                                      std::shared_ptr<Texture> const &texture,
-                                                      std::shared_ptr<BumpMapping> const &bump_mapping)
+void BaseTextureMaterial::setAmbient(Light const &ambient)
 {
-    return std::shared_ptr<Material>(new TextureMaterial(ambient,
-                                                             diffuse,
-                                                             specular,
-                                                             specular_exponent,
-                                                             transmissive,
-                                                             refractive_index,
-                                                             texture,
-                                                             bump_mapping));
+    _ambient = ambient;
+}
+void BaseTextureMaterial::setDiffuse(Light const &diffuse)
+{
+    _diffuse = diffuse;
+}
+void BaseTextureMaterial::setSpecular(Light const &specular)
+{
+    _specular = specular;
+}
+void BaseTextureMaterial::setSpecularExp(int const &specular_exp)
+{
+    _specular_exponent = specular_exp;
+}
+void BaseTextureMaterial::setTransmissive(Light const &transmissive)
+{
+    _transmissive = transmissive;
+}
+void BaseTextureMaterial::setRefractiveIndex(PREC const &ior)
+{
+    _refractive_index = ior;
+}
+void BaseTextureMaterial::setTexture(const Texture * const &texture)
+{
+    _texture = texture->obj();
+}
+
+std::shared_ptr<BaseMaterial> TextureMaterial::create(Light const &ambient,
+                                                  Light const &diffuse,
+                                                  Light const &specular,
+                                                  int const &specular_exponent,
+                                                  Light const &transmissive,
+                                                  PREC const &refractive_index,
+                                                  std::shared_ptr<Texture> const & texture)
+{
+    return std::shared_ptr<BaseMaterial>(new TextureMaterial(ambient,
+                                                         diffuse,
+                                                         specular,
+                                                         specular_exponent,
+                                                         transmissive,
+                                                         refractive_index,
+                                                         texture));
 }
 
 TextureMaterial::TextureMaterial(Light const &ambient,
                                  Light const &diffuse,
                                  Light const &specular,
-                                 const int &specular_exponent,
+                                 int const &specular_exponent,
                                  Light const &transmissive,
                                  PREC const &refractive_index,
-                                 std::shared_ptr<Texture> const &texture,
-                                 std::shared_ptr<BumpMapping> const &bump_mapping)
-        : _obj(new BaseTextureMaterial(ambient, diffuse,
-                              specular, specular_exponent,
-                              transmissive, refractive_index,
-                              texture.get(), bump_mapping.get())),
-          _base_obj(_obj),
-          _texture_ptr(texture),
-          _bump_mapping_ptr(bump_mapping),
-          _dev_ptr(nullptr),
+                                 std::shared_ptr<Texture> const & texture)
+        : BaseMaterial(),
+          _texture(texture),
+          _obj(new BaseTextureMaterial(ambient, diffuse,
+                                       specular, specular_exponent,
+                                       transmissive, refractive_index, texture.get())),
+
+          _gpu_obj(nullptr),
           _need_upload(true)
 {}
 
@@ -313,37 +361,59 @@ TextureMaterial::~TextureMaterial()
     clearGpuData();
 #endif
 }
-BaseMaterial *const &TextureMaterial::obj() const noexcept
-{
-    return _base_obj;
-}
 
-BaseMaterial **TextureMaterial::devPtr()
-{
-    return _dev_ptr;
-}
+#ifdef USE_CUDA
+__device__ fnAmbient_t __fn_ambient_texture_material = BaseTextureMaterial::getAmbient;
+__device__ fnDiffuse_t __fn_diffuse_texture_material = BaseTextureMaterial::getDiffuse;
+__device__ fnSpecular_t __fn_specular_texture_material = BaseTextureMaterial::getSpecular;
+__device__ fnSpecularExp_t __fn_specular_exp_texture_material = BaseTextureMaterial::getSpecularExp;
+__device__ fnTransmissive_t __fn_transmissive_texture_material = BaseTextureMaterial::getTransmissive;
+__device__ fnRefractiveIndex_t __fn_refractive_index_texture_material = BaseTextureMaterial::getRefractiveIndex;
+#endif
+
 void TextureMaterial::up2Gpu()
 {
 #ifdef USE_CUDA
-    if (_need_upload || (_texture_ptr != nullptr && _texture_ptr->_need_upload))
+    static fnAmbient_t fn_ambient_h = nullptr;
+    static fnDiffuse_t fn_diffuse_h;
+    static fnSpecular_t fn_specular_h;
+    static fnSpecularExp_t fn_specular_exp_h;
+    static fnTransmissive_t fn_transmissive_h;
+    static fnRefractiveIndex_t fn_refractive_index_h;
+
+    if (_need_upload)
     {
-        clearGpuData();
-        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseMaterial**)));
+        if (dev_ptr == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMalloc(&_gpu_obj, sizeof(BaseTextureMaterial)));
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(MaterialObj)));
+        }
+        if (fn_ambient_h == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_ambient_h, __fn_ambient_texture_material, sizeof(fnAmbient_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_diffuse_h, __fn_diffuse_texture_material, sizeof(fnDiffuse_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_h, __fn_specular_texture_material, sizeof(fnSpecular_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_exp_h, __fn_specular_exp_texture_material, sizeof(fnSpecularExp_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_transmissive_h, __fn_transmissive_texture_material, sizeof(fnTransmissive_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_refractive_index_h, __fn_refractive_index_texture_material, sizeof(fnRefractiveIndex_t)));
+        }
 
-        if (_bump_mapping_ptr != nullptr)
-            _bump_mapping_ptr->up2Gpu();
-        if (_texture_ptr != nullptr)
-            _texture_ptr->up2Gpu();
+        _texture->up2Gpu();
+        PX_CUDA_CHECK(cudaDeviceSynchronize());
 
-        cudaDeviceSynchronize();
+        _obj->_texture = _texture->devPtr();
 
-        GpuCreator::TextureMaterial(_dev_ptr,
-                                    _obj->_ambient, _obj->_diffuse,
-                                    _obj->_specular, _obj->_specular_exponent,
-                                    _obj->_transmissive, _obj->_refractive_index,
-                                    _texture_ptr == nullptr ? nullptr : _texture_ptr->devPtr(),
-                                    _bump_mapping_ptr == nullptr ? nullptr : _bump_mapping_ptr->devPtr());
+        PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseTextureMaterial),
+                                 cudaMemcpyHostToDevice));
+        MaterialObj tmp(_gpu_obj,
+                        fn_ambient_h, fn_diffuse_h,
+                        fn_specular_h, fn_specular_exp_h,
+                        fn_transmissive_h, fn_refractive_index_h);
 
+        PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(MaterialObj),
+                                 cudaMemcpyHostToDevice));
+
+        _obj->_texture = _texture->obj();
         _need_upload = false;
     }
 #endif
@@ -352,76 +422,89 @@ void TextureMaterial::up2Gpu()
 void TextureMaterial::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        return;
-
-    if (_bump_mapping_ptr.use_count() == 1)
-        _bump_mapping_ptr->clearGpuData();
-
-    if (_texture_ptr.use_count() == 1)
-        _texture_ptr->clearGpuData();
-
-    GpuCreator::destroy(_dev_ptr);
-
-    _dev_ptr = nullptr;
-    _need_upload = true;
+    if (_gpu_obj != nullptr)
+    {
+        PX_CUDA_CHECK(cudaFree(_gpu_obj));
+        _gpu_obj = nullptr;
+    }
+    if (_texture.use_count() == 1)
+        _texture->clearGpuData();
+    BaseMaterial::clearGpuData();
 #endif
+}
+
+int TextureMaterial::specularExp(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseTextureMaterial::getSpecularExp(_obj, u, v, w);
+}
+PREC TextureMaterial::refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseTextureMaterial::getRefractiveIndex(_obj, u, v, w);
+}
+Light TextureMaterial::getAmbient(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseTextureMaterial::getAmbient(_obj, u, v, w);
+}
+Light TextureMaterial::getDiffuse(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseTextureMaterial::getDiffuse(_obj, u, v, w);
+}
+Light TextureMaterial::getSpecular(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseTextureMaterial::getSpecular(_obj, u, v, w);
+}
+Light TextureMaterial::getTransmissive(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseTextureMaterial::getTransmissive(_obj, u, v, w);
 }
 
 void TextureMaterial::setAmbient(Light const &ambient)
 {
-    _obj->_ambient = ambient;
+    _obj->setAmbient(ambient);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void TextureMaterial::setDiffuse(Light const &diffuse)
 {
-    _obj->_diffuse = diffuse;
+    _obj->setDiffuse(diffuse);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void TextureMaterial::setSpecular(Light const &specular)
 {
-    _obj->_specular = specular;
+    _obj->setSpecular(specular);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void TextureMaterial::setSpecularExp(int const &specular_exp)
 {
-    _obj->_specular_exponent = specular_exp;
+    _obj->setSpecularExp(specular_exp);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void TextureMaterial::setTransmissive(Light const &transmissive)
 {
-    _obj->_transmissive = transmissive;
+    _obj->setTransmissive(transmissive);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void TextureMaterial::setRefractiveIndex(PREC const &ior)
 {
-    _obj->_refractive_index = ior;
+    _obj->setRefractiveIndex(ior);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-void TextureMaterial::setBumpMapping(std::shared_ptr<BumpMapping> const &bm)
+
+void TextureMaterial::setTexture(std::shared_ptr<Texture> const &texture)
 {
-    _bump_mapping_ptr = bm;
-    _obj->setBumpMapping(bm.get());
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
-}
-void TextureMaterial::setTexture(std::shared_ptr<Texture> const &tt)
-{
-    _texture_ptr = tt;
-    _obj->_texture = tt.get();
+    _texture = texture;
+    _obj->setTexture(texture.get());
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

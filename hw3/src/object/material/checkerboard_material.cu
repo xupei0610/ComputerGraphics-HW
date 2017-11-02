@@ -1,22 +1,16 @@
 #include "object/material/checkerboard_material.hpp"
 
-#ifdef USE_CUDA
-#include "gpu_creator.hpp"
-#endif
-
 using namespace px;
 
 BaseCheckerboardMaterial::BaseCheckerboardMaterial(Light const &ambient,
-                                           Light const &diffuse,
-                                           Light const &specular,
-                                           int const &specular_exponent,
-                                           Light const &transmissive,
-                                           PREC const &refractive_index,
-                                           PREC const &dim_scale,
-                                           PREC const &color_scale,
-                                           const BumpMapping * const &bump_mapping)
-        : BaseMaterial(bump_mapping),
-          _ambient(ambient),
+                                                   Light const &diffuse,
+                                                   Light const &specular,
+                                                   int const &specular_exponent,
+                                                   Light const &transmissive,
+                                                   PREC const &refractive_index,
+                                                   PREC const &dim_scale,
+                                                   PREC const &color_scale)
+        : _ambient(ambient),
           _diffuse(diffuse),
           _specular(specular),
           _specular_exponent(specular_exponent),
@@ -27,70 +21,102 @@ BaseCheckerboardMaterial::BaseCheckerboardMaterial(Light const &ambient,
 {}
 
 PX_CUDA_CALLABLE
-Light BaseCheckerboardMaterial::getAmbient(PREC const &u, PREC const &v, PREC const &w) const
+Light BaseCheckerboardMaterial::getAmbient(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    if (((u > 0 ? std::fmod(u * _dim_scale, static_cast<decltype(_dim_scale)>(1.0)) > 0.5 :
-          std::fmod(-u * _dim_scale, static_cast<decltype(_dim_scale)>(1.0)) <= 0.5) ^
-         (v > 0 ? std::fmod(v * _dim_scale, static_cast<decltype(_dim_scale)>(1.0)) > 0.5 :
-          std::fmod(-v * _dim_scale, static_cast<decltype(_dim_scale)>(1.0)) <= 0.5)) == 1)
-        return _ambient;
-    return _ambient*_color_scale;
+    auto o = reinterpret_cast<BaseCheckerboardMaterial*>(obj);
+    if (((u > 0 ? std::fmod(u * o->_dim_scale, static_cast<decltype(o->_dim_scale)>(1.0)) > 0.5 :
+          std::fmod(-u * o->_dim_scale, static_cast<decltype(o->_dim_scale)>(1.0)) <= 0.5) ^
+         (v > 0 ? std::fmod(v * o->_dim_scale, static_cast<decltype(o->_dim_scale)>(1.0)) > 0.5 :
+          std::fmod(-v * o->_dim_scale, static_cast<decltype(o->_dim_scale)>(1.0)) <= 0.5)) == 1)
+        return o->_ambient;
+    return o->_ambient*o->_color_scale;
 }
 
 PX_CUDA_CALLABLE
-Light BaseCheckerboardMaterial::getDiffuse(PREC const &u, PREC const &v, PREC const &w) const
+Light BaseCheckerboardMaterial::getDiffuse(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    if (((u > 0 ? std::fmod(u * _dim_scale, static_cast<decltype(_dim_scale)>(1.0)) > 0.5 :
-          std::fmod(-u * _dim_scale, static_cast<decltype(_dim_scale)>(1.0)) <= 0.5) ^
-         (v > 0 ? std::fmod(v * _dim_scale, static_cast<decltype(_dim_scale)>(1.0)) > 0.5 :
-          std::fmod(-v * _dim_scale, static_cast<decltype(_dim_scale)>(1.0)) <= 0.5)) == 1)
-        return _diffuse;
-    return _diffuse*_color_scale;
+    auto o = reinterpret_cast<BaseCheckerboardMaterial*>(obj);
+    if (((u > 0 ? std::fmod(u * o->_dim_scale, static_cast<decltype(o->_dim_scale)>(1.0)) > 0.5 :
+          std::fmod(-u * o->_dim_scale, static_cast<decltype(o->_dim_scale)>(1.0)) <= 0.5) ^
+         (v > 0 ? std::fmod(v * o->_dim_scale, static_cast<decltype(o->_dim_scale)>(1.0)) > 0.5 :
+          std::fmod(-v * o->_dim_scale, static_cast<decltype(o->_dim_scale)>(1.0)) <= 0.5)) == 1)
+        return o->_diffuse;
+    return o->_diffuse*o->_color_scale;
 }
 
 PX_CUDA_CALLABLE
-Light BaseCheckerboardMaterial::getSpecular(PREC const &, PREC const &, PREC const &) const
+Light BaseCheckerboardMaterial::getSpecular(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _specular;
+    return reinterpret_cast<BaseCheckerboardMaterial*>(obj)->_specular;
 }
 
 PX_CUDA_CALLABLE
-int BaseCheckerboardMaterial::specularExp(PREC const &, PREC const &, PREC const &) const
+int BaseCheckerboardMaterial::getSpecularExp(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _specular_exponent;
+    return reinterpret_cast<BaseCheckerboardMaterial*>(obj)->_specular_exponent;
 }
 
 PX_CUDA_CALLABLE
-Light BaseCheckerboardMaterial::getTransmissive(PREC const &x, PREC const &y, PREC const &z) const
+Light BaseCheckerboardMaterial::getTransmissive(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _transmissive;
+    return reinterpret_cast<BaseCheckerboardMaterial*>(obj)->_transmissive;
 }
 
 PX_CUDA_CALLABLE
-PREC BaseCheckerboardMaterial::refractiveIndex(PREC const &, PREC const &, PREC const &) const
+PREC BaseCheckerboardMaterial::getRefractiveIndex(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return _refractive_index;
+    return reinterpret_cast<BaseCheckerboardMaterial*>(obj)->_refractive_index;
 }
 
-std::shared_ptr<Material> CheckerboardMaterial::create(Light const &ambient,
-                                                           Light const &diffuse,
-                                                           Light const &specular,
-                                                           int const &specular_exponent,
-                                                           Light const &transmissive,
-                                                           PREC const &refractive_index,
-                                                           PREC const &dim_scale,
-                                                           PREC const &color_scale,
-                                                           std::shared_ptr<BumpMapping> const &bump_mapping)
+void BaseCheckerboardMaterial::setAmbient(Light const &ambient)
 {
-    return std::shared_ptr<Material>(new CheckerboardMaterial(ambient,
-                                                                  diffuse,
-                                                                  specular,
-                                                                  specular_exponent,
-                                                                  transmissive,
-                                                                  refractive_index,
-                                                                  dim_scale,
-                                                                  color_scale,
-                                                                  bump_mapping));
+    _ambient = ambient;
+}
+void BaseCheckerboardMaterial::setDiffuse(Light const &diffuse)
+{
+    _diffuse = diffuse;
+}
+void BaseCheckerboardMaterial::setSpecular(Light const &specular)
+{
+    _specular = specular;
+}
+void BaseCheckerboardMaterial::setSpecularExp(int const &specular_exp)
+{
+    _specular_exponent = specular_exp;
+}
+void BaseCheckerboardMaterial::setTransmissive(Light const &transmissive)
+{
+    _transmissive = transmissive;
+}
+void BaseCheckerboardMaterial::setRefractiveIndex(PREC const &ior)
+{
+    _refractive_index = ior;
+}
+void BaseCheckerboardMaterial::setDimScale(PREC const &scale)
+{
+    _dim_scale = scale;
+}
+void BaseCheckerboardMaterial::setColorScale(PREC const &scale)
+{
+    _color_scale = scale;
+}
+
+std::shared_ptr<BaseMaterial> CheckerboardMaterial::create(Light const &ambient,
+                                                       Light const &diffuse,
+                                                       Light const &specular,
+                                                       int const &specular_exponent,
+                                                       Light const &transmissive,
+                                                       PREC const &refractive_index,
+                                                       PREC const &dim_scale,
+                                                       PREC const &color_scale)
+{
+    return std::shared_ptr<BaseMaterial>(new CheckerboardMaterial(ambient,
+                                                       diffuse,
+                                                       specular,
+                                                       specular_exponent,
+                                                       transmissive,
+                                                       refractive_index,
+                                                             dim_scale, color_scale));
 }
 
 CheckerboardMaterial::CheckerboardMaterial(Light const &ambient,
@@ -100,16 +126,13 @@ CheckerboardMaterial::CheckerboardMaterial(Light const &ambient,
                                            Light const &transmissive,
                                            PREC const &refractive_index,
                                            PREC const &dim_scale,
-                                           PREC const &color_scale,
-                                           std::shared_ptr<BumpMapping> const &bump_mapping)
-        : _obj(new BaseCheckerboardMaterial(ambient, diffuse,
-                                   specular, specular_exponent,
-                                   transmissive, refractive_index,
-                                   dim_scale, color_scale,
-                                   bump_mapping.get())),
-          _base_obj(_obj),
-          _bump_mapping_ptr(bump_mapping),
-          _dev_ptr(nullptr),
+                                           PREC const &color_scale)
+        : BaseMaterial(),
+          _obj(new BaseCheckerboardMaterial(ambient, diffuse,
+                                     specular, specular_exponent,
+                                     transmissive, refractive_index,
+                                            dim_scale, color_scale)),
+          _gpu_obj(nullptr),
           _need_upload(true)
 {}
 
@@ -121,36 +144,50 @@ CheckerboardMaterial::~CheckerboardMaterial()
 #endif
 }
 
-BaseMaterial *const &CheckerboardMaterial::obj() const noexcept
-{
-    return _base_obj;
-}
-
-BaseMaterial** CheckerboardMaterial::devPtr()
-{
-    return _dev_ptr;
-}
+#ifdef USE_CUDA
+__device__ fnAmbient_t __fn_ambient_checkerboard_material = BaseCheckerboardMaterial::getAmbient;
+__device__ fnDiffuse_t __fn_diffuse_checkerboard_material = BaseCheckerboardMaterial::getDiffuse;
+__device__ fnSpecular_t __fn_specular_checkerboard_material = BaseCheckerboardMaterial::getSpecular;
+__device__ fnSpecularExp_t __fn_specular_exp_checkerboard_material = BaseCheckerboardMaterial::getSpecularExp;
+__device__ fnTransmissive_t __fn_transmissive_checkerboard_material = BaseCheckerboardMaterial::getTransmissive;
+__device__ fnRefractiveIndex_t __fn_refractive_index_checkerboard_material = BaseCheckerboardMaterial::getRefractiveIndex;
+#endif
 
 void CheckerboardMaterial::up2Gpu()
 {
 #ifdef USE_CUDA
+    static fnAmbient_t fn_ambient_h = nullptr;
+    static fnDiffuse_t fn_diffuse_h;
+    static fnSpecular_t fn_specular_h;
+    static fnSpecularExp_t fn_specular_exp_h;
+    static fnTransmissive_t fn_transmissive_h;
+    static fnRefractiveIndex_t fn_refractive_index_h;
+
     if (_need_upload)
     {
-        clearGpuData();
-        PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseMaterial**)));
+        if (dev_ptr == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMalloc(&_gpu_obj, sizeof(BaseCheckerboardMaterial)));
+            PX_CUDA_CHECK(cudaMalloc(&dev_ptr, sizeof(MaterialObj)));
+        }
+        if (fn_ambient_h == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_ambient_h, __fn_ambient_checkerboard_material, sizeof(fnAmbient_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_diffuse_h, __fn_diffuse_checkerboard_material, sizeof(fnDiffuse_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_h, __fn_specular_checkerboard_material, sizeof(fnSpecular_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_exp_h, __fn_specular_exp_checkerboard_material, sizeof(fnSpecularExp_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_transmissive_h, __fn_transmissive_checkerboard_material, sizeof(fnTransmissive_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_refractive_index_h, __fn_refractive_index_checkerboard_material, sizeof(fnRefractiveIndex_t)));
+        }
+        PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseCheckerboardMaterial),
+                                 cudaMemcpyHostToDevice));
+        MaterialObj tmp(_gpu_obj,
+                        fn_ambient_h, fn_diffuse_h,
+                        fn_specular_h, fn_specular_exp_h,
+                        fn_transmissive_h, fn_refractive_index_h);
 
-        if (_bump_mapping_ptr != nullptr)
-            _bump_mapping_ptr->up2Gpu();
-
-        cudaDeviceSynchronize();
-
-        GpuCreator::CheckerboardMaterial(_dev_ptr,
-                                         _obj->_ambient, _obj->_diffuse,
-                                         _obj->_specular, _obj->_specular_exponent,
-                                         _obj->_transmissive, _obj->_refractive_index,
-                                         _obj->_dim_scale, _obj->_color_scale,
-                                         _bump_mapping_ptr == nullptr ? nullptr :_bump_mapping_ptr->devPtr());
-
+        PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(MaterialObj),
+                                 cudaMemcpyHostToDevice));
         _need_upload = false;
     }
 #endif
@@ -159,79 +196,92 @@ void CheckerboardMaterial::up2Gpu()
 void CheckerboardMaterial::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        return;
-
-    if (_bump_mapping_ptr.use_count() == 1)
-        _bump_mapping_ptr->clearGpuData();
-
-    GpuCreator::destroy(_dev_ptr);
-
-    _dev_ptr = nullptr;
-    _need_upload = true;
+    if (_gpu_obj != nullptr)
+    {
+        _gpu_obj = nullptr;
+        PX_CUDA_CHECK(cudaFree(_gpu_obj));
+    }
+    BaseMaterial::clearGpuData();
 #endif
+}
+
+int CheckerboardMaterial::specularExp(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseCheckerboardMaterial::getSpecularExp(_obj, u, v, w);
+}
+PREC CheckerboardMaterial::refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseCheckerboardMaterial::getRefractiveIndex(_obj, u, v, w);
+}
+Light CheckerboardMaterial::getAmbient(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseCheckerboardMaterial::getAmbient(_obj, u, v, w);
+}
+Light CheckerboardMaterial::getDiffuse(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseCheckerboardMaterial::getDiffuse(_obj, u, v, w);
+}
+Light CheckerboardMaterial::getSpecular(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseCheckerboardMaterial::getSpecular(_obj, u, v, w);
+}
+Light CheckerboardMaterial::getTransmissive(PREC const &u, PREC const &v, PREC const &w) const
+{
+    return BaseCheckerboardMaterial::getTransmissive(_obj, u, v, w);
 }
 
 void CheckerboardMaterial::setAmbient(Light const &ambient)
 {
-    _obj->_ambient = ambient;
+    _obj->setAmbient(ambient);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void CheckerboardMaterial::setDiffuse(Light const &diffuse)
 {
-    _obj->_diffuse = diffuse;
+    _obj->setDiffuse(diffuse);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void CheckerboardMaterial::setSpecular(Light const &specular)
 {
-    _obj->_specular = specular;
+    _obj->setSpecular(specular);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void CheckerboardMaterial::setSpecularExp(int const &specular_exp)
 {
-    _obj->_specular_exponent = specular_exp;
+    _obj->setSpecularExp(specular_exp);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void CheckerboardMaterial::setTransmissive(Light const &transmissive)
 {
-    _obj->_transmissive = transmissive;
+    _obj->setTransmissive(transmissive);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
 void CheckerboardMaterial::setRefractiveIndex(PREC const &ior)
 {
-    _obj->_refractive_index = ior;
+    _obj->setRefractiveIndex(ior);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-void CheckerboardMaterial::setBumpMapping(std::shared_ptr<BumpMapping> const &bm)
+void CheckerboardMaterial::setDimScale(PREC const &scale)
 {
-    _bump_mapping_ptr = bm;
-    _obj->setBumpMapping(bm.get());
+    _obj->setDimScale(scale);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-void CheckerboardMaterial::setDimScale(PREC const &dim_scale)
+void CheckerboardMaterial::setColorScale(PREC const &scale)
 {
-    _obj->_dim_scale = dim_scale;
-#ifdef USE_CUDA
-    _need_upload = true;
-#endif
-}
-void CheckerboardMaterial::setColorScale(PREC const &color_scale)
-{
-    _obj->_color_scale = color_scale;
+    _obj->setColorScale(scale);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

@@ -60,8 +60,9 @@ endif ()
 
 # FIXME for IDE
 file(GLOB HEADER_FILES
-     ${PROJECT_SOURCE_DIR}/src/object/light/light.hpp
+     ${PROJECT_SOURCE_DIR}/src/object/light/*.hpp
      ${PROJECT_SOURCE_DIR}/src/object/material/*.hpp
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/base_geometry.hpp
      ${PROJECT_SOURCE_DIR}/src/object/geometry/*.hpp
      ${PROJECT_SOURCE_DIR}/src/object/structure/*.hpp
      ${PROJECT_SOURCE_DIR}/src/object/*.hpp
@@ -72,14 +73,26 @@ file(GLOB HEADER_FILES
 file(GLOB EXE_COMMON_SRC_FILES
      ## TODO Put objects into dependent files
      ${PROJECT_SOURCE_DIR}/src/object/base_object.cu
+     ${PROJECT_SOURCE_DIR}/src/object/light/*.cpp
      ${PROJECT_SOURCE_DIR}/src/object/light/*.cu
      ${PROJECT_SOURCE_DIR}/src/object/material/*.cu
-     ${PROJECT_SOURCE_DIR}/src/object/geometry/*.cu
-     ${PROJECT_SOURCE_DIR}/src/object/structure/*.cu
+     ${PROJECT_SOURCE_DIR}/src/object/material/*.cpp
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/base_geometry.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/plane.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/disk.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/ring.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/triangle.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/normal_triangle.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/box.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/sphere.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/ellipsoid.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/cone.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/cylinder.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/quadric.cu
+     ${PROJECT_SOURCE_DIR}/src/object/structure/bound_box.cu
      )
 
 file(GLOB EXE_CUDA_SRC_FILES
-     ${PROJECT_SOURCE_DIR}/src/gpu_creator.cu
      ${PROJECT_SOURCE_DIR}/src/trace.cu
      ${PROJECT_SOURCE_DIR}/src/scene.cu
      )
@@ -107,6 +120,7 @@ if (USE_CUDA)
         -maxrregcount=120
         -O3)
     cuda_add_executable(${EXE_NAME}
+                        ${HEADER_FILES}
                         ${EXE_COMMON_SRC_FILES}
                         ${EXE_CPU_SRC_FILES}
                         ${EXE_CUDA_SRC_FILES}
@@ -116,6 +130,7 @@ else()
     set_source_files_properties(${EXE_COMMON_SRC_FILES} PROPERTIES LANGUAGE CXX)
     add_definitions("-x c++")
     add_executable(${EXE_NAME}
+                   ${HEADER_FILES}
                    ${EXE_COMMON_SRC_FILES}
                    ${EXE_CPU_SRC_FILES}
                    ${EXE_GUI_FILES}

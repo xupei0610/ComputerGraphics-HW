@@ -2,59 +2,87 @@
 
 using namespace px;
 
-PX_CUDA_CALLABLE
-BaseGeometry::BaseGeometry(const BaseMaterial * const &material,
-                           const Transformation * const &trans,
+GeometryObj::GeometryObj(void *obj,
+            fnHit_t const &fn_hit,
+            fnNormal_t const &fn_normal,
+            fnTextureCoord_t const &fn_texture_coord,
+            MaterialObj *const &mat,
+            Transformation *const &trans)
+        : obj(obj), fn_hit(fn_hit), fn_normal(fn_normal), fn_texture_coord(fn_texture_coord),
+          mat(mat), trans(trans)
+{}
+
+BaseGeometry::BaseGeometry(std::shared_ptr<BaseMaterial> const &material,
+                           std::shared_ptr<Transformation> const &trans,
                            int const &n_vertices)
-        : _material(material),
-          _transformation(trans),
-          _n_vertices(n_vertices),
-          _raw_vertices(nullptr)
+        : mat(material),
+          trans(trans),
+          n_vertices(n_vertices),
+          raw_vertices(n_vertices > 0 ? (new Point[n_vertices]) : nullptr),
+          dev_ptr(nullptr)
 {
-    _raw_vertices = new Point[n_vertices];
 }
 
-PX_CUDA_CALLABLE
 BaseGeometry::~BaseGeometry()
 {
-    delete [] _raw_vertices;
+    delete [] raw_vertices;
 }
 
-PX_CUDA_CALLABLE
 const BaseGeometry *BaseGeometry::hit(Ray const &ray,
-                                PREC const &range_start,
-                                PREC const &range_end,
+                                PREC const &t_start,
+                                PREC const &t_end,
                                 PREC &hit_at) const
 {
-    // TODO bump mapping
-    if (_transformation == nullptr)
-        return hitCheck(ray, range_start, range_end, hit_at);
-
-    Ray trans_ray(_transformation->point2ObjCoord(ray.original),
-                  _transformation->direction(ray.direction));
-
-    return hitCheck(trans_ray, range_start, range_end, hit_at);
+    if (trans == nullptr)
+        return hitCheck(ray, t_start, t_end, hit_at);
+    return hitCheck({trans->point2ObjCoord(ray.original), trans->direction(ray.direction)},
+                    t_start, t_end, hit_at);
 }
 
-PX_CUDA_CALLABLE
 Direction BaseGeometry::normal(PREC const &x,
                                PREC const &y,
                                PREC const &z) const
 {
-    // TODO bump mapping
-    if (_transformation == nullptr)
+    if (trans == nullptr)
         return normalVec(x, y, z);
-    return _transformation->normal(normalVec(
-            _transformation->point2ObjCoord(x, y, z)));
+    auto p = trans->point2ObjCoord(x, y, z);
+    return trans->normal(normalVec(p.x, p.y, p.z));
 }
 
-PX_CUDA_CALLABLE
 Vec3<PREC> BaseGeometry::textureCoord(PREC const &x,
-                                        PREC const &y,
-                                        PREC const &z) const
+                                      PREC const &y,
+                                      PREC const &z) const
 {
-    if (_transformation == nullptr)
+    if (trans == nullptr)
         return getTextureCoord(x, y, z);
-    auto p = _transformation->point2ObjCoord(x, y, z);
+    auto p = trans->point2ObjCoord(x, y, z);
     return getTextureCoord(p.x, p.y, p.z);
+}
+
+void BaseGeometry::clearGpuData()
+{
+#ifdef USE_CUDA
+    if (trans.use_count() == 1)
+        trans->clearGpuData();
+    if (mat.use_count() == 1)
+        mat->clearGpuData();
+    if (dev_ptr == nullptr)
+        return;
+
+    PX_CUDA_CHECK(cudaFree(dev_ptr));
+    dev_ptr = nullptr;
+#endif
+}
+
+Point* BaseGeometry::rawVertices(int &n) const noexcept
+{
+    n = n_vertices;
+    return raw_vertices;
+}
+
+void BaseGeometry::resetVertices(int const &n)
+{
+    n_vertices = n > 0 ? n : 0;
+    delete [] raw_vertices;
+    raw_vertices = n > 0 ? (new Point[n]) : nullptr;
 }

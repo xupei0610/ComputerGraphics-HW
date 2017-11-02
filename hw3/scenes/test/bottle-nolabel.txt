@@ -2402,7 +2402,7 @@ triangle 393 384 392
 #normal_triangle 18 16 19 28 29 30
 #normal_triangle 19 16 17 30 29 31
 #normal_triangle 1 18 3 32 33 34
-#normal_triangle 3 18 19 34 33 35
+vnormal_triangle 3 18 19 34 33 35
 
 # Material type -- White Cap
 material 0.2 0.2 0.2 .6 .6 .6 0.3 0.3 0.3 1 .2 .2 .2 1.0

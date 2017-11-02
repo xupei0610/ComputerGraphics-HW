@@ -9,30 +9,29 @@ class Ellipsoid;
 class BaseEllipsoid;
 }
 
-class px::BaseEllipsoid : public BaseGeometry
+class px::BaseEllipsoid
 {
-protected:
-    PX_CUDA_CALLABLE
-    const BaseGeometry * hitCheck(Ray const &ray,
-                                  PREC const &range_start,
-                                  PREC const &range_end,
-                                  PREC &hit_at) const override;
-    PX_CUDA_CALLABLE
-    Vec3<PREC> getTextureCoord(PREC const &x,
-                                 PREC const &y,
-                                 PREC const &z) const override;
-    PX_CUDA_CALLABLE
-    Direction normalVec(PREC const &x, PREC const &y, PREC const &z) const override;
-
 public:
     PX_CUDA_CALLABLE
-    BaseEllipsoid(Point const &center,
-                  PREC const &radius_x,
-                  PREC const &radius_y,
-                  PREC const &radius_z,
-                  const BaseMaterial * const &material,
-                  const Transformation * const &trans);
+    static GeometryObj *hitCheck(void * const &obj,
+                         Ray const &ray,
+                         PREC const &range_start,
+                         PREC const &range_end,
+                         PREC &hit_at);
     PX_CUDA_CALLABLE
+    static Vec3<PREC> getTextureCoord(void * const &obj,
+                                      PREC const &x,
+                                      PREC const &y,
+                                      PREC const &z);
+    PX_CUDA_CALLABLE
+    static Direction normalVec(void * const &obj,
+                               PREC const &x, PREC const &y, PREC const &z);
+
+    void setParams(Point const &center,
+                   PREC const &radius_x,
+                   PREC const &radius_y,
+                   PREC const &radius_z);
+
     ~BaseEllipsoid() = default;
 protected:
     Point _center;
@@ -44,11 +43,12 @@ protected:
     PREC _b;
     PREC _c;
 
-    PX_CUDA_CALLABLE
-    void setParams(Point const &center,
-                   PREC const &radius_x,
-                   PREC const &radius_y,
-                   PREC const &radius_z);
+    GeometryObj *_dev_obj;
+
+    BaseEllipsoid(Point const &center,
+                  PREC const &radius_x,
+                  PREC const &radius_y,
+                  PREC const &radius_z);
 
     BaseEllipsoid &operator=(BaseEllipsoid const &) = delete;
     BaseEllipsoid &operator=(BaseEllipsoid &&) = delete;
@@ -56,17 +56,15 @@ protected:
     friend class Ellipsoid;
 };
 
-class px::Ellipsoid : public Geometry
+class px::Ellipsoid : public BaseGeometry
 {
 public:
-    static std::shared_ptr<Geometry> create(Point const &center,
+    static std::shared_ptr<BaseGeometry> create(Point const &center,
                                                 PREC const &radius_x,
                                                 PREC const &radius_y,
                                                 PREC const &radius_z,
-                                                std::shared_ptr<Material> const &material,
+                                                std::shared_ptr<BaseMaterial> const &material,
                                                 std::shared_ptr<Transformation> const &trans);
-    BaseGeometry *const &obj() const noexcept override;
-    BaseGeometry **devPtr() override;
     void up2Gpu() override;
     void clearGpuData() override;
 
@@ -78,24 +76,30 @@ public:
     ~Ellipsoid();
 protected:
     BaseEllipsoid *_obj;
-    BaseGeometry *_base_obj;
-
-    std::shared_ptr<Material> _material_ptr;
-    std::shared_ptr<Transformation> _transformation_ptr;
-
-    BaseGeometry **_dev_ptr;
+    void *_gpu_obj;
     bool _need_upload;
+
+    void _updateVertices();
+
+    Vec3<PREC> getTextureCoord(PREC const &x,
+                               PREC const &y,
+                               PREC const &z) const override;
+    const BaseGeometry *hitCheck(Ray const &ray,
+                                 PREC const &range_start,
+                                 PREC const &range_end,
+                                 PREC &hit_at) const override;
+    Direction normalVec(PREC const &x, PREC const &y,
+                        PREC const &z) const override;
 
     Ellipsoid(Point const &center,
               PREC const &radius_x,
               PREC const &radius_y,
               PREC const &radius_z,
-              std::shared_ptr<Material> const &material,
+              std::shared_ptr<BaseMaterial> const &material,
               std::shared_ptr<Transformation> const &trans);
 
     Ellipsoid &operator=(Ellipsoid const &) = delete;
     Ellipsoid &operator=(Ellipsoid &&) = delete;
 };
-
 
 #endif // PX_CG_OBJECT_GEOMETRY_ELLIPSOID_HPP
