@@ -100,7 +100,6 @@ bool Window::run()
             SDL_RenderFillRect(renderer, &progressbar_bg);
 
             current_time = SDL_GetTicks();
-
             last_pos = (current_time - last_time) * 0.1 + last_pos;
             if (last_pos > w-110)
                 last_pos = 0;
@@ -110,7 +109,6 @@ bool Window::run()
             SDL_RenderFillRect(renderer, &progressbar_fg);
 
             last_time = current_time;
-
         }
 
         SDL_RenderPresent(renderer);

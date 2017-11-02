@@ -33,7 +33,7 @@ PX_CUDA_CALLABLE
 Direction BaseDirectionalLight::dirFromDevice(void *const &obj, PREC const &x,
                                               PREC const &y, PREC const &z,
                                               PREC &dist,
-                                              curandState_t *const &)
+                                              curandState_t * const &)
 {
     dist = FLT_MAX;
     return reinterpret_cast<BaseDirectionalLight*>(obj)->_neg_dir;

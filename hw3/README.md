@@ -225,8 +225,8 @@ Test case: `complex/test.scn`
 
 |3x3 Sampling | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
 |-------------| :--: |  :----:  |  :----:  |  :----:  |  :---:   |  :---:   |
-|Original     | 4208 |  333150  |  324527  |  107947  |  89789   |  76214   |
-|BoundBox     | 1038 |  32003   |  22463   |  14084   |  10000   |  8551    |
+|Original     | 4183 |  333150  |  324527  |  107947  |  89789   |  76214   |
+|BoundBox     |  946 |  32003   |  22463   |  14084   |  10000   |  8551    |
 |Octree       | IMPLEMENT later |
 
 In the bound box test case, only one bound box is used to group all triangles together. The acceleration effect of the bound box is very obvious.

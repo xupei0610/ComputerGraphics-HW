@@ -97,8 +97,8 @@ GeometryObj *hitCheck(Ray const & ray,
 __device__
 Light reflect(Point const &intersect,
               Point const &texture_coord,
-              const GeometryObj *const &obj,
-              const Scene::Param *const &scene,
+              const GeometryObj *__restrict__ const &obj,
+              const Scene::Param *__restrict__ const &scene,
               curandState_t * const &state,
               Direction const &n, Direction const &r);
 __device__

@@ -40,7 +40,7 @@ PX_CUDA_CALLABLE
 Direction BasePointLight::dirFromDevice(void *const &obj,
                                         PREC const &x, PREC const &y, PREC const &z,
                                         PREC &dist,
-                                        curandState_t *const &)
+                                        curandState_t * const &)
 {
     auto o = reinterpret_cast<BasePointLight*>(obj);
     auto dx = o->_pos.x - x;

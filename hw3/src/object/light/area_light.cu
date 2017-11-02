@@ -63,7 +63,7 @@ __device__
 Direction BaseAreaLight::dirFromDevice(void *const &obj, PREC const &x,
                                        PREC const &y, PREC const &z,
                                        PREC &dist,
-                                       curandState_t *const &state)
+                                       curandState_t * const &state)
 {
     auto o = reinterpret_cast<BaseAreaLight*>(obj);
 
