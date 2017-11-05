@@ -177,27 +177,34 @@ void UniformMaterial::clearGpuData()
 
 int UniformMaterial::specularExp(PREC const &u, PREC const &v, PREC const &w) const
 {
-    return BaseUniformMaterial::getSpecularExp(_obj, u, v, w);
+//    return BaseUniformMaterial::getSpecularExp(_obj, u, v, w);
+    return _obj->_specular_exponent;
 }
+
 PREC UniformMaterial::refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const
 {
-    return BaseUniformMaterial::getRefractiveIndex(_obj, u, v, w);
+//    return BaseUniformMaterial::getRefractiveIndex(_obj, u, v, w);
+    return _obj->_refractive_index;
 }
 Light UniformMaterial::getAmbient(PREC const &u, PREC const &v, PREC const &w) const
 {
-    return BaseUniformMaterial::getAmbient(_obj, u, v, w);
+//    return BaseUniformMaterial::getAmbient(_obj, u, v, w);
+    return _obj->_ambient;
 }
 Light UniformMaterial::getDiffuse(PREC const &u, PREC const &v, PREC const &w) const
 {
-    return BaseUniformMaterial::getDiffuse(_obj, u, v, w);
+//    return BaseUniformMaterial::getDiffuse(_obj, u, v, w);
+    return _obj->_diffuse;
 }
 Light UniformMaterial::getSpecular(PREC const &u, PREC const &v, PREC const &w) const
 {
-    return BaseUniformMaterial::getSpecular(_obj, u, v, w);
+//    return BaseUniformMaterial::getSpecular(_obj, u, v, w);
+    return _obj->_specular;
 }
 Light UniformMaterial::getTransmissive(PREC const &u, PREC const &v, PREC const &w) const
 {
-    return BaseUniformMaterial::getTransmissive(_obj, u, v, w);
+//    return BaseUniformMaterial::getTransmissive(_obj, u, v, w);
+    return _obj->_transmissive;
 }
 
 void UniformMaterial::setAmbient(Light const &ambient)

@@ -35,7 +35,7 @@ public:
 protected:
     Point _a;
     Point _center;
-    Direction _norm_vec;
+    Direction _norm;
     Vec3<PREC> _ba;
 //    Vec3<PREC> _cb;
     Vec3<PREC> _ca;

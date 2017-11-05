@@ -11,23 +11,25 @@ Light RayTrace::traceCpu(bool const &stop_flag,
         return {0, 0, 0};
 
     auto end_range = scene->hit_max_tol;
-    PREC t;
-    const BaseGeometry *obj = nullptr, *tmp_obj;
-
-    for (const auto &g : scene->geometries)
-    {
-        tmp_obj = g->hit(ray, scene->hit_min_tol, end_range, t);
-        if (tmp_obj == nullptr)
-            continue;
-
-        end_range = t;
-        obj = tmp_obj;
-    }
-
+    Point intersect;
+    const BaseGeometry *obj = scene->geometries->hit(ray,
+                                                     scene->hit_min_tol,
+                                                     end_range, intersect);
+//    PREC t;
+//    const BaseGeometry *obj = nullptr, *tmp_obj;
+//
+//    for (const auto &g : scene->geometries)
+//    {
+//        tmp_obj = g->hit(ray, scene->hit_min_tol, end_range, t);
+//        if (tmp_obj == nullptr)
+//            continue;
+//
+//        end_range = t;
+//        obj = tmp_obj;
+//    }
     if (obj == nullptr)
         return scene->bg;
 
-    auto intersect = ray[t];
     auto n = obj->normal(intersect); // norm vector at the hit point2ObjCoord
     Ray I(intersect, {0, 0, 0});      // from hit point2ObjCoord to light source
 //    Direction h(0, 0, 0);             // half vector
@@ -51,21 +53,23 @@ Light RayTrace::traceCpu(bool const &stop_flag,
             I.direction = light->dirFrom(intersect, attenuate);
             // attenuate represents distance from intersect point2ObjCoord to the light here
 
-//        h = I.direction - ray.direction;
-            for (const auto &g : scene->geometries)
-            {
-                if (g->hit(I, scene->hit_min_tol, attenuate, t))
-                {
-                    --shadow_hit;
-                    break;
-                }
-            }
+//        h = I.direction - direction;
+            if (attenuate > scene->hit_min_tol && scene->geometries->hit(I, scene->hit_min_tol, attenuate))
+                --shadow_hit;
+//            for (const auto &g : scene->geometries)
+//            {
+//                if (g->hit(I, scene->hit_min_tol, attenuate, t))
+//                {
+//                    --shadow_hit;
+//                    break;
+//                }
+//            }
         }
 
         if (shadow_hit == 0) // shadow_hit == 0 means that the pixel is completely in shadow.
             continue;
 
-        attenuate = light->attenuate(intersect) * shadow_hit / sampling;
+        attenuate = light->attenuate(intersect) * shadow_hit / sampling ;
 
         if (attenuate == 0)
             continue;
@@ -83,6 +87,13 @@ Light RayTrace::traceCpu(bool const &stop_flag,
     if (depth < scene->recursion_depth)
     {
         auto ref = obj->material()->transmissive(texture_coord);
+//        ref *= coef;
+        if (ref.x > -EPSILON && ref.x < EPSILON)
+            ref.x = 0;
+        if (ref.y > -EPSILON && ref.y < EPSILON)
+            ref.y = 0;
+        if (ref.z > -EPSILON && ref.z < EPSILON)
+            ref.z = 0;
         if (ref.x != 0 || ref.y != 0 || ref.z != 0)
         {
             // refract
@@ -102,17 +113,28 @@ Light RayTrace::traceCpu(bool const &stop_flag,
                     t -= n * std::sqrt(cos_phi_2);
                 ref *= traceCpu(stop_flag,
                                 scene,
-                                {intersect, t}, depth + 1);
+                                {intersect, t},
+                                //ref,
+                                depth + 1);
                 L += ref;
             }
         }
 
         // reflect
+//        specular *= coef;
+        if (specular.x > -EPSILON && specular.x < EPSILON)
+            specular.x = 0;
+        if (specular.y > -EPSILON && specular.y < EPSILON)
+            specular.y = 0;
+        if (specular.z > -EPSILON && specular.z < EPSILON)
+            specular.z = 0;
         if (specular.x != 0 || specular.y != 0 || specular.z != 0)
         {
             specular *= traceCpu(stop_flag,
-                                     scene,
-                                     {intersect, r}, depth+1);
+                                 scene,
+                                 {intersect, r},
+                                 //specular,
+                                 depth+1);
             L += specular;
         }
 
@@ -152,9 +174,9 @@ Light RayTrace::traceCpu(bool const &stop_flag,
                                      x * Nb.z + r1 * n.z + z * Nt.z);
 
                     indirect_diffuse += traceCpu(stop_flag,
-                            scene,
-                            {intersect, sample},
-                            depth + 1) * r1;
+                                                 scene, {intersect, sample},
+//                                                 coef,
+                                                 depth + 1) * r1;
                 }
                 indirect_diffuse *= diffuse * 2 / (PI * N);
                 L += indirect_diffuse;

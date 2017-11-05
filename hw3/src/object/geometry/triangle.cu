@@ -2,20 +2,12 @@
 
 using namespace px;
 
-BaseTriangle::BaseTriangle(Point const &a,
-                           Point const &b,
-                           Point const &c)
-    : _dev_obj(nullptr)
-{
-    setVertices(a, b, c);
-}
-
 PX_CUDA_CALLABLE
 GeometryObj *BaseTriangle::hitCheck(void * const &obj,
-                            Ray const &ray,
-                            PREC const &t_start,
-                            PREC const &t_end,
-                            PREC &hit_at)
+                                    Ray const &ray,
+                                    PREC const &t_start,
+                                    PREC const &t_end,
+                                    PREC &hit_at)
 {
     auto o = reinterpret_cast<BaseTriangle*>(obj);
 
@@ -36,17 +28,17 @@ GeometryObj *BaseTriangle::hitCheck(void * const &obj,
     det = (o->_ca).dot(pvec) / det;
     return (det > t_start && det < t_end) ? (hit_at = det, o->_dev_obj) : nullptr;
 
-//    auto n_dot_d = ray.direction.dot(_norm_vec);
+//    auto n_dot_d = ray.direction.dot(_norm);
 //    if (n_dot_d < EPSILON && n_dot_d > EPSILON)
 //        return nullptr;
 //
-//    n_dot_d = (_v1_dot_n - ray.original.dot(_norm_vec)) / n_dot_d;
+//    n_dot_d = (_v1_dot_n - ray.original.dot(_norm)) / n_dot_d;
 //    if (n_dot_d > t_start && n_dot_d < t_end)
 //    {
 //      auto p = ray[n_dot_d];
-//      if (_cb.cross(p - _raw_vertices[1]).dot(_norm_vec) >= 0 &&
-//          _ca.cross(_raw_vertices[2]-p).dot(_norm_vec) >= 0 &&
-//          _ba.cross(p-_raw_vertices[0]).dot(_norm_vec) >= 0)
+//      if (_cb.cross(p - _raw_vertices[1]).dot(_norm) >= 0 &&
+//          _ca.cross(_raw_vertices[2]-p).dot(_norm) >= 0 &&
+//          _ba.cross(p-_raw_vertices[0]).dot(_norm) >= 0)
 //      {
 //        hit_at = n_dot_d;
 //        return o->_dev_obj;
@@ -59,7 +51,7 @@ PX_CUDA_CALLABLE
 Direction BaseTriangle::normalVec(void * const &obj,
                                   PREC const &x, PREC const &y, PREC const &z)
 {
-    return reinterpret_cast<BaseTriangle*>(obj)->_norm_vec;
+    return reinterpret_cast<BaseTriangle*>(obj)->_norm;
 }
 
 PX_CUDA_CALLABLE
@@ -68,10 +60,21 @@ Vec3<PREC> BaseTriangle::getTextureCoord(void * const &obj,
                                          PREC const &z)
 {
     auto o = reinterpret_cast<BaseTriangle*>(obj);
+
     return {x - o->_center.x,
-            o->_norm_vec.y*(z - o->_center.z) - o->_norm_vec.z*(y - o->_center.y) ,
-            (x - o->_center.x)*o->_norm_vec.x + (y - o->_center.y)*o->_norm_vec.y + (z - o->_center.z)*o->_norm_vec.z};
+            o->_norm.y*(z - o->_center.z) - o->_norm.z*(y - o->_center.y) ,
+            0 // (x - o->_center.x)*o->_norm.x + (y - o->_center.y)*o->_norm.y + (z - o->_center.z)*o->_norm.z
+    };
 }
+
+BaseTriangle::BaseTriangle(Point const &a,
+                           Point const &b,
+                           Point const &c)
+    : _dev_obj(nullptr)
+{
+    setVertices(a, b, c);
+}
+
 
 void BaseTriangle::setVertices(Point const &a, Point const &b, Point const &c)
 {
@@ -80,9 +83,9 @@ void BaseTriangle::setVertices(Point const &a, Point const &b, Point const &c)
 //    _cb = c - b;
     _ca = c - a;
 
-    _norm_vec = _ba.cross(_ca);
+    _norm = _ba.cross(_ca);
 
-//    _v1_dot_n = a.dot(_norm_vec);
+//    _v1_dot_n = a.dot(_norm);
 
     _center = a;
     _center += b;
@@ -155,8 +158,6 @@ void Triangle::up2Gpu()
         if (trans != nullptr)
             trans->up2Gpu();
 
-        cudaDeviceSynchronize();
-
         _obj->_dev_obj = dev_ptr;
         PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseTriangle), cudaMemcpyHostToDevice));
         _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);
@@ -219,6 +220,7 @@ const BaseGeometry * Triangle::hitCheck(Ray const &ray,
 {
     return BaseTriangle::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
 }
+
 Direction Triangle::normalVec(PREC const &x, PREC const &y,
                               PREC const &z) const
 {

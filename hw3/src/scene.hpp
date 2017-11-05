@@ -10,9 +10,7 @@
     _rendering_time = std::chrono::duration_cast<std::chrono::milliseconds>(_toc_##id - _tic_##id).count();
 
 
-#include "object/base_object.hpp"
-#include "object/geometry.hpp"
-#include "object/light.hpp"
+#include "object.hpp"
 
 #include <unordered_set>
 #include <string>
@@ -46,8 +44,7 @@ public:
         PREC hit_min_tol;
         PREC hit_max_tol;
 
-        int n_geometries;
-        GeometryObj **geometries;
+        BaseBVH *geometries;
         int n_lights;
         LightObj **lights;
 
@@ -118,9 +115,6 @@ public:
 public:
     bool const &is_rendering;
 
-    std::unordered_set<std::shared_ptr<BaseGeometry> > geometries;
-    std::unordered_set<std::shared_ptr<BaseLight> > lights;
-
     Pixels pixels;
 
     int const &width;
@@ -142,6 +136,9 @@ public:
 
     Scene();
     ~Scene();
+
+    void addLight(std::shared_ptr<BaseLight> const &l);
+    void addGeometry(std::shared_ptr<BaseGeometry> const &g);
 
     void clearPixels();
 
@@ -183,8 +180,16 @@ protected:
                    PREC const &sampling_offset,
                    PREC const &sampling_weight);
     void allocatePixels();
+public:
+    std::shared_ptr<BVH> const &geometries;
+    std::deque<std::shared_ptr<BaseLight> > const &lights;
+
+protected:
+    std::shared_ptr<BVH>  _geometries;
+    std::deque<std::shared_ptr<BaseLight> > _lights;
 
 private:
+
     bool _is_rendering;
     int _rendering_progress; // not atomic
     int _rendering_time;

@@ -63,7 +63,7 @@ Vec3<PREC> BaseSphere::getTextureCoord(void * const &obj,
                                        PREC const &z)
 {
     auto o = reinterpret_cast<BaseSphere*>(obj);
-    return {(1 + std::atan2(z - o->_center.z, x - o->_center.x) / PI) *PREC(0.5),
+    return {(1 + std::atan2(z - o->_center.z, x - o->_center.x) / PREC(PI)) *PREC(0.5),
             std::acos((y - o->_center.y) / o->_radius2) / PREC(PI),
             0};
 }
@@ -140,8 +140,6 @@ void Sphere::up2Gpu()
 
         if (trans != nullptr)
             trans->up2Gpu();
-
-        cudaDeviceSynchronize();
 
         _obj->_dev_obj = dev_ptr;
         PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseSphere), cudaMemcpyHostToDevice));

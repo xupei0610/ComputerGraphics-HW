@@ -20,7 +20,6 @@ Scene::Param::Param(int const &width, int const &height, int const &dimension,
           hit_min_tol(hit_min_tol), hit_max_tol(hit_max_tol)
 {}
 
-
 Light const Scene::DEFAULT_SCENE_BG = Light(0, 0, 0);
 int const Scene::DEFAULT_SCENE_WIDTH = 640;
 int const Scene::DEFAULT_SCENE_HEIGHT = 480;
@@ -45,6 +44,7 @@ Scene::Scene()
           _pixels(nullptr),
           _pixels_gpu(nullptr),
           is_rendering(_is_rendering),
+//          _geometries(new BVH),
           width(_param->width),
           height(_param->height),
           dimension(_param->dimension),
@@ -59,6 +59,9 @@ Scene::Scene()
           hit_max_tol(_param->hit_max_tol),
           mode(_mode),
           cam(_cam),
+          geometries(_geometries),
+          lights(_lights),
+          _geometries(new BVH),
           _is_rendering(false),
           _rendering_progress(0),
           _rendering_time(0),
@@ -129,6 +132,16 @@ void Scene::setSceneSize(int const &width, int const &height)
     _param->height = height;
     _param->dimension = _param->width * _param->height;
 }
+
+void Scene::addLight(std::shared_ptr<BaseLight> const &l)
+{
+    _lights.push_back(l);
+}
+void Scene::addGeometry(std::shared_ptr<BaseGeometry> const &g)
+{
+    _geometries->addObj(g);
+}
+
 
 void Scene::setBackground(PREC const &light_r,
                           PREC const &light_g,
@@ -297,7 +310,7 @@ void Scene::renderCpu(int const &width,
     TIC(1)
 #endif
 
-//#pragma omp parallel for num_threads(8)
+#pragma omp parallel for num_threads(8)
     for (auto i = 0; i < _param->dimension; ++i)
     {
         if (_cpu_stop_flag) // OpenMP not support break statement
@@ -385,7 +398,7 @@ void Scene::renderCpu(int const &width,
                     auto z = u * cam->right_vector.z + v * cam->up_vector.z +
                              cam_dist * cam->direction.z;
 
-                    ray.direction.set(x, y, z);
+                    direction.set(x, y, z);
 
                     light += RayTrace::traceCpu(_cpu_stop_flag,
                                                 this, ray);

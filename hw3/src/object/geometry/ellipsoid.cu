@@ -98,8 +98,8 @@ Vec3<PREC> BaseEllipsoid::getTextureCoord(void * const &obj,
     auto dy = y - o->_center.y;
     auto dz = z - o->_center.z;
 
-    return {(1 + std::atan2(dz, dx) / PI) * PREC(0.5),
-            std::acos(dy / (dx*dx+dy*dy+dz*dz)) / PI,
+    return {(1 + std::atan2(dz, dx) / PREC(PI)) * PREC(0.5),
+            std::acos(dy / (dx*dx+dy*dy+dz*dz)) / PREC(PI),
             0};;
 }
 
@@ -184,8 +184,6 @@ void Ellipsoid::up2Gpu()
 
         if (trans != nullptr)
             trans->up2Gpu();
-
-        cudaDeviceSynchronize();
 
         _obj->_dev_obj = dev_ptr;
         PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseEllipsoid), cudaMemcpyHostToDevice));

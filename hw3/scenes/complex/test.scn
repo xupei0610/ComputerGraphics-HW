@@ -1,18 +1,19 @@
 max_depth 10 
-sampling_radius 0
+
 camera 0 0 -20 0 0 1 0 1 0 30
 film_resolution 1024 768
-output_image foo.bmp
-
+output_image foo2.bmp
 max_vertices 10000
 max_normals 10000
 
 material 0 0 0 1 .2 .2 .8 .8 .8 100 0 0 0 1
+
 sphere 4 4 5 2 
 sphere -4 4 5 2
 sphere 4 -4 5 2
 sphere -4 -4 5 2
 #sphere 0 0 8 3
+
 background .25 0 0
 
 point_light 100 100 100 -2 2 0

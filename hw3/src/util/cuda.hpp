@@ -51,7 +51,10 @@ protected:
     while (0);
 
 
-#define PX_CUDA_THREADS_PER_BLOCK     512
+#define PX_CUDA_THREADS_PER_BLOCK    128
+#define PX_CUDA_MIN_BLOCKS     2048
+#define PX_CUDA_MAX_BLOCKS     4096
+#define PX_CUDA_MAX_STREAMS    8
 
 #define PX_CUDA_LOOP(index_var, total)                                          \
     for (int index_var = blockIdx.x * blockDim.x + threadIdx.x;                 \
@@ -62,7 +65,7 @@ namespace px { namespace cuda
 
 inline int blocks(const int &num)
 {
-    return (num + PX_CUDA_THREADS_PER_BLOCK - 1) / PX_CUDA_THREADS_PER_BLOCK;
+    return std::min(PX_CUDA_MAX_BLOCKS, (num + PX_CUDA_THREADS_PER_BLOCK - 1) / PX_CUDA_THREADS_PER_BLOCK);
 }
 
 }}

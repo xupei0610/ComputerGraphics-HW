@@ -13,6 +13,11 @@ bool BaseBoundBox::hitBox(Point const &vertex_min,
                           PREC const &t_start,
                           PREC const &t_end)
 {
+    if (ray.original.x > vertex_min.x && ray.original.x < vertex_max.x &&
+        ray.original.y > vertex_min.y && ray.original.y < vertex_max.y &&
+        ray.original.z > vertex_min.z && ray.original.z < vertex_max.z)
+        return true;
+
     auto tmin  = ((ray.direction.x < 0 ? vertex_max.x : vertex_min.x) - ray.original.x) / ray.direction.x;
     auto tmax  = ((ray.direction.x < 0 ? vertex_min.x : vertex_max.x) - ray.original.x) / ray.direction.x;
     auto tymin = ((ray.direction.y < 0 ? vertex_max.y : vertex_min.y) - ray.original.y) / ray.direction.y;
@@ -143,8 +148,6 @@ void BoundBox::up2Gpu()
             ++count;
         }
 
-        cudaDeviceSynchronize();
-
         BaseBoundBox bb(_vertex_min, _vertex_max);
 
         GeometryObj *ptr[count];
@@ -202,7 +205,7 @@ void BoundBox::clearGpuData()
 
 void BoundBox::addObj(std::shared_ptr<BaseGeometry> const &obj)
 {
-    _geos.emplace(obj);
+    _geos.push_back(obj);
 
     int n_vert;
     auto vert = obj->rawVertices(n_vert);

@@ -90,6 +90,11 @@ Direction BaseAreaLight::dirFromDevice(void *const &obj, PREC const &x,
     return {dx, dy, dz};
 }
 
+#ifdef USE_CUDA
+__device__ fnAttenuate_t __fn_attenuate_area_light = BaseAreaLight::attenuate;
+__device__ fnDirFrom_t  __fn_dir_from_area_light = BaseAreaLight::dirFromDevice;
+#endif
+
 const LightType AreaLight::TYPE = LightType::AreaLight;
 
 std::shared_ptr<BaseLight> AreaLight::create(Light const &light,
@@ -140,11 +145,6 @@ void AreaLight::setRadius(PREC const &r)
     _need_upload = true;
 #endif
 }
-
-#ifdef USE_CUDA
-__device__ fnAttenuate_t __fn_attenuate_area_light = BaseAreaLight::attenuate;
-__device__ fnDirFrom_t  __fn_dir_from_area_light = BaseAreaLight::dirFromDevice;
-#endif
 
 void AreaLight::up2Gpu()
 {

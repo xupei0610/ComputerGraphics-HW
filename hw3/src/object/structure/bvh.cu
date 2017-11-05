@@ -1,176 +1,162 @@
 #include "object/structure/bvh.hpp"
 
-#include <cfloat>
-
-#include "gpu_creator.hpp"
-
 using namespace px;
 
-//Direction const BaseBVH::NORM_VEC_0 = { 1,  0, 0};
-//Direction const BaseBVH::NORM_VEC_1 = { 0,  1, 0};
-//Direction const BaseBVH::NORM_VEC_2 = { 0,  0, 1};
-//Direction const BaseBVH::NORM_VEC_3 = { 1,  1, 1};
-//Direction const BaseBVH::NORM_VEC_4 = {-1,  1, 1};
-//Direction const BaseBVH::NORM_VEC_5 = {-1, -1, 1};
-//Direction const BaseBVH::NORM_VEC_6 = { 1, -1, 1};
-//Direction const BaseBVH::NORM_VEC ={
-//        { 1,  0, 0},
-//        { 0,  1, 0},
-//        { 0,  0, 1},
-//        { 1,  1, 1},
-//        {-1,  1, 1},
-//        {-1, -1, 1},
-//        { 1, -1, 1}
-//};
-
-BaseBVH::Extent::Extent(BaseGeometry *const &obj)
-    : obj(obj)
-{
-/**
-//    auto n_vert = 0;
-//    auto vert = obj->rawVertices(n_vert);
-//#define SET_BOUND(idx)                                          \
-//    for (auto j = 0; j < n_vert; ++j)                           \
-//    {                                                           \
-//        auto b = NORM_VEC_ ## idx ## .dot(vert[j]);             \
-//        if (b < lower_bound_ ## idx) lower_bound_ ## idx = b;   \
-//        if (b > upper_bound_ ## idx) upper_bound_ ## idx = b;   \
-//    }
-//    SET_BOUND(0)
-//    SET_BOUND(1)
-//    SET_BOUND(2)
-//    SET_BOUND(3)
-//    SET_BOUND(4)
-//    SET_BOUND(5)
-//    SET_BOUND(6)
-//
-//#undef SET_BOUND
-**/
-}
-
-bool BaseBVH::Extent::hitCheck(Ray const &ray,
-                                   PREC const &range_start,
-                                   PREC const &range_end,
-                                   const PREC * const &num,
-                                   const PREC * const &den) const
-{
-    auto tn = -FLT_MAX;
-    auto tf = FLT_MAX;
-    PREC tmp_tn;
-    PREC tmp_tf;
-
-#define CHECK_HIT(idx)                                          \
-    tmp_tn = (lower_bound_ ## idx - num[idx]) / den[idx];       \
-    tmp_tf = (upper_bound_ ## idx - num[idx]) / den[idx];       \
-    if (den[idx] < 0)                                           \
-    {                                                           \
-        auto tmp = tmp_tn;                                      \
-        tmp_tn = tmp_tf;                                        \
-        tmp_tf = tmp;                                           \
-    }                                                           \
-    if (tmp_tn > tn) tn = tmp_tn;                               \
-    if (tmp_tf < tf) tf = tmp_tf;                               \
-    if (tn > tf) return false;
-
-    CHECK_HIT(0)
-    CHECK_HIT(1)
-    CHECK_HIT(2)
-    CHECK_HIT(3)
-    CHECK_HIT(4)
-    CHECK_HIT(5)
-    CHECK_HIT(6)
-
-    return true;
-
-#undef CHECK_HIT
-}
-
-PX_CUDA_CALLABLE
-BaseBVH::BaseBVH()
-        : BaseGeometry(nullptr, nullptr, 0)
+BaseBVH::BaseBVH(Point const &vertex_min, Point const &vertex_max)
+        : _vertex_min(vertex_min), _vertex_max(vertex_max)
 {}
 
 PX_CUDA_CALLABLE
-const BaseGeometry *BaseBVH::hitCheck(Ray const &ray,
-                                PREC const &t_start,
-                                PREC const &t_end,
-                                PREC &hit_at) const
+bool BaseBVH::hitBox(Point const &vertex_min,
+                          Point const &vertex_max,
+                          Ray const &ray,
+                          PREC const &t_start,
+                          PREC const &t_end)
 {
-/**
-//    PREC num[7];
-//    PREC den[7];
-//
-//#define GET_NUM_DEN(idx)                            \
-//    num[idx] = ray.original.dot(NORM_VEC_ ##idx);  \
-//    den[idx] = ray.direction.dot(NORM_VEC_ ##idx);
-//
-//    GET_NUM_DEN(0)
-//    GET_NUM_DEN(1)
-//    GET_NUM_DEN(2)
-//    GET_NUM_DEN(3)
-//    GET_NUM_DEN(4)
-//    GET_NUM_DEN(5)
-//    GET_NUM_DEN(6)
-//
-//#undef GET_NUM_DEN
- **/
+    if (ray.original.x > vertex_min.x && ray.original.x < vertex_max.x &&
+        ray.original.y > vertex_min.y && ray.original.y < vertex_max.y &&
+        ray.original.z > vertex_min.z && ray.original.z < vertex_max.z)
+        return true;
 
-    const BaseGeometry *obj = nullptr;
-    PREC t;
-    PREC end_range = t_end;
+    auto tmin  = ((ray.direction.x < 0 ? vertex_max.x : vertex_min.x) - ray.original.x) / ray.direction.x;
+    auto tmax  = ((ray.direction.x < 0 ? vertex_min.x : vertex_max.x) - ray.original.x) / ray.direction.x;
+    auto tymin = ((ray.direction.y < 0 ? vertex_max.y : vertex_min.y) - ray.original.y) / ray.direction.y;
+    auto tymax = ((ray.direction.y < 0 ? vertex_min.y : vertex_max.y) - ray.original.y) / ray.direction.y;
 
-    auto node = _extents.start;
-    while (node != nullptr)
+    if (tmin > tymax || tymin > tmax)
+        return false;
+
+    if (tymin > tmin)
+        tmin = tymin;
+
+    if (tymax < tmax)
+        tmax = tymax;
+
+    tymin = ((ray.direction.z < 0 ? vertex_max.z : vertex_min.z) - ray.original.z) / ray.direction.z;
+    tymax = ((ray.direction.z < 0 ? vertex_min.z : vertex_max.z) - ray.original.z) / ray.direction.z;
+
+    if (tmin > tymax || tymin > tmax)
+        return false;
+
+    if (tymin > tmin)
+        tmin = tymin;
+
+    if (tmin > t_start && tmin < t_end)
+        return true;
+
+    if (tymax < tmax)
+        tmax = tymax;
+
+    if (tmax > t_start && tmax < t_end)
+        return true;
+
+    return false;
+}
+
+PX_CUDA_CALLABLE
+GeometryObj * BaseBVH::hit(Ray const &ray,
+                           PREC const &t_start,
+                           PREC const &t_end,
+                           Point &intersect) const
+{
+    if (BaseBVH::hitBox(_vertex_min, _vertex_max, ray, t_start, t_end))
     {
-//        if (node->data->hitCheck(ray, t_start, end_range, num, den))
-//        {
-            auto tmp = node->data->obj->hit(ray, t_start, end_range, t);
+        GeometryObj *obj = nullptr;
+
+        PREC end_range = t_end, hit_at;
+
+        for (auto i = 0; i < _n; ++i)
+        {
+            auto tmp = _geos[i]->hit(ray, t_start, end_range, hit_at);
             if (tmp != nullptr)
             {
-                end_range = t;
+                end_range = hit_at;
                 obj = tmp;
             }
-//        }
-        node = node->next;
+        }
+        if (obj)
+        {
+            intersect = ray.direction;
+            intersect *= end_range;
+            intersect += ray.original;
+            return obj;
+        }
     }
+    return nullptr;
+}
 
-    return obj == nullptr ? nullptr : (hit_at = end_range,  obj);
+const BaseGeometry *BVH::hit(Ray const &ray,
+                             PREC const &t_start,
+                             PREC const &t_end,
+                             Point &intersect) const
+{
+    if (BaseBVH::hitBox(_vertex_min, _vertex_max, ray, t_start, t_end))
+    {
+        const BaseGeometry *obj = nullptr, *tmp;
+
+        PREC end_range = t_end, hit_at;
+        for (const auto &g : _geos)
+        {
+            tmp = g->hit(ray, t_start, end_range, hit_at);
+            if (tmp != nullptr)
+            {
+                end_range = hit_at;
+                obj = tmp;
+            }
+        }
+        if (obj)
+        {
+            intersect = ray.direction;
+            intersect *= end_range;
+            intersect += ray.original;
+            return obj;
+        }
+    }
+    return nullptr;
 }
 
 PX_CUDA_CALLABLE
-Direction BaseBVH::normalVec(PREC const &x, PREC const &y, PREC const &z) const
+bool BaseBVH::hit(Ray const &ray,
+                  PREC const &t_start,
+                  PREC const &t_end) const
 {
-    return {};
+    if (BaseBVH::hitBox(_vertex_min, _vertex_max, ray, t_start, t_end))
+    {
+        PREC hit_at;
+        for (auto i = 0; i < _n; ++i)
+        {
+            if (_geos[i]->hit(ray, t_start, t_end, hit_at))
+                return true;
+        }
+    }
+    return false;
 }
 
-PX_CUDA_CALLABLE
-Vec3<PREC> BaseBVH::getTextureCoord(PREC const &x, PREC const &y,
-                                      PREC const &z) const
+bool BVH::hit(Ray const &ray,
+                  PREC const &t_start,
+                  PREC const &t_end) const
 {
-    return {};
+    if (BaseBVH::hitBox(_vertex_min, _vertex_max, ray, t_start, t_end))
+    {
+        PREC t;
+        for (const auto &g : _geos)
+        {
+            if (g->hit(ray, t_start, t_end, t))
+                return true;
+        }
+    }
+    return false;
 }
 
 BVH::BVH()
-        : _obj(new BaseBVH()), _base_obj(_obj),
-          _dev_ptr(nullptr), _need_upload(true)
+        : _gpu_obj(nullptr), _gpu_geos(nullptr), _need_upload(true)
 {}
 
 BVH::~BVH()
 {
-    delete _obj;
 #ifdef USE_CUDA
     clearGpuData();
 #endif
-}
-
-BaseGeometry *const &BVH::obj() const noexcept
-{
-    return _base_obj;
-}
-
-BaseGeometry **BVH::devPtr()
-{
-    return _dev_ptr;
 }
 
 void BVH::up2Gpu()
@@ -178,25 +164,42 @@ void BVH::up2Gpu()
 #ifdef USE_CUDA
     if (_need_upload)
     {
-        if (_dev_ptr == nullptr)
-            PX_CUDA_CHECK(cudaMalloc(&_dev_ptr, sizeof(BaseGeometry**)));
+        if (_gpu_obj == nullptr)
+        {
+            PX_CUDA_CHECK(cudaMalloc(&_gpu_obj, sizeof(BaseBVH)));
+        }
 
+        auto count = 0;
+        for (const auto &g : _geos)
+        {
+            if (g == nullptr)
+                continue;
+            g->up2Gpu();
+            ++count;
+        }
 
-        for (auto &o : _objects_ptr)
-            o->up2Gpu();
+        BaseBVH bb(_vertex_min, _vertex_max);
 
-        auto i = 0;
-        BaseGeometry **gpu_objs[_obj->_extents.n];
-        for (auto &o : _objects_ptr)
-            gpu_objs[i++] = o->devPtr();
+        GeometryObj *ptr[count];
+        bb._n = count;
+        for (const auto &g : _geos)
+        {
+            if (g == nullptr)
+                continue;
+            ptr[--count] = g->devPtr();
+            if (count == 0)
+                break;
+        }
+        if (_gpu_geos != nullptr)
+        {
+            PX_CUDA_CHECK(cudaFree(_gpu_geos));
+            _gpu_geos = nullptr;
+        }
+        PX_CUDA_CHECK(cudaMalloc(&_gpu_geos, sizeof(GeometryObj*)*bb._n));
+        PX_CUDA_CHECK(cudaMemcpy(_gpu_geos, ptr, sizeof(GeometryObj*)*bb._n, cudaMemcpyHostToDevice));
+        bb._geos = _gpu_geos;
 
-        BaseGeometry ***tmp;
-
-        PX_CUDA_CHECK(cudaMalloc(&tmp, sizeof(BaseGeometry **) * _obj->_extents.n));
-        PX_CUDA_CHECK(cudaMemcpy(tmp, gpu_objs, sizeof(BaseGeometry **) * _obj->_extents.n,
-                                 cudaMemcpyHostToDevice));
-
-        GpuCreator::BVH(_dev_ptr, tmp, _obj->_extents.n);
+        PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, &bb, sizeof(BaseBVH), cudaMemcpyHostToDevice));
 
         _need_upload = false;
     }
@@ -206,31 +209,64 @@ void BVH::up2Gpu()
 void BVH::clearGpuData()
 {
 #ifdef USE_CUDA
-    if (_dev_ptr == nullptr)
-        return;
-
-    PX_CUDA_CHECK(cudaFree(_dev_ptr));
-    _dev_ptr = nullptr;
+    if (_gpu_obj != nullptr)
+    {
+        for (const auto &g : _geos)
+        {
+            if (g.use_count() == 1)
+                g->clearGpuData();
+        }
+        PX_CUDA_CHECK(cudaFree(_gpu_geos));
+        PX_CUDA_CHECK(cudaFree(_gpu_obj));
+        _gpu_geos = nullptr;
+        _gpu_obj = nullptr;
+    }
     _need_upload = true;
 #endif
 }
 
-void BVH::addObj(std::shared_ptr<Geometry> const &obj)
+void BVH::addObj(std::shared_ptr<BaseGeometry> const &obj)
 {
-    if (obj == nullptr)
-        return;
+    _geos.emplace(obj);
 
-    _objects_ptr.insert(obj);
-    _obj->addObj(obj->obj());
+    int n_vert;
+    auto vert = obj->rawVertices(n_vert);
+
+    if (_geos.size() == 1)
+    {
+        _vertex_min.x = vert[0].x;
+        _vertex_max.x = vert[0].x;
+        _vertex_min.y = vert[0].y;
+        _vertex_max.y = vert[0].y;
+        _vertex_min.z = vert[0].z;
+        _vertex_max.z = vert[0].z;
+    }
+
+#define SET_VERT(v)                                     \
+        if (v.x < _vertex_min.x) _vertex_min.x = v.x;   \
+        if (v.x > _vertex_max.x) _vertex_max.x = v.x;   \
+        if (v.y < _vertex_min.y) _vertex_min.y = v.y;   \
+        if (v.y > _vertex_max.y) _vertex_max.y = v.y;   \
+        if (v.z < _vertex_min.z) _vertex_min.z = v.z;   \
+        if (v.z > _vertex_max.z) _vertex_max.z = v.z;
+
+    if (obj->transform() == nullptr)
+    {
+        for (auto i = 0; i < n_vert; ++i)
+        {
+            SET_VERT(vert[i])
+        }
+    }
+    else
+    {
+        for (auto i = 0; i < n_vert; ++i)
+        {
+            auto v = obj->transform()->pointFromObjCoord(vert[i]);
+            SET_VERT(v)
+        }
+    }
 
 #ifdef USE_CUDA
     _need_upload = true;
 #endif
 }
-
-PX_CUDA_CALLABLE
-void BaseBVH::addObj(BaseGeometry *const &obj)
-{
-    _extents.add(new Extent(obj));
-}
-

@@ -108,7 +108,7 @@ GeometryObj * BaseQuadric::hitCheck(void * const &obj,
             B = ray.original.y + ray.direction.y * xo;
             if (B > o->_y0 && B < o->_y1)
             {
-                B =ray.original.z + ray.direction.z * xo;
+                B = ray.original.z + ray.direction.z * xo;
                 if (B > o->_z0 && B < o->_z1)
                 {
                     hit_at = xo;
@@ -122,7 +122,7 @@ GeometryObj * BaseQuadric::hitCheck(void * const &obj,
         B = ray.original.x + ray.direction.x * yo;
         if (B > o->_x0 && B < o->_x1)
         {
-            B =ray.original.y + ray.direction.y * yo;
+            B = ray.original.y + ray.direction.y * yo;
             if (B >o->_y0 && B < o->_y1)
             {
                 B = ray.original.z + ray.direction.z * yo;
@@ -369,8 +369,6 @@ void Quadric::up2Gpu()
 
         if (trans != nullptr)
             trans->up2Gpu();
-
-        cudaDeviceSynchronize();
 
         _obj->_dev_obj = dev_ptr;
         PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BaseQuadric), cudaMemcpyHostToDevice));

@@ -17,7 +17,6 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
     std::vector<Point> vertices;
     std::vector<Direction> normals;
 
-//    auto bvh = new BVH;
     std::vector<BoundBox *> bound_box;
     std::vector<std::shared_ptr<Transformation> > transform{nullptr};
 //    std::shared_ptr<BumpMapping> bump_mapping = nullptr;
@@ -55,13 +54,9 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
     bool use_bb = false;
     auto addObj = [&](std::shared_ptr<BaseGeometry> const &obj) {
         if (bound_box.empty())
-//            bvh->addObj(obj);
-            scene->geometries.insert(obj);
+            scene->addGeometry(obj);//addObj(obj);
         else
-        {
-            use_bb = true;
             bound_box.back()->addObj(obj);
-        }
     };
 
     while (std::getline(buffer, line, '\n'))
@@ -138,21 +133,21 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         else if (param[0] == "directional_light")
         {
             PARAM_CHECK("directional_light", 6, param, ln)
-            PARSE_TRY(scene->lights.insert(DirectionalLight::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
+            PARSE_TRY(scene->addLight(DirectionalLight::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
                                                                     {S2D(param[4]), S2D(param[5]), S2D(param[6])})),
                       "directional_light", ln)
         }
         else if (param[0] == "point_light")
         {
             PARAM_CHECK("point_light", 6, param, ln)
-            PARSE_TRY(scene->lights.insert(PointLight::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
+            PARSE_TRY(scene->addLight(PointLight::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
                                                               {S2D(param[4]), S2D(param[5]), S2D(param[6])})),
                       "point_light", ln)
         }
         else if (param[0] == "spot_light")
         {
             PARAM_CHECK("spot_light", 11, param, ln)
-            PARSE_TRY(scene->lights.insert(SpotLight::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
+            PARSE_TRY(scene->addLight(SpotLight::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
                                                              {S2D(param[4]), S2D(param[5]), S2D(param[6])},
                                                              {S2D(param[7]), S2D(param[8]), S2D(param[9])},
                                                              S2D(param[10]) * DEG2RAD, S2D(param[11]) * DEG2RAD,
@@ -421,7 +416,7 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         else if (param[0] == "area_light")
         {
             PARAM_CHECK("area_light", 7, param, ln)
-            PARSE_TRY(scene->lights.insert(AreaLight::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
+            PARSE_TRY(scene->addLight(AreaLight::create({S2D(param[1]), S2D(param[2]), S2D(param[3])},
                                                              {S2D(param[4]), S2D(param[5]), S2D(param[6])},
                                                              S2D(param[7]))),
                       "area_light", ln)
@@ -476,18 +471,19 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
             if (param[1] == "begin")
             {
                 bound_box.push_back(new BoundBox(transform.back()));
+                if (bound_box.size() > 2)
+                    use_bb = true;
             }
             else if (param[1] == "end")
             {
-                auto s = bound_box.size();
-                if (s == 0)
+                if (bound_box.size() == 0)
                 {
                     throw std::invalid_argument("[Error] Failed to parse unmatched `group` parameter at line " +
                                                 std::to_string(ln));
                 }
                 else
                 {
-                    auto bb = std::shared_ptr<BaseGeometry>(bound_box.at(s - 1));
+                    auto bb = std::shared_ptr<BaseGeometry>(bound_box.back());
                     bound_box.pop_back();
                     addObj(bb);
                 }
@@ -524,14 +520,13 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
     if (!bound_box.empty())
         throw std::invalid_argument("[Error] Failed to parse unmatched `group` parameter at line " +
                                     std::to_string(ln));
+
     if (transform.size() != 1)
         throw std::invalid_argument("[Error] Failed to parse unmatched `transform` parameter at line " +
                                     std::to_string(ln));
 
     if (scene->mode == Scene::ComputationMode::GPU && use_bb == true)
         std::cout << "[Warn] \033[41mBound boxes are not fully supported in GPU!!!\033[0m" << std::endl;
-
-//    scene->geometries.insert(std::shared_ptr<Geometry>(bvh));
 
     return outputs;
 }

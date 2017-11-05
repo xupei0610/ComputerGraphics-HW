@@ -118,14 +118,33 @@ public:
     virtual void up2Gpu() = 0;
     virtual void clearGpuData();
 
-    const BaseGeometry * hit(Ray const &ray,
+    inline const BaseGeometry * hit(Ray const &ray,
                              PREC const &t_start,
                              PREC const &t_end,
-                             PREC &hit_at) const;
-    Direction normal(PREC const &x,
+                             PREC &hit_at) const
+    {
+        if (trans == nullptr)
+            return hitCheck(ray, t_start, t_end, hit_at);
+        return hitCheck({trans->point2ObjCoord(ray.original), trans->direction(ray.direction)},
+                        t_start, t_end, hit_at);
+    }
+    inline Direction normal(PREC const &x,
                      PREC const &y,
-                     PREC const &z) const;
-    Vec3<PREC> textureCoord(PREC const &x, PREC const &y, PREC const &z) const;
+                     PREC const &z) const
+    {
+        if (trans == nullptr)
+            return normalVec(x, y, z);
+        auto p = trans->point2ObjCoord(x, y, z);
+        return trans->normal(normalVec(p.x, p.y, p.z));
+    }
+
+    inline Vec3<PREC> textureCoord(PREC const &x, PREC const &y, PREC const &z) const
+    {
+        if (trans == nullptr)
+            return getTextureCoord(x, y, z);
+        auto p = trans->point2ObjCoord(x, y, z);
+        return getTextureCoord(p.x, p.y, p.z);
+    }
 
     inline Direction normal(Point const &p) const
     {
@@ -136,9 +155,9 @@ public:
         return textureCoord(p.x, p.y, p.z);
     }
 
-    inline BaseMaterial *material() const noexcept
+    inline std::shared_ptr<BaseMaterial> const &material() const noexcept
     {
-        return mat.get();
+        return mat;
     }
 
     Point * rawVertices(int &n_vertices) const noexcept;

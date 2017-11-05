@@ -114,8 +114,6 @@ void Plane::up2Gpu()
         if (trans != nullptr)
             trans->up2Gpu();
 
-        cudaDeviceSynchronize();
-
         _obj->_dev_obj = dev_ptr;
         PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, _obj, sizeof(BasePlane), cudaMemcpyHostToDevice));
         _obj->_dev_obj = reinterpret_cast<GeometryObj*>(this);

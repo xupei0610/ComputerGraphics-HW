@@ -34,7 +34,7 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
 
   Stack instead of recursion is used in the GPU code.
   
-  Note: no fully support for the bound box structure. So far, the bound box structure is allowed to be put into another bound box such that a deep function call may be involved when using a bound box containing another one and cause the GPU kernel crashing.
+  Note: no fully support for the bound box structure. So far, the bound box structure is allowed to be put into another bound box such that a deep function call may be involved when using a bound box containing another one and cause the GPU kernel crashing. I increases the stack size limit of CUDA such that we usually do not need to worry about this problem.
 
 #### Interactive User Interface
   
@@ -146,7 +146,7 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
 
     area_light_sampling n
   
-  to set the number of samplings for area lights. Default: `32`
+  to set the number of samplings for area _lights. Default: `32`
 
   <img src="./doc/soft_shadow.bmp" />
 
@@ -219,22 +219,22 @@ Test case: `complex/test.scn`
 
 |         | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
 |---------| :--: |   :---:  |  :---:   |  :---:   |  :---:   |  :---:   |
-|Original | 1031 |   84547  |  41432   |  28337   |  22298   |  18813   |
-|BoundBox | 252  |   8676   |  4055    |  3485    |  2586    |  2192    |
+|Original | 542 |   59374  |  27172   |  21488   |  17227   |  14852   |
+|BoundBox | 114  |   7431   |  3133    |  3457    |  2396    |  2025    |
 |Octree   | IMPLEMENT later |
 
 |3x3 Sampling | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
 |-------------| :--: |  :----:  |  :----:  |  :----:  |  :---:   |  :---:   |
-|Original     | 4183 |  333150  |  324527  |  107947  |  89789   |  76214   |
-|BoundBox     |  946 |  32003   |  22463   |  14084   |  10000   |  8551    |
+|Original     | 1995 |  197604  |  139687  |  83631   |  61020   |  53497   |
+|BoundBox     |  495 |  23420   |  22149   |  13337   |   9231   |  7818    |
 |Octree       | IMPLEMENT later |
 
 In the bound box test case, only one bound box is used to group all triangles together. The acceleration effect of the bound box is very obvious.
 
 ### TODO Lists
 
-  + BVH using OCtree.
-  + Revise adpative supersampling.
+  + BVH using Octree.
+  + Revise adaptive supersampling.
   + Polygon
   + Environment Light
   + Ambient Occlusion
@@ -243,9 +243,9 @@ In the bound box test case, only one bound box is used to group all triangles to
   + Depth of Fields
   + Zoom Lens
   + Bump Mapping
-  + Procedual Wood Material
-  + Procedual Marble Material
-  + Procedual Bump mapping
+  + Procedural Wood Material
+  + Procedural Marble Material
+  + Procedural Bump mapping
   + Heightfields
 
   It looks like a huge project.

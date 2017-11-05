@@ -3,6 +3,8 @@
 
 #include "object/geometry/base_geometry.hpp"
 
+#include <queue>
+
 namespace px
 {
 class BoundBox;
@@ -62,7 +64,7 @@ public:
 
     ~BoundBox();
 protected:
-    std::unordered_set<std::shared_ptr<BaseGeometry> > _geos;
+    std::deque<std::shared_ptr<BaseGeometry> > _geos;
     Point _vertex_min;
     Point _vertex_max;
 

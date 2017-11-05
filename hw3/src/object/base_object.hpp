@@ -51,11 +51,29 @@ public:
     PX_CUDA_CALLABLE
     ~Direction() = default;
 
-    PX_CUDA_CALLABLE
-    Direction(Vec3<PREC> const &);
 
     PX_CUDA_CALLABLE
-    Direction(PREC const &x, PREC const &y, PREC const &z);
+    Direction(Vec3<PREC> const &v)
+            : Vec3<PREC>(v)
+    {
+        Vec3::normalize();
+    }
+
+    PX_CUDA_CALLABLE
+    Direction(PREC const &x, PREC const &y, PREC const &z)
+            : Vec3<PREC>(x, y, z)
+    {
+        Vec3::normalize();
+    }
+
+    PX_CUDA_CALLABLE
+    void set(PREC const &x, PREC const &y, PREC const &z)
+    {
+        Vec3<PREC>::x = x;
+        Vec3<PREC>::y = y;
+        Vec3<PREC>::z = z;
+        Vec3::normalize();
+    }
 
     PX_CUDA_CALLABLE
     Direction &operator=(Direction const &rhs) = default;
@@ -68,8 +86,6 @@ public:
         return *this;
     }
 
-    PX_CUDA_CALLABLE
-    void set(PREC const &x, PREC const &y, PREC const &z);
 };
 
 class px::Ray
@@ -82,14 +98,15 @@ public:
     Ray() = default;
 
     PX_CUDA_CALLABLE
-    Ray(Point const &o, Direction const &d);
+    Ray(Point const &o, Direction const &d)
+            : original(o), direction(d) {}
 
     PX_CUDA_CALLABLE
     Point operator[](PREC const &t) const noexcept
     {
-        return Point(original.x + direction.x*t,
-                     original.y + direction.y*t,
-                     original.z + direction.z*t);
+        return {original.x + direction.x*t,
+                original.y + direction.y*t,
+                original.z + direction.z*t};
     }
     PX_CUDA_CALLABLE
     Ray &operator=(Ray const &r)
@@ -158,13 +175,37 @@ public:
                                                   std::shared_ptr<Transformation> const &parent = nullptr);
 
     PX_CUDA_CALLABLE
-    Point point2ObjCoord(PREC const &x, PREC const &y, PREC const &z) const noexcept;
+    Point point2ObjCoord(PREC const &x, PREC const &y, PREC const &z) const noexcept
+    {
+        return {_inv00 * x + _inv01 * y + _inv02 * z + _inv03,
+                _inv10 * x + _inv11 * y + _inv12 * z + _inv13,
+                _inv20 * x + _inv21 * y + _inv22 * z + _inv23};
+    }
     PX_CUDA_CALLABLE
-    Point pointFromObjCoord(PREC const &x, PREC const &y, PREC const &z) const noexcept;
+    Point pointFromObjCoord(PREC const &x, PREC const &y, PREC const &z) const noexcept
+    {
+
+        return {_m00 * x + _m01 * y + _m02 * z + _m03,
+                _m10 * x + _m11 * y + _m12 * z + _m13,
+                _m20 * x + _m21 * y + _m22 * z + _m23};
+    }
     PX_CUDA_CALLABLE
-    Direction direction(Direction const &d) const noexcept;
+    Direction direction(Direction const &d) const noexcept
+    {
+
+        Direction nd;
+        nd.x = _inv00 * d.x + _inv01 * d.y + _inv02 * d.z;
+        nd.y = _inv10 * d.x + _inv11 * d.y + _inv12 * d.z;
+        nd.z = _inv20 * d.x + _inv21 * d.y + _inv22 * d.z;
+        return nd;
+    }
     PX_CUDA_CALLABLE
-    Direction normal(Direction const &n) const noexcept;
+    Direction normal(Direction const &n) const noexcept
+    {
+        return {_inv00 * n.x + _inv10 * n.y + _inv20 * n.z,
+                _inv01 * n.x + _inv11 * n.y + _inv21 * n.z,
+                _inv02 * n.x + _inv12 * n.y + _inv22 * n.z};
+    }
 
     PX_CUDA_CALLABLE
     inline Point point2ObjCoord(Point const &p) const noexcept

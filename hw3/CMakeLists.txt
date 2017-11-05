@@ -72,12 +72,9 @@ file(GLOB HEADER_FILES
 
 file(GLOB EXE_COMMON_SRC_FILES
      ## TODO Put objects into dependent files
-     ${PROJECT_SOURCE_DIR}/src/object/base_object.cu
-     ${PROJECT_SOURCE_DIR}/src/object/light/*.cpp
      ${PROJECT_SOURCE_DIR}/src/object/light/*.cu
      ${PROJECT_SOURCE_DIR}/src/object/material/*.cu
-     ${PROJECT_SOURCE_DIR}/src/object/material/*.cpp
-     ${PROJECT_SOURCE_DIR}/src/object/geometry/base_geometry.cu
+     ${PROJECT_SOURCE_DIR}/src/object/geometry/base_geometry.cpp
      ${PROJECT_SOURCE_DIR}/src/object/geometry/plane.cu
      ${PROJECT_SOURCE_DIR}/src/object/geometry/disk.cu
      ${PROJECT_SOURCE_DIR}/src/object/geometry/ring.cu
@@ -90,6 +87,7 @@ file(GLOB EXE_COMMON_SRC_FILES
      ${PROJECT_SOURCE_DIR}/src/object/geometry/cylinder.cu
      ${PROJECT_SOURCE_DIR}/src/object/geometry/quadric.cu
      ${PROJECT_SOURCE_DIR}/src/object/structure/bound_box.cu
+     ${PROJECT_SOURCE_DIR}/src/object/structure/bvh.cu
      )
 
 file(GLOB EXE_CUDA_SRC_FILES
@@ -98,6 +96,9 @@ file(GLOB EXE_CUDA_SRC_FILES
      )
 
 file(GLOB EXE_CPU_SRC_FILES
+     ${PROJECT_SOURCE_DIR}/src/object/base_object.cpp
+     ${PROJECT_SOURCE_DIR}/src/object/light/base_light.cpp
+     ${PROJECT_SOURCE_DIR}/src/object/material/base_material.cpp
      ${PROJECT_SOURCE_DIR}/src/trace.cpp
      ${PROJECT_SOURCE_DIR}/src/scene.cpp
      ${PROJECT_SOURCE_DIR}/src/parser.cpp
@@ -113,12 +114,13 @@ if (USE_CUDA)
     set(CUDA_SEPARABLE_COMPILATION ON)
     set(CUDA_NVCC_FLAGS
         -std=c++11
-        #-arch=compute_61
-        #-code=sm_61
         -use_fast_math
+        -restrict
+        --ptxas-options=-O3
+        -O3
 #        --ptxas-options=-v
-        -maxrregcount=120
-        -O3)
+#        -res-usage
+        )
     cuda_add_executable(${EXE_NAME}
                         ${HEADER_FILES}
                         ${EXE_COMMON_SRC_FILES}

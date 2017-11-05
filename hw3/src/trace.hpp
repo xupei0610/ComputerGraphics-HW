@@ -52,64 +52,12 @@ PREC specularReflect(PREC const &light,
     return light * material * std::pow(f, specular_exponent);
 }
 
+
 Light traceCpu(bool const &stop_flag,
                const Scene *const &scene,
                Ray const &ray,
+//               Light const &coef = {1, 1, 1},
                int const &depth = 0);
-
-// the following is for gpu
-struct TraceQueue
-{
-    struct Node
-    {
-        Ray ray;
-        Light coef;
-        int depth;
-
-        PX_CUDA_CALLABLE
-        Node() = default;
-        PX_CUDA_CALLABLE
-        Node(Ray const &ray, Light const &coef, int const &depth);
-        PX_CUDA_CALLABLE
-        ~Node() = default;
-    };
-
-    Node *ptr;
-    int n;
-    const int &size;
-
-    PX_CUDA_CALLABLE
-    TraceQueue(Node *const &ptr, int const &size);
-    PX_CUDA_CALLABLE
-    ~TraceQueue() = default;
-
-    PX_CUDA_CALLABLE
-    bool prepend(Point const &ray_o, Direction const &ray_d,
-                 Light const &coef, int const &depth);
-    PX_CUDA_CALLABLE
-    void pop();
-};
-
-__device__
-GeometryObj *hitCheck(Ray const & ray,
-                             const Scene::Param *const &scene,
-                             Point &intersection);
-__device__
-Light reflect(Point const &intersect,
-              Point const &texture_coord,
-              const GeometryObj *__restrict__ const &obj,
-              const Scene::Param *__restrict__ const &scene,
-              curandState_t * const &state,
-              Direction const &n, Direction const &r);
-__device__
-void recursive(Point const &intersect,
-                TraceQueue::Node const &current,
-                Point const &texture_coord,
-               GeometryObj const &obj,
-                Direction &n,
-                Direction const &r,
-                TraceQueue &trace,
-                Scene::Param const &scene);
 
 }}
 #endif // PX_CG_TRACE_HPP

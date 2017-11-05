@@ -399,7 +399,6 @@ void TextureMaterial::up2Gpu()
         }
 
         _texture->up2Gpu();
-        PX_CUDA_CHECK(cudaDeviceSynchronize());
 
         _obj->_texture = _texture->devPtr();
 

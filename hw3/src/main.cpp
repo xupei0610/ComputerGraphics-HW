@@ -16,98 +16,6 @@
 #include <iomanip>
 #include <thread>
 
-
-// struct Sphere
-// {
-//     Point center;
-//     PREC radius;
-//     void *material;
-//     bool static hitCheck(const void * const &obj,
-//                          Ray const &ray, PREC const &t_start, PREC const &t_end,
-//                          PREC &t)
-//     {
-//         // sphere hit check
-//         auto o = reinterpret_cast<Sphere*>(obj);
-//         return false;
-//     }
-// };
-// struct Triangle
-// {
-//     Point v1, v2, v3;
-//     void *material;
-//     bool static hitCheck(const void * const &obj,
-//                          Ray const &ray, PREC const &t_start, PREC const &t_end,
-//                          PREC &t)
-//     {
-//         auto o = reinterpret_cast<Triangle*>(obj);
-//         return false;
-//     }
-// };
-
-
-// typedef bool (*HitCheckFn)(Ray const &ray,
-//                            PREC const &t_start, PREC const &t_end,
-//                            PREC &t);
-// struct Geometry
-// {
-//     void *obj;
-//     HitCheckFn fn_hit_check;
-//     Geometry *next;
-
-// //PX_CUDA_CHECK
-//     bool hit(Ray const &ray, PREC const &t_start, PREC const &t_end,
-//              PREC &t)
-//     {
-//         return fn_hit_check(ray, t_start, t_end, t);
-//     }
-
-//     Vec3<PREC> textureCoord(Point const &intersect);
-//     Light diffuse();
-//     Light specualr();
-//     Light specularExp();
-
-//     Geometry(void *const &obj,
-//              HitCheckFn const & hit_check_fn,
-//              Geometry *const &next)
-//             : obj(obj), fn_hit_check(hit_check_fn), next(next)
-//     {}
-// };
-
-
-// Geometry * hit(Geometry *first,
-//                Ray const &ray,
-//                PREC const &t_start, PREC t_end,
-//                PREC &t)
-// {
-//     Geometry *obj = nullptr;
-//     while(first != nullptr)
-//     {
-//         if (first->hit(ray, t_start, t_end, t))
-//         {
-//             t_end = t;
-//             obj = first;
-//         }
-//         first = first->next;
-//     }
-//     return obj;
-// }
-
-
-// Light trace()
-// {
-//     Ray ray;
-//     PREC t;
-//     auto obj = hit(scene->geometries,
-//                     ray, scene->hit_min_tol, scene->hit_max_tol,
-//                     t);
-
-//     if (obj == nullptr)
-//         return scene->bg;
-
-    
-// }
-
-
 using namespace px;
 
 bool stop_request;
@@ -211,11 +119,17 @@ int main(int argc, char *argv[])
             outputImg(outputs, scene);
     });
     while (stop_request == false && (started_rendering == false || scene->is_rendering))
+    {
+        if (scene->mode == Scene::ComputationMode::CPU)
         std::cout << "\033[1K\r[Info] Rendering: "
                   << scene->renderingProgress() << " / " << scene->dimension
                   << " (" << std::setprecision(2)
-                  << (std::max(0, scene->renderingProgress()) * 100.0 / scene->dimension)
+                  << (std::max(0, scene->renderingProgress()) * 100.0 /
+                      scene->dimension)
                   << "%)" << std::flush;
+        else
+            std::cout << "\033[1K\r[Info] Rendering..."  << std::flush;
+    }
 
     if (stop_request == false)
     {
