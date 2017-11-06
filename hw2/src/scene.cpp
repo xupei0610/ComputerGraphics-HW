@@ -118,8 +118,7 @@ Light Scene::diffuseReflect(Light const &light,
                             Direction const &norm_vec)
 {
     auto cosine = to_light_vec.dot(norm_vec);
-    if (cosine < 0)
-        cosine *= - 1;
+    if (cosine < 0) cosine *= - 1;
     return light * material * cosine;
 }
 
@@ -281,7 +280,7 @@ Light Scene::trace(Ray const & ray,
     auto n = obj->normVec(intersect); // norm vector at the hit point
     Ray I(intersect, {0, 0, 0});      // from hit point to light source
 //    Direction h(0, 0, 0);             // half vector
-    Direction r = ray.direction-n*2*ray.direction.dot(n);     // reflect vector
+    Direction r;     // reflect vector
 
     double attenuate;
     auto L = ambientReflect(ambient, obj->ambient(intersect));
@@ -312,10 +311,12 @@ Light Scene::trace(Ray const & ray,
             L += diffuseReflect(light->light,
                                 obj->diffuse(intersect),
                                 I.direction, n) * attenuate;
+
+            r = I.direction-n*2*I.direction.dot(n);
             L += specularReflect(light->light,
                                  obj->specular(intersect),
 //                                 h, n, // Blinn Phong model
-                                 I.direction, r, // Phong model
+                                 ray.direction, r, // Phong model
                                  obj->material->specularExponent()) * attenuate;
         }
 
@@ -328,6 +329,7 @@ Light Scene::trace(Ray const & ray,
         if (ref.x != 0 || ref.y != 0 || ref.z != 0)
 //        if (ref.norm2() > 1e-5)
         {
+            r = ray.direction-n*2*ray.direction.dot(n);
             ref *= trace({intersect+r*hit_min_tol, r}, refractive_index, depth+1);
             L += ref;
         }

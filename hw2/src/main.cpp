@@ -196,10 +196,10 @@ std::unordered_map<std::string, IMAGE_FORMAT> parse(
         }
         else if (param[0] == "normal_triangle")
         {
-            PARAM_CHECK("triangle", 6, param)
-            scene->objects.insert(NormalTriangle::create(vertices.at(S2I(param[1])), normals.at(S2I(param[2])),
-                                                     vertices.at(S2I(param[3])), normals.at(S2I(param[4])),
-                                                     vertices.at(S2I(param[5])), normals.at(S2I(param[6])),
+            PARAM_CHECK("normal_triangle", 6, param)
+            scene->objects.insert(NormalTriangle::create(vertices.at(S2I(param[1])), normals.at(S2I(param[4])),
+                                                     vertices.at(S2I(param[2])), normals.at(S2I(param[5])),
+                                                     vertices.at(S2I(param[3])), normals.at(S2I(param[6])),
                                                      material));
         }
         else if (param[0] == "directional_light")
