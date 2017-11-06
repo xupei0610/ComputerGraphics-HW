@@ -223,16 +223,16 @@ Test environment:
 
 Test case: `complex/test.scn`
 
-\# of triangles: `1800`; \# of spheres: `4`;  Recursion Depth: `10` 
+\# of triangles: `1800`; \# of spheres: `4`;  Recursion Depth: `10`
 
-|         | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
-|---------| :--: |   :---:  |  :---:   |  :---:   |  :---:   |  :---:   |
+|Unit: ms | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
+|:--------| :--: |   :---:  |  :---:   |  :---:   |  :---:   |  :---:   |
 |Original | 542 |   59374  |  27172   |  21488   |  17227   |  14852   |
 |BoundBox | 114  |   7431   |  3133    |  3457    |  2396    |  2025    |
 |Octree   | IMPLEMENT later |
 
 |3x3 Sampling | GPU  | 1 Thread | 2 Thread | 4 Thread | 6 Thread | 8 Thread |
-|-------------| :--: |  :----:  |  :----:  |  :----:  |  :---:   |  :---:   |
+|:------------| :--: |  :----:  |  :----:  |  :----:  |  :---:   |  :---:   |
 |Original     | 1995 |  197604  |  139687  |  83631   |  61020   |  53497   |
 |BoundBox     |  495 |  23420   |  22149   |  13337   |   9231   |  7818    |
 |Octree       | IMPLEMENT later |
