@@ -140,8 +140,10 @@ GeometryObj * BaseQuadric::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BaseQuadric::normalVec(void * const &obj,
-                                 PREC const &x, PREC const &y, PREC const &z)
+                                 PREC const &x, PREC const &y, PREC const &z,
+                                 bool &double_face)
 {
+    double_face = false;
     auto o = reinterpret_cast<BaseQuadric*>(obj);
 
     auto dx = x - o->_center.x;
@@ -480,7 +482,8 @@ const BaseGeometry *Quadric::hitCheck(Ray const &ray,
     return BaseQuadric::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
 }
 Direction Quadric::normalVec(PREC const &x, PREC const &y,
-                           PREC const &z) const
+                           PREC const &z,
+                             bool &double_face) const
 {
-    return BaseQuadric::normalVec(_obj, x, y, z);
+    return BaseQuadric::normalVec(_obj, x, y, z, double_face);
 }

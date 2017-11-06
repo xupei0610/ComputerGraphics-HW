@@ -78,8 +78,10 @@ GeometryObj *BaseEllipsoid::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BaseEllipsoid::normalVec(void * const &obj,
-                                   PREC const &x, PREC const &y, PREC const &z)
+                                   PREC const &x, PREC const &y, PREC const &z,
+                                   bool &double_face)
 {
+    double_face = false;
     auto o = reinterpret_cast<BaseEllipsoid*>(obj);
 
     return {o->_a * (x - o->_center.x),
@@ -268,8 +270,10 @@ const BaseGeometry *Ellipsoid::hitCheck(Ray const &ray,
 {
     return BaseEllipsoid::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
 }
-Direction Ellipsoid::normalVec(PREC const &x, PREC const &y,
-                           PREC const &z) const
+Direction Ellipsoid::normalVec(PREC const &x,
+                               PREC const &y,
+                               PREC const &z,
+                               bool &double_face) const
 {
-    return BaseEllipsoid::normalVec(_obj, x, y, z);
+    return BaseEllipsoid::normalVec(_obj, x, y, z, double_face);
 }

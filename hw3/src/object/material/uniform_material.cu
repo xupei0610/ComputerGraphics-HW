@@ -5,13 +5,13 @@ using namespace px;
 BaseUniformMaterial::BaseUniformMaterial(Light const &ambient,
                                          Light const &diffuse,
                                          Light const &specular,
-                                         int const &specular_exponent,
+                                         PREC const &shininessonent,
                                          Light const &transmissive,
                                          PREC const &refractive_index)
         : _ambient(ambient),
           _diffuse(diffuse),
           _specular(specular),
-          _specular_exponent(specular_exponent),
+          _shininessonent(shininessonent),
           _transmissive(transmissive),
           _refractive_index(refractive_index)
 {}
@@ -35,9 +35,9 @@ Light BaseUniformMaterial::getSpecular(void *const &obj, PREC const &u, PREC con
 }
 
 PX_CUDA_CALLABLE
-int BaseUniformMaterial::getSpecularExp(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
+PREC BaseUniformMaterial::getShininess(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return reinterpret_cast<BaseUniformMaterial*>(obj)->_specular_exponent;
+    return reinterpret_cast<BaseUniformMaterial*>(obj)->_shininessonent;
 }
 
 PX_CUDA_CALLABLE
@@ -64,9 +64,9 @@ void BaseUniformMaterial::setSpecular(Light const &specular)
 {
     _specular = specular;
 }
-void BaseUniformMaterial::setSpecularExp(int const &specular_exp)
+void BaseUniformMaterial::setShininess(PREC const &shininess)
 {
-    _specular_exponent = specular_exp;
+    _shininessonent = shininess;
 }
 void BaseUniformMaterial::setTransmissive(Light const &transmissive)
 {
@@ -80,14 +80,14 @@ void BaseUniformMaterial::setRefractiveIndex(PREC const &ior)
 std::shared_ptr<BaseMaterial> UniformMaterial::create(Light const &ambient,
                                                 Light const &diffuse,
                                                 Light const &specular,
-                                                int const &specular_exponent,
+                                                PREC const &shininessonent,
                                                 Light const &transmissive,
                                                 PREC const &refractive_index)
 {
     return std::shared_ptr<BaseMaterial>(new UniformMaterial(ambient,
                                                        diffuse,
                                                        specular,
-                                                       specular_exponent,
+                                                       shininessonent,
                                                        transmissive,
                                                        refractive_index));
 }
@@ -95,12 +95,12 @@ std::shared_ptr<BaseMaterial> UniformMaterial::create(Light const &ambient,
 UniformMaterial::UniformMaterial(Light const &ambient,
                              Light const &diffuse,
                              Light const &specular,
-                             int const &specular_exponent,
+                             PREC const &shininessonent,
                              Light const &transmissive,
                              PREC const &refractive_index)
         : BaseMaterial(),
           _obj(new BaseUniformMaterial(ambient, diffuse,
-                                       specular, specular_exponent,
+                                       specular, shininessonent,
                                        transmissive, refractive_index)),
           _gpu_obj(nullptr),
           _need_upload(true)
@@ -118,7 +118,7 @@ UniformMaterial::~UniformMaterial()
 __device__ fnAmbient_t __fn_ambient_uniform_material = BaseUniformMaterial::getAmbient;
 __device__ fnDiffuse_t __fn_diffuse_uniform_material = BaseUniformMaterial::getDiffuse;
 __device__ fnSpecular_t __fn_specular_uniform_material = BaseUniformMaterial::getSpecular;
-__device__ fnSpecularExp_t __fn_specular_exp_uniform_material = BaseUniformMaterial::getSpecularExp;
+__device__ fnShininess_t __fn_shininess_uniform_material = BaseUniformMaterial::getShininess;
 __device__ fnTransmissive_t __fn_transmissive_uniform_material = BaseUniformMaterial::getTransmissive;
 __device__ fnRefractiveIndex_t __fn_refractive_index_uniform_material = BaseUniformMaterial::getRefractiveIndex;
 #endif
@@ -129,7 +129,7 @@ void UniformMaterial::up2Gpu()
     static fnAmbient_t fn_ambient_h = nullptr;
     static fnDiffuse_t fn_diffuse_h;
     static fnSpecular_t fn_specular_h;
-    static fnSpecularExp_t fn_specular_exp_h;
+    static fnShininess_t fn_shininess_h;
     static fnTransmissive_t fn_transmissive_h;
     static fnRefractiveIndex_t fn_refractive_index_h;
     
@@ -145,7 +145,7 @@ void UniformMaterial::up2Gpu()
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_ambient_h, __fn_ambient_uniform_material, sizeof(fnAmbient_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_diffuse_h, __fn_diffuse_uniform_material, sizeof(fnDiffuse_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_h, __fn_specular_uniform_material, sizeof(fnSpecular_t)));
-            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_exp_h, __fn_specular_exp_uniform_material, sizeof(fnSpecularExp_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_shininess_h, __fn_shininess_uniform_material, sizeof(fnShininess_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_transmissive_h, __fn_transmissive_uniform_material, sizeof(fnTransmissive_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_refractive_index_h, __fn_refractive_index_uniform_material, sizeof(fnRefractiveIndex_t)));
         }
@@ -153,7 +153,7 @@ void UniformMaterial::up2Gpu()
                                  cudaMemcpyHostToDevice));
         MaterialObj tmp(_gpu_obj,
                         fn_ambient_h, fn_diffuse_h,
-                        fn_specular_h, fn_specular_exp_h,
+                        fn_specular_h, fn_shininess_h,
                         fn_transmissive_h, fn_refractive_index_h);
 
         PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(MaterialObj),
@@ -175,10 +175,10 @@ void UniformMaterial::clearGpuData()
 #endif
 }
 
-int UniformMaterial::specularExp(PREC const &u, PREC const &v, PREC const &w) const
+PREC UniformMaterial::Shininess(PREC const &u, PREC const &v, PREC const &w) const
 {
-//    return BaseUniformMaterial::getSpecularExp(_obj, u, v, w);
-    return _obj->_specular_exponent;
+//    return BaseUniformMaterial::getShininess(_obj, u, v, w);
+    return _obj->_shininessonent;
 }
 
 PREC UniformMaterial::refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const
@@ -228,9 +228,9 @@ void UniformMaterial::setSpecular(Light const &specular)
     _need_upload = true;
 #endif
 }
-void UniformMaterial::setSpecularExp(int const &specular_exp)
+void UniformMaterial::setShininess(PREC const &shininess)
 {
-    _obj->setSpecularExp(specular_exp);
+    _obj->setShininess(shininess);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

@@ -42,8 +42,10 @@ GeometryObj *BaseRing::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BaseRing::normalVec(void * const &obj,
-                              PREC const &x, PREC const &y, PREC const &z)
+                              PREC const &x, PREC const &y, PREC const &z,
+                              bool &double_face)
 {
+    double_face = false;
     return reinterpret_cast<BaseRing*>(obj)->_norm;
 }
 
@@ -254,7 +256,8 @@ const BaseGeometry *Ring::hitCheck(Ray const &ray,
     return BaseRing::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
 }
 Direction Ring::normalVec(PREC const &x, PREC const &y,
-                          PREC const &z) const
+                          PREC const &z,
+                          bool &double_face) const
 {
-    return BaseRing::normalVec(_obj, x, y, z);
+    return BaseRing::normalVec(_obj, x, y, z, double_face);
 }

@@ -21,15 +21,6 @@ public:
                          PREC const &range_end,
                          PREC &hit_at);
     PX_CUDA_CALLABLE
-    static Vec3<PREC> getTextureCoord(void * const &obj,
-                                      PREC const &x,
-                                      PREC const &y,
-                                      PREC const &z);
-    PX_CUDA_CALLABLE
-    static Direction normalVec(void * const &obj,
-                               PREC const &x, PREC const &y, PREC const &z);
-
-    PX_CUDA_CALLABLE
     static bool hitBox(Point const &vertex_min,
                        Point const &vertex_max,
                        Ray const &ray,
@@ -77,13 +68,13 @@ protected:
 
     Vec3<PREC> getTextureCoord(PREC const &x,
                                PREC const &y,
-                               PREC const &z) const override;
+                               PREC const &z) const override {return {};}
     const BaseGeometry *hitCheck(Ray const &ray,
                                  PREC const &range_start,
                                  PREC const &range_end,
                                  PREC &hit_at) const override;
     Direction normalVec(PREC const &x, PREC const &y,
-                        PREC const &z) const override;
+                        PREC const &z, bool &double_face) const override {return {};}
 
     BoundBox &operator=(BoundBox const &) = delete;
     BoundBox &operator=(BoundBox &&) = delete;

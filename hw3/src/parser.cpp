@@ -298,13 +298,22 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         }
         else if (param[0] == "box")
         {
-            PARAM_CHECK("box", 6, param, ln)
+            if (param.size() == 3)
+                PARSE_TRY(addObj(Box::create(vertices.at(S2I(param[1])), vertices.at(S2I(param[2])),
+                                             material,
+                                             transform.back())),
+                          "box", ln)
+            else if (param.size() == 7)
             PARSE_TRY(addObj(Box::create(S2D(param[1]), S2D(param[2]),
                                          S2D(param[3]), S2D(param[4]),
                                          S2D(param[5]), S2D(param[6]),
                                          material,
                                          transform.back())),
                       "box", ln)
+            else
+                throw std::invalid_argument("[Error] Failed to parse `box` at line " +
+                                            std::to_string(ln) + " (6 or 2 parameters expected, " +
+                                            std::to_string(param.size() - 1) + " provided)");
         }
         else if (param[0] == "quadric")
         {

@@ -51,8 +51,10 @@ GeometryObj *BaseSphere::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BaseSphere::normalVec(void * const &obj,
-                               PREC const &x, PREC const &y, PREC const &z)
+                               PREC const &x, PREC const &y, PREC const &z,
+                                bool &double_face)
 {
+    double_face = false;
     auto o = reinterpret_cast<BaseSphere*>(obj);
     return {x - o->_center.x, y - o->_center.y, z - o->_center.z};
 }
@@ -237,7 +239,8 @@ const BaseGeometry *Sphere::hitCheck(Ray const &ray,
     return BaseSphere::hitCheck(_obj, ray, t_start, t_end, hit_at) == nullptr ? nullptr : this;
 }
 Direction Sphere::normalVec(PREC const &x, PREC const &y,
-                           PREC const &z) const
+                           PREC const &z,
+                            bool &double_face) const
 {
-    return BaseSphere::normalVec(_obj, x, y, z);
+    return BaseSphere::normalVec(_obj, x, y, z, double_face);
 }

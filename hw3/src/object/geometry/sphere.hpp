@@ -25,7 +25,8 @@ public:
                                       PREC const &z);
     PX_CUDA_CALLABLE
     static Direction normalVec(void * const &obj,
-                               PREC const &x, PREC const &y, PREC const &z);
+                               PREC const &x, PREC const &y, PREC const &z,
+                               bool &double_face);
 
     void setCenter(Point const &position);
     void setRadius(PREC const &r);
@@ -76,7 +77,8 @@ protected:
                                  PREC const &range_end,
                                  PREC &hit_at) const override;
     Direction normalVec(PREC const &x, PREC const &y,
-                        PREC const &z) const override;
+                        PREC const &z,
+                        bool &double_face) const override;
 
     Sphere(Point const &center,
            PREC const &radius,

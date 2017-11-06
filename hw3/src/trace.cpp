@@ -15,30 +15,18 @@ Light RayTrace::traceCpu(bool const &stop_flag,
     const BaseGeometry *obj = scene->geometries->hit(ray,
                                                      scene->hit_min_tol,
                                                      end_range, intersect);
-//    PREC t;
-//    const BaseGeometry *obj = nullptr, *tmp_obj;
-//
-//    for (const auto &g : scene->geometries)
-//    {
-//        tmp_obj = g->hit(ray, scene->hit_min_tol, end_range, t);
-//        if (tmp_obj == nullptr)
-//            continue;
-//
-//        end_range = t;
-//        obj = tmp_obj;
-//    }
     if (obj == nullptr)
         return scene->bg;
 
-    auto n = obj->normal(intersect); // norm vector at the hit point2ObjCoord
+    bool double_face;
+    auto n = obj->normal(intersect, double_face); // norm vector at the hit point2ObjCoord
     Ray I(intersect, {0, 0, 0});      // from hit point2ObjCoord to light source
-//    Direction h(0, 0, 0);             // half vector
-    Direction r(ray.direction-n*(2*ray.direction.dot(n)));     // reflect vector
-
+    Direction h;             // half vector
+//    Direction r;
     auto texture_coord = obj->textureCoord(intersect);
     auto diffuse = obj->material()->diffuse(texture_coord);
     auto specular = obj->material()->specular(texture_coord);
-    auto specular_exp = obj->material()->specularExp(texture_coord);
+    auto shininess = obj->material()->Shininess(texture_coord);
 
     PREC attenuate;
     auto L = ambientReflect(scene->ambient, obj->material()->ambient(texture_coord));
@@ -53,17 +41,8 @@ Light RayTrace::traceCpu(bool const &stop_flag,
             I.direction = light->dirFrom(intersect, attenuate);
             // attenuate represents distance from intersect point2ObjCoord to the light here
 
-//        h = I.direction - direction;
             if (attenuate > scene->hit_min_tol && scene->geometries->hit(I, scene->hit_min_tol, attenuate))
                 --shadow_hit;
-//            for (const auto &g : scene->geometries)
-//            {
-//                if (g->hit(I, scene->hit_min_tol, attenuate, t))
-//                {
-//                    --shadow_hit;
-//                    break;
-//                }
-//            }
         }
 
         if (shadow_hit == 0) // shadow_hit == 0 means that the pixel is completely in shadow.
@@ -75,12 +54,14 @@ Light RayTrace::traceCpu(bool const &stop_flag,
             continue;
 
         L += diffuseReflect(light->light(), diffuse,
-                            I.direction, n) * attenuate;
+                            I.direction, n, double_face) * attenuate;
 
+//        r = I.direction-n*(2*I.direction.dot(n));
+        h = I.direction - ray.direction;
         L += specularReflect(light->light(), specular,
-//                                 h, n, // Blinn Phong model
-                             I.direction, r, // Phong model
-                             specular_exp) * attenuate;
+                                 h, n, // Blinn Phong model
+//                             ray.direction, r, // Phong model
+                             shininess) * attenuate;
 
     }
 
@@ -132,7 +113,7 @@ Light RayTrace::traceCpu(bool const &stop_flag,
         {
             specular *= traceCpu(stop_flag,
                                  scene,
-                                 {intersect, r},
+                                 {intersect, ray.direction-n*(2*ray.direction.dot(n))},
                                  //specular,
                                  depth+1);
             L += specular;

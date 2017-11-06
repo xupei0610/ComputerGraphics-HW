@@ -13,9 +13,9 @@ bool BaseBVH::hitBox(Point const &vertex_min,
                           PREC const &t_start,
                           PREC const &t_end)
 {
-    if (ray.original.x > vertex_min.x && ray.original.x < vertex_max.x &&
-        ray.original.y > vertex_min.y && ray.original.y < vertex_max.y &&
-        ray.original.z > vertex_min.z && ray.original.z < vertex_max.z)
+    if (ray.original.x > vertex_min.x-DOUBLE_EPSILON && ray.original.x < vertex_max.x+DOUBLE_EPSILON &&
+        ray.original.y > vertex_min.y-DOUBLE_EPSILON && ray.original.y < vertex_max.y+DOUBLE_EPSILON &&
+        ray.original.z > vertex_min.z-DOUBLE_EPSILON && ray.original.z < vertex_max.z+DOUBLE_EPSILON)
         return true;
 
     auto tmin  = ((ray.direction.x < 0 ? vertex_max.x : vertex_min.x) - ray.original.x) / ray.direction.x;

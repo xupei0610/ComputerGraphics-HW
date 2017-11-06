@@ -43,23 +43,21 @@ struct TraceQueue
 };
 
 __device__
-Light reflect(Point const &intersect,
+Light reflect(Point const &intersect, Direction const &direction,
               Point const &texture_coord,
-              const GeometryObj *__restrict__ const &obj,
-              const Scene::Param *__restrict__ const &scene,
+              const GeometryObj * const &obj,
+              const Scene::Param * const &scene,
               curandState_t * const &state,
-              Direction const &n, Direction const &r);
+              Direction n, bool const &double_faces);
 __device__
 void recursive(Point const &intersect,
                TraceQueue::Node const &current,
                Point const &texture_coord,
                GeometryObj const &obj,
                Direction &n,
-               Direction const &r,
                TraceQueue &trace,
                Scene::Param const &scene);
 
 }}
-
 
 #endif

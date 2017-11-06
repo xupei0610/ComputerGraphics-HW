@@ -4,11 +4,11 @@ using namespace px;
 
 MaterialObj::MaterialObj(void * obj,
             fnAmbient_t const &fn_ambient, fnDiffuse_t const &fn_diffuse,
-            fnSpecular_t const &fn_specular, fnSpecularExp_t const &fn_specular_exp,
+            fnSpecular_t const &fn_specular, fnShininess_t const &fn_shininess,
             fnTransmissive_t const &fn_transmissive, fnRefractiveIndex_t const &fn_refractive_index)
         : obj(obj),
           fn_ambient(fn_ambient), fn_diffuse(fn_diffuse),
-          fn_specular(fn_specular), fn_specular_exp(fn_specular_exp),
+          fn_specular(fn_specular), fn_shininess(fn_shininess),
           fn_transmissive(fn_transmissive), fn_refractive_index(fn_refractive_index)
 {}
 

@@ -82,20 +82,6 @@ GeometryObj * BaseBoundBox::hitCheck(void * const &obj,
     return nullptr;
 }
 
-PX_CUDA_CALLABLE
-Direction BaseBoundBox::normalVec(void * const &obj,
-                                  PREC const &x, PREC const &y, PREC const &z)
-{
-    return {};
-}
-
-PX_CUDA_CALLABLE
-Vec3<PREC> BaseBoundBox::getTextureCoord(void * const &obj,
-                                         PREC const &x, PREC const &y, PREC const &z)
-{
-    return {};
-}
-
 BoundBox::BoundBox(std::shared_ptr<Transformation> const &trans)
         : BaseGeometry(nullptr, trans, 8),
           _gpu_obj(nullptr), _gpu_geos(nullptr), _need_upload(true)
@@ -110,8 +96,6 @@ BoundBox::~BoundBox()
 
 #ifdef USE_CUDA
 __device__ fnHit_t __fn_hit_bound_box = BaseBoundBox::hitCheck;
-__device__ fnNormal_t __fn_normal_bound_box = BaseBoundBox::normalVec;
-__device__ fnTextureCoord_t __fn_texture_coord_bound_box = BaseBoundBox::getTextureCoord;
 #endif
 void BoundBox::up2Gpu()
 {
@@ -130,8 +114,6 @@ void BoundBox::up2Gpu()
         if (fn_hit_h == nullptr)
         {
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_hit_h, __fn_hit_bound_box, sizeof(fnHit_t)));
-            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_normal_h, __fn_normal_bound_box, sizeof(fnNormal_t)));
-            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_texture_coord_h, __fn_texture_coord_bound_box, sizeof(fnTextureCoord_t)));
         }
 
         if (mat != nullptr)
@@ -281,12 +263,6 @@ void BoundBox::addObj(std::shared_ptr<BaseGeometry> const &obj)
 #endif
 }
 
-Vec3<PREC> BoundBox::getTextureCoord(PREC const &x,
-                                    PREC const &y,
-                                    PREC const &z) const
-{
-    return {};
-}
 const BaseGeometry *BoundBox::hitCheck(Ray const &ray,
                                       PREC const &t_start,
                                       PREC const &t_end,
@@ -310,9 +286,4 @@ const BaseGeometry *BoundBox::hitCheck(Ray const &ray,
         return obj;
     }
     return nullptr;
-}
-Direction BoundBox::normalVec(PREC const &x, PREC const &y,
-                             PREC const &z) const
-{
-    return {};
 }

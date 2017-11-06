@@ -25,8 +25,10 @@ GeometryObj *BasePlane::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BasePlane::normalVec(void * const &obj,
-                               PREC const &x, PREC const &y, PREC const &z)
+                               PREC const &x, PREC const &y, PREC const &z,
+                               bool &double_face)
 {
+    double_face = true;
     return reinterpret_cast<BasePlane*>(obj)->_norm;
 }
 
@@ -253,7 +255,8 @@ const BaseGeometry *Plane::hitCheck(Ray const &ray,
     return BasePlane::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
 }
 Direction Plane::normalVec(PREC const &x, PREC const &y,
-                              PREC const &z) const
+                              PREC const &z,
+                           bool &double_face) const
 {
-    return BasePlane::normalVec(_obj, x, y, z);
+    return BasePlane::normalVec(_obj, x, y, z, double_face);
 }

@@ -38,15 +38,18 @@ GeometryObj *BaseNormalTriangle::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BaseNormalTriangle::normalVec(void * const &obj,
-                                        PREC const &x, PREC const &y, PREC const &z)
+                                        PREC const &x, PREC const &y, PREC const &z,
+                                        bool &double_face)
 {
+    double_face = false;
     auto o = reinterpret_cast<BaseNormalTriangle*>(obj);
-    auto u = o->_cb.cross(Vec3<PREC>(x-o->_b.x, y-o->_b.y, z-o->_b.z)).norm()/o->_n_norm;
-    auto v = o->_ca.cross(Vec3<PREC>(o->_c.x-x, o->_c.y-y, o->_c.z-z)).norm()/o->_n_norm;
 
-    return {o->_na.x * u + o->_nb.x * v + o->_nc.x * (1 - u - v),
-            o->_na.y * u + o->_nc.y * v + o->_nc.y * (1 - u - v),
-            o->_na.z * u + o->_nb.z * v + o->_nc.z * (1 - u - v)};
+    auto u = o->_cb.cross(Vec3<PREC>(x-o->_b.x, y-o->_b.y, z-o->_b.z)).norm();
+    auto v = o->_ca.cross(Vec3<PREC>(o->_c.x-x, o->_c.y-y, o->_c.z-z)).norm();
+
+    return {o->_na.x * u + o->_nb.x * v + o->_nc.x * (o->_n_norm - (u + v)),
+            o->_na.y * u + o->_nb.y * v + o->_nc.y * (o->_n_norm - (u + v)),
+            o->_na.z * u + o->_nb.z * v + o->_nc.z * (o->_n_norm - (u + v))};
 }
 
 PX_CUDA_CALLABLE
@@ -56,12 +59,12 @@ Vec3<PREC> BaseNormalTriangle::getTextureCoord(void * const &obj,
 {
     auto o = reinterpret_cast<BaseNormalTriangle*>(obj);
 
-    auto u = o->_cb.cross(Vec3<PREC>(x-o->_b.x, y-o->_b.y, z-o->_b.z)).norm()/o->_n_norm;
-    auto v = o->_ca.cross(Vec3<PREC>(o->_c.x-x, o->_c.y-y, o->_c.z-z)).norm()/o->_n_norm;
+    auto u = o->_cb.cross(Vec3<PREC>(x-o->_b.x, y-o->_b.y, z-o->_b.z)).norm();
+    auto v = o->_ca.cross(Vec3<PREC>(o->_c.x-x, o->_c.y-y, o->_c.z-z)).norm();
 
-    Direction norm_vec(o->_na.x * u + o->_nb.x * v + o->_nc.x * (1 - u - v),
-                       o->_na.y * u + o->_nc.y * v + o->_nc.y * (1 - u - v),
-                       o->_na.z * u + o->_nb.z * v + o->_nc.z * (1 - u - v));
+    Direction norm_vec(o->_na.x * u + o->_nb.x * v + o->_nc.x * (o->_n_norm - (u + v)),
+                       o->_na.y * u + o->_nb.y * v + o->_nc.y * (o->_n_norm - (u + v)),
+                       o->_na.z * u + o->_nb.z * v + o->_nc.z * (o->_n_norm - (u + v)));
     return {x - o->_center.x,
             norm_vec.y*(z - o->_center.z) - norm_vec.z*(y - o->_center.y),
             (x - o->_center.x)*norm_vec.x + (y - o->_center.y)*norm_vec.y + (z - o->_center.z)*norm_vec.z};
@@ -227,7 +230,8 @@ const BaseGeometry * NormalTriangle::hitCheck(Ray const &ray,
 {
     return BaseNormalTriangle::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
 }
-Direction NormalTriangle::normalVec(PREC const &x, PREC const &y, PREC const &z) const
+Direction NormalTriangle::normalVec(PREC const &x, PREC const &y, PREC const &z,
+                                    bool &double_face) const
 {
-    return BaseNormalTriangle::normalVec(_obj, x, y, z);
+    return BaseNormalTriangle::normalVec(_obj, x, y, z, double_face);
 }

@@ -14,8 +14,8 @@
 namespace px
 {
 class GeometryObj;
-typedef GeometryObj * (*fnHit_t)(void * const &, Ray const &, PREC const &, PREC const &, PREC &);
-typedef Direction (*fnNormal_t)(void * const &, PREC const &, PREC const &, PREC const&);
+typedef GeometryObj * (*fnHit_t)(void * const &, Ray const &, PREC const &, PREC const&, PREC &);
+typedef Direction (*fnNormal_t)(void * const &, PREC const &, PREC const &, PREC const&, bool &);
 typedef Vec3<PREC> (*fnTextureCoord_t)(void * const &, PREC const &, PREC const &, PREC const&);
 
 
@@ -56,12 +56,13 @@ public:
     PX_CUDA_CALLABLE
     inline Direction normal(PREC const &x,
                             PREC const &y,
-                            PREC const &z)
+                            PREC const &z,
+                            bool &double_face)
     {
         if (trans == nullptr)
-            return fn_normal(obj, x, y, z);
+            return fn_normal(obj, x, y, z, double_face);
         auto p = trans->point2ObjCoord(x, y, z);
-        return trans->normal(fn_normal(obj, p.x, p.y, p.z));
+        return trans->normal(fn_normal(obj, p.x, p.y, p.z, double_face));
     }
     PX_CUDA_CALLABLE
     inline Vec3<PREC> textureCoord(PREC const &x,
@@ -74,9 +75,9 @@ public:
         return fn_texture_coord(obj, p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
-    inline Direction normal(Point const &p)
+    inline Direction normal(Point const &p, bool &double_face)
     {
-        return normal(p.x, p.y, p.z);
+        return normal(p.x, p.y, p.z, double_face);
     }
     PX_CUDA_CALLABLE
     inline Vec3<PREC> textureCoord(Point const &p)
@@ -130,12 +131,13 @@ public:
     }
     inline Direction normal(PREC const &x,
                      PREC const &y,
-                     PREC const &z) const
+                     PREC const &z,
+                            bool &double_face) const
     {
         if (trans == nullptr)
-            return normalVec(x, y, z);
+            return normalVec(x, y, z, double_face);
         auto p = trans->point2ObjCoord(x, y, z);
-        return trans->normal(normalVec(p.x, p.y, p.z));
+        return trans->normal(normalVec(p.x, p.y, p.z, double_face));
     }
 
     inline Vec3<PREC> textureCoord(PREC const &x, PREC const &y, PREC const &z) const
@@ -146,9 +148,9 @@ public:
         return getTextureCoord(p.x, p.y, p.z);
     }
 
-    inline Direction normal(Point const &p) const
+    inline Direction normal(Point const &p, bool &double_face) const
     {
-        return normal(p.x, p.y, p.z);
+        return normal(p.x, p.y, p.z, double_face);
     }
     inline Vec3<PREC> textureCoord(Point const &p) const
     {
@@ -176,8 +178,10 @@ protected:
                                           PREC const &range_start,
                                           PREC const &range_end,
                                           PREC &hit_at) const = 0;
-    virtual Direction normalVec(PREC const &x, PREC const &y,
-                                PREC const &z) const = 0;
+    virtual Direction normalVec(PREC const &x,
+                                PREC const &y,
+                                PREC const &z,
+                                bool &double_face) const = 0;
 
     BaseGeometry(std::shared_ptr<BaseMaterial> const &material,
                  std::shared_ptr<Transformation> const &trans,

@@ -25,7 +25,8 @@ public:
                                       PREC const &z);
     PX_CUDA_CALLABLE
     static Direction normalVec(void * const &obj,
-                               PREC const &x, PREC const &y, PREC const &z);
+                               PREC const &x, PREC const &y, PREC const &z,
+                               bool &double_face);
 
     void setVertices(Point const &a,
                      Point const &b,
@@ -36,6 +37,7 @@ protected:
     Point _a;
     Point _center;
     Direction _norm;
+    Direction _neg_norm;
     Vec3<PREC> _ba;
 //    Vec3<PREC> _cb;
     Vec3<PREC> _ca;
@@ -86,7 +88,8 @@ protected:
                                           PREC const &range_end,
                                           PREC &hit_at) const override;
     Direction normalVec(PREC const &x, PREC const &y,
-                                PREC const &z) const override;
+                                PREC const &z,
+                        bool &double_face) const override;
 
     Triangle(Point const &a,
              Point const &b,

@@ -14,7 +14,7 @@ class px::BaseCheckerboardMaterial
 public:
 
     PX_CUDA_CALLABLE
-    static int getSpecularExp(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
+    static PREC getShininess(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
     PX_CUDA_CALLABLE
     static PREC getRefractiveIndex(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
     PX_CUDA_CALLABLE
@@ -29,7 +29,7 @@ public:
     void setAmbient(Light const &ambient);
     void setDiffuse(Light const &diffuse);
     void setSpecular(Light const &specular);
-    void setSpecularExp(int const &specular_exp);
+    void setShininess(PREC const &shininess);
     void setTransmissive(Light const &transmissive);
     void setRefractiveIndex(PREC const &ior);
     void setDimScale(PREC const &s);
@@ -39,7 +39,7 @@ protected:
     Light _ambient;
     Light _diffuse;
     Light _specular;
-    int _specular_exponent;
+    PREC _shininessonent;
     Light _transmissive;
     PREC _refractive_index;
 
@@ -49,7 +49,7 @@ protected:
     BaseCheckerboardMaterial(Light const &ambient,
                       Light const &diffuse,
                       Light const &specular,
-                      int const &specular_exponent,
+                      PREC const &shininessonent,
                       Light const &transmissive,
                       PREC const &refractive_index,
                       PREC const &dim_scale,
@@ -71,7 +71,7 @@ public:
     static std::shared_ptr<BaseMaterial> create(Light const &ambient,
                                             Light const &diffuse,
                                             Light const &specular,
-                                            int const &specular_exponent,
+                                            PREC const &shininessonent,
                                             Light const &transmissive,
                                             PREC const &refractive_index,
                                             PREC const &dim_scale,
@@ -79,13 +79,13 @@ public:
     void up2Gpu() override;
     void clearGpuData() override ;
 
-    int specularExp(PREC const &u, PREC const &v, PREC const &w) const override;
+    PREC Shininess(PREC const &u, PREC const &v, PREC const &w) const override;
     PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const override;
 
     void setAmbient(Light const &ambient);
     void setDiffuse(Light const &diffuse);
     void setSpecular(Light const &specular);
-    void setSpecularExp(int const &specular_exp);
+    void setShininess(PREC const &shininess);
     void setTransmissive(Light const &transmissive);
     void setRefractiveIndex(PREC const &ior);
     void setDimScale(PREC const &s);
@@ -106,7 +106,7 @@ protected:
     CheckerboardMaterial(Light const &ambient,
                          Light const &diffuse,
                          Light const &specular,
-                         int const &specular_exponent,
+                         PREC const &shininessonent,
                          Light const &transmissive,
                          PREC const &refractive_index,
                          PREC const &dim_scale,

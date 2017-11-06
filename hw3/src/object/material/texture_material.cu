@@ -239,14 +239,14 @@ void Texture::setScale(PREC const &scale_u, PREC const &scale_v)
 BaseTextureMaterial::BaseTextureMaterial(Light const &ambient,
                                          Light const &diffuse,
                                          Light const &specular,
-                                         int const &specular_exponent,
+                                         PREC const &shininessonent,
                                          Light const &transmissive,
                                          PREC const &refractive_index,
                                          const Texture *const & texture)
         : _ambient(ambient),
           _diffuse(diffuse),
           _specular(specular),
-          _specular_exponent(specular_exponent),
+          _shininessonent(shininessonent),
           _transmissive(transmissive),
           _refractive_index(refractive_index),
           _texture(texture->obj())
@@ -273,9 +273,9 @@ Light BaseTextureMaterial::getSpecular(void *const &obj, PREC const &u, PREC con
 }
 
 PX_CUDA_CALLABLE
-int BaseTextureMaterial::getSpecularExp(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
+PREC BaseTextureMaterial::getShininess(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return reinterpret_cast<BaseTextureMaterial*>(obj)->_specular_exponent;
+    return reinterpret_cast<BaseTextureMaterial*>(obj)->_shininessonent;
 }
 
 PX_CUDA_CALLABLE
@@ -303,9 +303,9 @@ void BaseTextureMaterial::setSpecular(Light const &specular)
 {
     _specular = specular;
 }
-void BaseTextureMaterial::setSpecularExp(int const &specular_exp)
+void BaseTextureMaterial::setShininess(PREC const &shininess)
 {
-    _specular_exponent = specular_exp;
+    _shininessonent = shininess;
 }
 void BaseTextureMaterial::setTransmissive(Light const &transmissive)
 {
@@ -323,7 +323,7 @@ void BaseTextureMaterial::setTexture(const Texture * const &texture)
 std::shared_ptr<BaseMaterial> TextureMaterial::create(Light const &ambient,
                                                   Light const &diffuse,
                                                   Light const &specular,
-                                                  int const &specular_exponent,
+                                                  PREC const &shininessonent,
                                                   Light const &transmissive,
                                                   PREC const &refractive_index,
                                                   std::shared_ptr<Texture> const & texture)
@@ -331,7 +331,7 @@ std::shared_ptr<BaseMaterial> TextureMaterial::create(Light const &ambient,
     return std::shared_ptr<BaseMaterial>(new TextureMaterial(ambient,
                                                          diffuse,
                                                          specular,
-                                                         specular_exponent,
+                                                         shininessonent,
                                                          transmissive,
                                                          refractive_index,
                                                          texture));
@@ -340,14 +340,14 @@ std::shared_ptr<BaseMaterial> TextureMaterial::create(Light const &ambient,
 TextureMaterial::TextureMaterial(Light const &ambient,
                                  Light const &diffuse,
                                  Light const &specular,
-                                 int const &specular_exponent,
+                                 PREC const &shininessonent,
                                  Light const &transmissive,
                                  PREC const &refractive_index,
                                  std::shared_ptr<Texture> const & texture)
         : BaseMaterial(),
           _texture(texture),
           _obj(new BaseTextureMaterial(ambient, diffuse,
-                                       specular, specular_exponent,
+                                       specular, shininessonent,
                                        transmissive, refractive_index, texture.get())),
 
           _gpu_obj(nullptr),
@@ -366,7 +366,7 @@ TextureMaterial::~TextureMaterial()
 __device__ fnAmbient_t __fn_ambient_texture_material = BaseTextureMaterial::getAmbient;
 __device__ fnDiffuse_t __fn_diffuse_texture_material = BaseTextureMaterial::getDiffuse;
 __device__ fnSpecular_t __fn_specular_texture_material = BaseTextureMaterial::getSpecular;
-__device__ fnSpecularExp_t __fn_specular_exp_texture_material = BaseTextureMaterial::getSpecularExp;
+__device__ fnShininess_t __fn_shininess_texture_material = BaseTextureMaterial::getShininess;
 __device__ fnTransmissive_t __fn_transmissive_texture_material = BaseTextureMaterial::getTransmissive;
 __device__ fnRefractiveIndex_t __fn_refractive_index_texture_material = BaseTextureMaterial::getRefractiveIndex;
 #endif
@@ -377,7 +377,7 @@ void TextureMaterial::up2Gpu()
     static fnAmbient_t fn_ambient_h = nullptr;
     static fnDiffuse_t fn_diffuse_h;
     static fnSpecular_t fn_specular_h;
-    static fnSpecularExp_t fn_specular_exp_h;
+    static fnShininess_t fn_shininess_h;
     static fnTransmissive_t fn_transmissive_h;
     static fnRefractiveIndex_t fn_refractive_index_h;
 
@@ -393,7 +393,7 @@ void TextureMaterial::up2Gpu()
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_ambient_h, __fn_ambient_texture_material, sizeof(fnAmbient_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_diffuse_h, __fn_diffuse_texture_material, sizeof(fnDiffuse_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_h, __fn_specular_texture_material, sizeof(fnSpecular_t)));
-            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_exp_h, __fn_specular_exp_texture_material, sizeof(fnSpecularExp_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_shininess_h, __fn_shininess_texture_material, sizeof(fnShininess_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_transmissive_h, __fn_transmissive_texture_material, sizeof(fnTransmissive_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_refractive_index_h, __fn_refractive_index_texture_material, sizeof(fnRefractiveIndex_t)));
         }
@@ -406,7 +406,7 @@ void TextureMaterial::up2Gpu()
                                  cudaMemcpyHostToDevice));
         MaterialObj tmp(_gpu_obj,
                         fn_ambient_h, fn_diffuse_h,
-                        fn_specular_h, fn_specular_exp_h,
+                        fn_specular_h, fn_shininess_h,
                         fn_transmissive_h, fn_refractive_index_h);
 
         PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(MaterialObj),
@@ -432,9 +432,9 @@ void TextureMaterial::clearGpuData()
 #endif
 }
 
-int TextureMaterial::specularExp(PREC const &u, PREC const &v, PREC const &w) const
+PREC TextureMaterial::Shininess(PREC const &u, PREC const &v, PREC const &w) const
 {
-    return BaseTextureMaterial::getSpecularExp(_obj, u, v, w);
+    return BaseTextureMaterial::getShininess(_obj, u, v, w);
 }
 PREC TextureMaterial::refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const
 {
@@ -478,9 +478,9 @@ void TextureMaterial::setSpecular(Light const &specular)
     _need_upload = true;
 #endif
 }
-void TextureMaterial::setSpecularExp(int const &specular_exp)
+void TextureMaterial::setShininess(PREC const &shininess)
 {
-    _obj->setSpecularExp(specular_exp);
+    _obj->setShininess(shininess);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

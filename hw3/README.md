@@ -99,7 +99,7 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
 
   Grammar:
 
-    checkerboard_material ambient_r ambient_g ambient_b diffuse_r diffuse_g diffuse_b specular_r specular_g specular_b specular_exp trans_r trans_g trans_b ior scale dark_color_scale
+    checkerboard_material ambient_r ambient_g ambient_b diffuse_r diffuse_g diffuse_b specular_r specular_g specular_b shininess trans_r trans_g trans_b ior scale dark_color_scale
     
     brick_material a_r a_g a_b d_r d_g d_b s_r s_g s_b s_exp t_r t_g t_b ior a_r_edge a_g_edge a_b_edge d_r_edge d_g_edge d_b_edge s_r_edge s_g_edge s_b_edge s_exp_edge t_r_edge t_g_edge t_b_edge ior_edge scale edge_width edge_height
     
@@ -196,15 +196,23 @@ This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 1
 
 #### Other Interesting Demos
 
-  <img src="./doc/arm-top.bmp" />
+  <img src="./doc/dragon.bmp" />
+
+  <img src="./doc/dragon_front.bmp" />
 
   <img src="./doc/watch.bmp" />
 
   <img src="./doc/watch2.bmp" />
 
-  <img src="./doc/dragon.bmp" />
+  <img src="./doc/arm-top.bmp" />
 
-  <img src="./doc/dragon_front.bmp" />
+  <img src="./doc/arm.bmp" />
+
+  <img src="./doc/teapot.bmp" />
+
+  <img src="./doc/knot.bmp" />
+
+  <img src="./doc/ball_in_ball.bmp" />
 
 ### Performance Comparsion
 

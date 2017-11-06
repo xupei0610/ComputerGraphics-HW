@@ -19,11 +19,16 @@ PX_CUDA_CALLABLE
 inline
 Light diffuseReflect(Light const &light,
                  Light const &material,
-                 Direction const &to_light_vec,
-                 Direction const &norm_vec)
+                 Direction const &to_light_dir,
+                 Direction const &norm_vec, bool const &double_face)
 {
-    auto cosine = to_light_vec.dot(norm_vec);
-    if (cosine < 0) cosine *= -1;
+    auto cosine = to_light_dir.dot(norm_vec);
+    if (cosine < 0)
+    {
+        if (double_face) cosine *= -1;
+        else
+            return {0, 0, 0};
+    }
     return light * material * cosine;
 }
 
@@ -31,27 +36,14 @@ PX_CUDA_CALLABLE
 inline
 Light specularReflect(Light const &light,
                       Light const &material,
-                      Direction const &to_light_vec,
-                      Direction const &reflect_vec,
-                      int const &specular_exponent)
+                      Direction const &to_camera_dir,
+                      Direction const &reflect_dir,
+                      PREC const &shininessonent)
 {
-    auto f = to_light_vec.dot(reflect_vec);
+    auto f = to_camera_dir.dot(reflect_dir);
     if (f < 0) return {0, 0, 0};
-    return light * material * std::pow(f, specular_exponent);
+    return light * material * std::pow(f, shininessonent);
 }
-PX_CUDA_CALLABLE
-inline
-PREC specularReflect(PREC const &light,
-                     PREC const &material,
-                     Direction const &to_light_vec,
-                     Direction const &reflect_vec,
-                     int const &specular_exponent)
-{
-    auto f = to_light_vec.dot(reflect_vec);
-    if (f < 0) return 0;
-    return light * material * std::pow(f, specular_exponent);
-}
-
 
 Light traceCpu(bool const &stop_flag,
                const Scene *const &scene,

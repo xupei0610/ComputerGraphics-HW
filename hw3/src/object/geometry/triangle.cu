@@ -49,8 +49,10 @@ GeometryObj *BaseTriangle::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BaseTriangle::normalVec(void * const &obj,
-                                  PREC const &x, PREC const &y, PREC const &z)
+                                  PREC const &x, PREC const &y, PREC const &z,
+                                  bool &double_face)
 {
+    double_face = true;
     return reinterpret_cast<BaseTriangle*>(obj)->_norm;
 }
 
@@ -84,12 +86,13 @@ void BaseTriangle::setVertices(Point const &a, Point const &b, Point const &c)
     _ca = c - a;
 
     _norm = _ba.cross(_ca);
+    _neg_norm = _norm * -1;
 
 //    _v1_dot_n = a.dot(_norm);
 
     _center = a;
     _center += b;
-    _center += b;
+    _center += c;
     _center /= 3.0;
 }
 
@@ -222,7 +225,8 @@ const BaseGeometry * Triangle::hitCheck(Ray const &ray,
 }
 
 Direction Triangle::normalVec(PREC const &x, PREC const &y,
-                              PREC const &z) const
+                              PREC const &z,
+                              bool &double_face) const
 {
-    return BaseTriangle::normalVec(_obj, x, y, z);
+    return BaseTriangle::normalVec(_obj, x, y, z, double_face);
 }

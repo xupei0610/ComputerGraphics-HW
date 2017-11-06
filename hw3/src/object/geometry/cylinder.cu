@@ -121,8 +121,10 @@ GeometryObj *BaseCylinder::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BaseCylinder::normalVec(void * const &obj,
-                                  PREC const &x, PREC const &y, PREC const &z)
+                                  PREC const &x, PREC const &y, PREC const &z,
+                                  bool &double_face)
 {
+    double_face = false;
     auto o = reinterpret_cast<BaseCylinder*>(obj);
 
     if (std::abs(z - o->_z0) < EPSILON)
@@ -324,8 +326,10 @@ const BaseGeometry *Cylinder::hitCheck(Ray const &ray,
 {
     return BaseCylinder::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
 }
-Direction Cylinder::normalVec(PREC const &x, PREC const &y,
-                           PREC const &z) const
+Direction Cylinder::normalVec(PREC const &x,
+                              PREC const &y,
+                              PREC const &z,
+                              bool &double_face) const
 {
-    return BaseCylinder::normalVec(_obj, x, y, z);
+    return BaseCylinder::normalVec(_obj, x, y, z, double_face);
 }

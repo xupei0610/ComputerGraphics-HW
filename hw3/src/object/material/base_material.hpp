@@ -15,7 +15,7 @@ typedef Light (*fnAmbient_t)(void * const &, PREC const &, PREC const &, PREC co
 typedef fnAmbient_t fnDiffuse_t;
 typedef fnAmbient_t fnSpecular_t;
 typedef fnAmbient_t fnTransmissive_t;
-typedef int (*fnSpecularExp_t)(void * const &, PREC const &, PREC const &, PREC const &);
+typedef PREC (*fnShininess_t)(void * const &, PREC const &, PREC const &, PREC const &);
 typedef PREC (*fnRefractiveIndex_t)(void * const &, PREC const &, PREC const &, PREC const &);
 
 class BaseMaterial;
@@ -36,7 +36,7 @@ protected:
     fnAmbient_t fn_ambient;
     fnDiffuse_t fn_diffuse;
     fnSpecular_t fn_specular;
-    fnSpecularExp_t fn_specular_exp;
+    fnShininess_t fn_shininess;
     fnTransmissive_t fn_transmissive;
     fnRefractiveIndex_t fn_refractive_index;
 
@@ -62,9 +62,9 @@ public:
         return fn_transmissive(obj, u, v, w);
     }
     PX_CUDA_CALLABLE
-    inline int specularExp(PREC const &u, PREC const &v, PREC const &w)
+    inline PREC Shininess(PREC const &u, PREC const &v, PREC const &w)
     {
-        return fn_specular_exp(obj, u, v, w);
+        return fn_shininess(obj, u, v, w);
     }
     PX_CUDA_CALLABLE
     inline PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w)
@@ -92,9 +92,9 @@ public:
         return fn_transmissive(obj, p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
-    inline int specularExp(Point const &p)
+    inline PREC Shininess(Point const &p)
     {
-        return fn_specular_exp(obj, p.x, p.y, p.z);
+        return fn_shininess(obj, p.x, p.y, p.z);
     }
     PX_CUDA_CALLABLE
     inline PREC refractiveIndex(Point const &p)
@@ -104,7 +104,7 @@ public:
 
     MaterialObj(void * obj,
                 fnAmbient_t const &fn_ambient, fnDiffuse_t const &fn_diffuse,
-                fnSpecular_t const &fn_specular, fnSpecularExp_t const &fn_specular_exp,
+                fnSpecular_t const &fn_specular, fnShininess_t const &fn_shininess,
                 fnTransmissive_t const &fn_transmissive, fnRefractiveIndex_t const &fn_refractive_index);
     ~MaterialObj() = default;
 
@@ -122,7 +122,7 @@ public:
     virtual void up2Gpu() = 0;
     virtual void clearGpuData();
 
-    virtual int specularExp(PREC const &u, PREC const &v, PREC const &w) const = 0;
+    virtual PREC Shininess(PREC const &u, PREC const &v, PREC const &w) const = 0;
     virtual PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const = 0;
 
     inline Light ambient(PREC const &u, PREC const &v, PREC const &w) const
@@ -161,9 +161,9 @@ public:
         return transmissive(p.x, p.y, p.z);
     }
 
-    inline int specularExp(Point const &p) const
+    inline PREC Shininess(Point const &p) const
     {
-        return specularExp(p.x, p.y, p.z);
+        return Shininess(p.x, p.y, p.z);
     }
 
     inline PREC refractiveIndex(Point const &p) const

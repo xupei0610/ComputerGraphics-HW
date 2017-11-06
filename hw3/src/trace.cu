@@ -1,3 +1,4 @@
+#include <cassert>
 #include "trace.cuh"
 
 using namespace px;
@@ -33,24 +34,25 @@ RayTrace::TraceQueue::prepend(Point const &ray_o, Direction const &ray_d,
 }
 
 __device__
-Light RayTrace::reflect(Point const &intersect,
-                                Point const &texture_coord,
-                                const GeometryObj *__restrict__ const &obj,
-                                const Scene::Param *__restrict__ const &scene,
-                                curandState_t *const &state,
-                                Direction const &n, Direction const &r)
+Light RayTrace::reflect(Point const &intersect, Direction const &direction,
+                        Point const &texture_coord,
+                        const GeometryObj *const &obj,
+                        const Scene::Param *const &scene,
+                        curandState_t *const &state,
+                        Direction n, bool const &double_face)
 {
     Ray I(intersect, {0, 0, 0});      // from hit point2ObjCoord to light source
-//    Direction h(0, 0, 0);             // half vector
+    Direction h;             // half vector
+//    Direction r;
 
     auto diffuse = obj->material()->diffuse(texture_coord);
     auto specular = obj->material()->specular(texture_coord);
-    auto specular_exp = obj->material()->specularExp(texture_coord);
+    auto shininess = obj->material()->Shininess(texture_coord);
 
     auto L = ambientReflect(scene->ambient,
                             obj->material()->ambient(texture_coord));
 
-    PREC dist, t;
+    PREC dist;
     for (auto j = 0; j < scene->n_lights; ++j)
     {
 // soft shadow for area light
@@ -60,33 +62,27 @@ Light RayTrace::reflect(Point const &intersect,
 
         for (auto k = 0; k < sampling; ++k)
         {
-            I.direction = scene->lights[j]->dirFrom(I.original, dist, state);
+            I.direction = scene->lights[j]->dirFrom(intersect, dist, state);
 
-//        h = I.direction - direction;
-            if (dist > scene->hit_min_tol && scene->geometries->hit(I, scene->hit_min_tol, dist))
+            if (scene->geometries->hit(I, scene->hit_min_tol, dist))
                 --shadow_hit;
         }
 
-        if (shadow_hit ==
-            0) // shadow_hit == 0 means that the pixel is completely in shadow.
+        if (shadow_hit == 0) // shadow_hit == 0 means that the pixel is completely in shadow.
             continue;
 
         dist = scene->lights[j]->attenuate(intersect) * shadow_hit / sampling;
-        if (dist == 0)
-            continue;
 
-        if (dist < FLT_MAX)
-        {
-            L += diffuseReflect(scene->lights[j]->light, diffuse,
-                                I.direction, n) * dist;
+        L += diffuseReflect(scene->lights[j]->light, diffuse,
+                                I.direction, n, double_face) * dist;
 
-            L += specularReflect(scene->lights[j]->light, specular,
-//                                 h, n, // Blinn Phong model
-                                 I.direction, r, // Phong model
-                                 specular_exp) * dist;
-        }
-        else
-            L = Light(1, 1, 1);
+//        r = I.direction - n*(2*I.direction.dot(n)); // both r and d here are negative
+
+        h = I.direction - direction;
+        L += specularReflect(scene->lights[j]->light, specular,
+                             h, n, // Blinn Phong model
+//                                 direction, r, // Phong model
+                             shininess) * dist;
     }
     return L;
 }
@@ -97,7 +93,6 @@ void RayTrace::recursive(Point const &intersect,
                              Point const &texture_coord,
                              GeometryObj const &obj,
                              Direction &n,
-                             Direction const &r,
                              TraceQueue &trace,
                              Scene::Param const &scene)
 {
@@ -142,7 +137,7 @@ void RayTrace::recursive(Point const &intersect,
         ref.z = 0;
     if (ref.x != 0 || ref.y != 0 || ref.z != 0)
     {
-        trace.prepend(intersect, r,
+        trace.prepend(intersect, current.ray.direction-n*(2*current.ray.direction.dot(n)),
                       ref, current.depth + 1);
     }
 }

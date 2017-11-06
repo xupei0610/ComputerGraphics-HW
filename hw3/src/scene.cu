@@ -39,6 +39,11 @@ void rayCast(const bool *stop,
 
     int index;
     Light tmp_l;
+    Direction n, r;
+    bool double_face;
+    Point intersect;
+    Vec3<PREC> texture_coord;
+    GeometryObj *obj;
     curandState_t state;
     curand_init(clock()+tid, 0, 0, &state);
     RayTrace::TraceQueue tr(node + (tid)* n_nodes, n_nodes);
@@ -87,11 +92,10 @@ void rayCast(const bool *stop,
 
         do
         {
-            Point intersect;
-            auto obj = scene_param->geometries->hit(current.ray,
-                                                    scene_param->hit_min_tol,
-                                                    scene_param->hit_max_tol,
-                                                    intersect);
+            obj = scene_param->geometries->hit(current.ray,
+                                               scene_param->hit_min_tol,
+                                               scene_param->hit_max_tol,
+                                               intersect);
 
             if (obj == nullptr)
             {
@@ -99,19 +103,22 @@ void rayCast(const bool *stop,
             }
             else
             {
-                auto texture_coord = obj->textureCoord(intersect);
+                texture_coord = obj->textureCoord(intersect);
 
-                Direction n(obj->normal(intersect));
-                Direction r(current.ray.direction-n*(2*current.ray.direction.dot(n)));
+                n = obj->normal(intersect, double_face);
 
-                tmp_l += RayTrace::reflect(intersect, texture_coord,
+                tmp_l += RayTrace::reflect(intersect, current.ray.direction,
+                                           texture_coord,
                                            obj, scene_param, &state,
-                                           n, r) * current.coef;
+                                           n, double_face) * current.coef;
                 if (current.depth < scene_param->recursion_depth)
+                {
+                    r = current.ray.direction-n*(2*current.ray.direction.dot(n));
                     RayTrace::recursive(intersect, current,
                                         texture_coord, *obj,
-                                        n, r,
+                                        n,
                                         tr, *scene_param);
+                }
             }
 
             if (tr.n > 0)
@@ -125,10 +132,12 @@ void rayCast(const bool *stop,
 
         lights[i] += tmp_l;
     }
+
+    __syncthreads();
 }
 
-__global__ void toColor(Light * __restrict__ input,
-                        Scene::Color *  __restrict__ output,
+__global__ void toColor(Light *input,
+                        Scene::Color *output,
                         int dim,
                         PREC weight)
 {

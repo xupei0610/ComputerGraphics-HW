@@ -5,7 +5,7 @@ using namespace px;
 BaseCheckerboardMaterial::BaseCheckerboardMaterial(Light const &ambient,
                                                    Light const &diffuse,
                                                    Light const &specular,
-                                                   int const &specular_exponent,
+                                                   PREC const &shininessonent,
                                                    Light const &transmissive,
                                                    PREC const &refractive_index,
                                                    PREC const &dim_scale,
@@ -13,7 +13,7 @@ BaseCheckerboardMaterial::BaseCheckerboardMaterial(Light const &ambient,
         : _ambient(ambient),
           _diffuse(diffuse),
           _specular(specular),
-          _specular_exponent(specular_exponent),
+          _shininessonent(shininessonent),
           _transmissive(transmissive),
           _refractive_index(refractive_index),
           _dim_scale(dim_scale),
@@ -51,9 +51,9 @@ Light BaseCheckerboardMaterial::getSpecular(void *const &obj, PREC const &u, PRE
 }
 
 PX_CUDA_CALLABLE
-int BaseCheckerboardMaterial::getSpecularExp(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
+PREC BaseCheckerboardMaterial::getShininess(void *const &obj, PREC const &u, PREC const &v, PREC const &w)
 {
-    return reinterpret_cast<BaseCheckerboardMaterial*>(obj)->_specular_exponent;
+    return reinterpret_cast<BaseCheckerboardMaterial*>(obj)->_shininessonent;
 }
 
 PX_CUDA_CALLABLE
@@ -80,9 +80,9 @@ void BaseCheckerboardMaterial::setSpecular(Light const &specular)
 {
     _specular = specular;
 }
-void BaseCheckerboardMaterial::setSpecularExp(int const &specular_exp)
+void BaseCheckerboardMaterial::setShininess(PREC const &shininess)
 {
-    _specular_exponent = specular_exp;
+    _shininessonent = shininess;
 }
 void BaseCheckerboardMaterial::setTransmissive(Light const &transmissive)
 {
@@ -104,7 +104,7 @@ void BaseCheckerboardMaterial::setColorScale(PREC const &scale)
 std::shared_ptr<BaseMaterial> CheckerboardMaterial::create(Light const &ambient,
                                                        Light const &diffuse,
                                                        Light const &specular,
-                                                       int const &specular_exponent,
+                                                       PREC const &shininessonent,
                                                        Light const &transmissive,
                                                        PREC const &refractive_index,
                                                        PREC const &dim_scale,
@@ -113,7 +113,7 @@ std::shared_ptr<BaseMaterial> CheckerboardMaterial::create(Light const &ambient,
     return std::shared_ptr<BaseMaterial>(new CheckerboardMaterial(ambient,
                                                        diffuse,
                                                        specular,
-                                                       specular_exponent,
+                                                       shininessonent,
                                                        transmissive,
                                                        refractive_index,
                                                              dim_scale, color_scale));
@@ -122,14 +122,14 @@ std::shared_ptr<BaseMaterial> CheckerboardMaterial::create(Light const &ambient,
 CheckerboardMaterial::CheckerboardMaterial(Light const &ambient,
                                            Light const &diffuse,
                                            Light const &specular,
-                                           int const &specular_exponent,
+                                           PREC const &shininessonent,
                                            Light const &transmissive,
                                            PREC const &refractive_index,
                                            PREC const &dim_scale,
                                            PREC const &color_scale)
         : BaseMaterial(),
           _obj(new BaseCheckerboardMaterial(ambient, diffuse,
-                                     specular, specular_exponent,
+                                     specular, shininessonent,
                                      transmissive, refractive_index,
                                             dim_scale, color_scale)),
           _gpu_obj(nullptr),
@@ -148,7 +148,7 @@ CheckerboardMaterial::~CheckerboardMaterial()
 __device__ fnAmbient_t __fn_ambient_checkerboard_material = BaseCheckerboardMaterial::getAmbient;
 __device__ fnDiffuse_t __fn_diffuse_checkerboard_material = BaseCheckerboardMaterial::getDiffuse;
 __device__ fnSpecular_t __fn_specular_checkerboard_material = BaseCheckerboardMaterial::getSpecular;
-__device__ fnSpecularExp_t __fn_specular_exp_checkerboard_material = BaseCheckerboardMaterial::getSpecularExp;
+__device__ fnShininess_t __fn_shininess_checkerboard_material = BaseCheckerboardMaterial::getShininess;
 __device__ fnTransmissive_t __fn_transmissive_checkerboard_material = BaseCheckerboardMaterial::getTransmissive;
 __device__ fnRefractiveIndex_t __fn_refractive_index_checkerboard_material = BaseCheckerboardMaterial::getRefractiveIndex;
 #endif
@@ -159,7 +159,7 @@ void CheckerboardMaterial::up2Gpu()
     static fnAmbient_t fn_ambient_h = nullptr;
     static fnDiffuse_t fn_diffuse_h;
     static fnSpecular_t fn_specular_h;
-    static fnSpecularExp_t fn_specular_exp_h;
+    static fnShininess_t fn_shininess_h;
     static fnTransmissive_t fn_transmissive_h;
     static fnRefractiveIndex_t fn_refractive_index_h;
 
@@ -175,7 +175,7 @@ void CheckerboardMaterial::up2Gpu()
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_ambient_h, __fn_ambient_checkerboard_material, sizeof(fnAmbient_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_diffuse_h, __fn_diffuse_checkerboard_material, sizeof(fnDiffuse_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_h, __fn_specular_checkerboard_material, sizeof(fnSpecular_t)));
-            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_specular_exp_h, __fn_specular_exp_checkerboard_material, sizeof(fnSpecularExp_t)));
+            PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_shininess_h, __fn_shininess_checkerboard_material, sizeof(fnShininess_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_transmissive_h, __fn_transmissive_checkerboard_material, sizeof(fnTransmissive_t)));
             PX_CUDA_CHECK(cudaMemcpyFromSymbol(&fn_refractive_index_h, __fn_refractive_index_checkerboard_material, sizeof(fnRefractiveIndex_t)));
         }
@@ -183,7 +183,7 @@ void CheckerboardMaterial::up2Gpu()
                                  cudaMemcpyHostToDevice));
         MaterialObj tmp(_gpu_obj,
                         fn_ambient_h, fn_diffuse_h,
-                        fn_specular_h, fn_specular_exp_h,
+                        fn_specular_h, fn_shininess_h,
                         fn_transmissive_h, fn_refractive_index_h);
 
         PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(MaterialObj),
@@ -205,9 +205,10 @@ void CheckerboardMaterial::clearGpuData()
 #endif
 }
 
-int CheckerboardMaterial::specularExp(PREC const &u, PREC const &v, PREC const &w) const
+PREC CheckerboardMaterial::Shininess(PREC const &u, PREC const &v,
+                                        PREC const &w) const
 {
-    return BaseCheckerboardMaterial::getSpecularExp(_obj, u, v, w);
+    return BaseCheckerboardMaterial::getShininess(_obj, u, v, w);
 }
 PREC CheckerboardMaterial::refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const
 {
@@ -251,9 +252,9 @@ void CheckerboardMaterial::setSpecular(Light const &specular)
     _need_upload = true;
 #endif
 }
-void CheckerboardMaterial::setSpecularExp(int const &specular_exp)
+void CheckerboardMaterial::setShininess(PREC const &shininess)
 {
-    _obj->setSpecularExp(specular_exp);
+    _obj->setShininess(shininess);
 #ifdef USE_CUDA
     _need_upload = true;
 #endif

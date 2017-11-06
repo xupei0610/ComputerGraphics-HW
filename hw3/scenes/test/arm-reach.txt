@@ -9491,6 +9491,7 @@ normal 0.408456 0.906851 0.103846
 
 # Material type -- initialShadingGroup
 material 0.6 0.5 0.5 0.5 0.4 0.4 .01 .01 .01 4 0 0 0 1.0
+
 normal_triangle 13 1213 1217 0 1 2
 normal_triangle 1217 1216 13 2 3 0
 normal_triangle 1213 12 1214 1 4 5

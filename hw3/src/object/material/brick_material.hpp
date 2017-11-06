@@ -14,7 +14,7 @@ class px::BaseBrickMaterial
 public:
 
     PX_CUDA_CALLABLE
-    static int getSpecularExp(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
+    static PREC getShininess(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
     PX_CUDA_CALLABLE
     static PREC getRefractiveIndex(void * const &obj, PREC const &u, PREC const &v, PREC const &w);
     PX_CUDA_CALLABLE
@@ -32,13 +32,13 @@ public:
     void setAmbient(Light const &ambient);
     void setDiffuse(Light const &diffuse);
     void setSpecular(Light const &specular);
-    void setSpecularExp(int const &specular_exp);
+    void setShininess(PREC const &shininess);
     void setTransmissive(Light const &transmissive);
     void setRefractiveIndex(PREC const &ior);
     void setAmbientEdge(Light const &ambient);
     void setDiffuseEdge(Light const &diffuse);
     void setSpecularEdge(Light const &specular);
-    void setSpecularExpEdge(int const &specular_exp);
+    void setShininessEdge(PREC const &shininess);
     void setTransmissiveEdge(Light const &transmissive);
     void setRefractiveIndexEdge(PREC const &ior);
     void setScale(PREC const &scale);
@@ -49,14 +49,14 @@ protected:
     Light _ambient;
     Light _diffuse;
     Light _specular;
-    int _specular_exponent;
+    PREC _shininessonent;
     Light _transmissive;
     PREC _refractive_index;
 
     Light _ambient_edge;
     Light _diffuse_edge;
     Light _specular_edge;
-    int _specular_exponent_edge;
+    PREC _shininessonent_edge;
     Light _transmissive_edge;
     PREC _refractive_index_edge;
 
@@ -67,13 +67,13 @@ protected:
     BaseBrickMaterial(Light const &ambient,
                       Light const &diffuse,
                       Light const &specular,
-                      int const &specular_exponent,
+                      PREC const &shininessonent,
                       Light const &transmissive,
                       PREC const &refractive_index,
                       Light const &ambient_edge,
                       Light const &diffuse_edge,
                       Light const &specular_edge,
-                      int const &specular_exponent_edge,
+                      PREC const &shininessonent_edge,
                       Light const &transmissive_edge,
                       PREC const &refractive_index_edge,
                       PREC const &scale,
@@ -96,13 +96,13 @@ public:
     static std::shared_ptr<BaseMaterial> create(Light const &ambient,
                                                 Light const &diffuse,
                                                 Light const &specular,
-                                                int const &specular_exponent,
+                                                PREC const &shininessonent,
                                                 Light const &transmissive,
                                                 PREC const &refractive_index,
                                                 Light const &ambient_edge,
                                                 Light const &diffuse_edge,
                                                 Light const &specular_edge,
-                                                int const &specular_exponent_edge,
+                                                PREC const &shininessonent_edge,
                                                 Light const &transmissive_edge,
                                                 PREC const &refractive_index_edge,
                                                 PREC const &scale,
@@ -111,19 +111,19 @@ public:
     void up2Gpu() override;
     void clearGpuData() override ;
 
-    int specularExp(PREC const &u, PREC const &v, PREC const &w) const override;
+    PREC Shininess(PREC const &u, PREC const &v, PREC const &w) const override;
     PREC refractiveIndex(PREC const &u, PREC const &v, PREC const &w) const override;
 
     void setAmbient(Light const &ambient);
     void setDiffuse(Light const &diffuse);
     void setSpecular(Light const &specular);
-    void setSpecularExp(int const &specular_exp);
+    void setShininess(PREC const &shininess);
     void setTransmissive(Light const &transmissive);
     void setRefractiveIndex(PREC const &ior);
     void setAmbientEdge(Light const &ambient);
     void setDiffuseEdge(Light const &diffuse);
     void setSpecularEdge(Light const &specular);
-    void setSpecularExpEdge(int const &specular_exp);
+    void setShininessEdge(PREC const &shininess);
     void setTransmissiveEdge(Light const &transmissive);
     void setRefractiveIndexEdge(PREC const &ior);
     void setScale(PREC const &scale);
@@ -145,13 +145,13 @@ protected:
     BrickMaterial(Light const &ambient,
                   Light const &diffuse,
                   Light const &specular,
-                  int const &specular_exponent,
+                  PREC const &shininessonent,
                   Light const &transmissive,
                   PREC const &refractive_index,
                   Light const &ambient_edge,
                   Light const &diffuse_edge,
                   Light const &specular_edge,
-                  int const &specular_exponent_edge,
+                  PREC const &shininessonent_edge,
                   Light const &transmissive_edge,
                   PREC const &refractive_index_edge,
                   PREC const &scale,

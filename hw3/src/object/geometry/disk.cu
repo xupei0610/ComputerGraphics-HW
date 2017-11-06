@@ -37,8 +37,10 @@ GeometryObj *BaseDisk::hitCheck(void * const &obj,
 
 PX_CUDA_CALLABLE
 Direction BaseDisk::normalVec(void * const &obj,
-                                  PREC const &x, PREC const &y, PREC const &z)
+                                  PREC const &x, PREC const &y, PREC const &z,
+                              bool &double_face)
 {
+    double_face = false;
     return reinterpret_cast<BaseDisk*>(obj)->_norm;
 }
 
@@ -309,7 +311,8 @@ const BaseGeometry *Disk::hitCheck(Ray const &ray,
     return BaseDisk::hitCheck(_obj, ray, t_start, t_end, hit_at) ? this : nullptr;
 }
 Direction Disk::normalVec(PREC const &x, PREC const &y,
-                           PREC const &z) const
+                           PREC const &z,
+                          bool &double_face) const
 {
-    return BaseDisk::normalVec(_obj, x, y, z);
+    return BaseDisk::normalVec(_obj, x, y, z, double_face);
 }
