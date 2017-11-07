@@ -7,12 +7,12 @@ This implements a ray tracing program.
     mkdir build
     cd build
     cmake ..
-    make
+    make -j 8
     ./hw3
 
 CMake Compile Options:
 
-  + `USE_GUI`: enable GUI using SDL2, default: `ON` 
+  + `USE_GUI`: enable GUI using SDL2, default: `ON`
   + `USE_OPENMP`: enable OpenMP, default: `ON`
   + `USE_CUDA`: enanble CUDA, default: `ON`
   + `USE_JITTER=<n>`: enable Jitter supersampling, `n` is the number of samplings per pixel; default: `OFF`. No GPU support for Jitter supersampling due to performance reason.

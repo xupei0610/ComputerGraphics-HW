@@ -1,4 +1,4 @@
-#include <cuda_profiler_api.h>
+//#include <cuda_profiler_api.h>
 #include "scene.hpp"
 #include "trace.cuh"
 
@@ -39,13 +39,12 @@ void rayCast(const bool *stop,
 
     int index;
     Light tmp_l;
-    Direction n, r;
+    Direction n;
     bool double_face;
     Point intersect;
     Vec3<PREC> texture_coord;
     GeometryObj *obj;
     curandState_t state;
-    curand_init(clock()+tid, 0, 0, &state);
     RayTrace::TraceQueue tr(node + (tid)* n_nodes, n_nodes);
     RayTrace::TraceQueue::Node current;
 
@@ -113,7 +112,6 @@ void rayCast(const bool *stop,
                                            n, double_face) * current.coef;
                 if (current.depth < scene_param->recursion_depth)
                 {
-                    r = current.ray.direction-n*(2*current.ray.direction.dot(n));
                     RayTrace::recursive(intersect, current,
                                         texture_coord, *obj,
                                         n,
@@ -181,7 +179,6 @@ void Scene::renderGpu(int const &width, int const &height,
     auto num_kernels = std::min(PX_CUDA_MAX_STREAMS,
                                (_param->dimension + PX_CUDA_MIN_BLOCKS - 1)/PX_CUDA_MIN_BLOCKS);
 
-
     auto streams = new cudaStream_t[num_kernels];
     auto blocks = new dim3[num_kernels];
     auto dim_end = new int[num_kernels+1];
@@ -238,13 +235,11 @@ void Scene::renderGpu(int const &width, int const &height,
 
             for (auto i = 0; i < num_kernels; ++i)
             {
-                rayCast<<<blocks[i], threads, 0, streams[i]>>> (
-                        stop_flag,
+                rayCast<<<blocks[i], threads, 0, streams[i]>>> (stop_flag,
                                 lights+dim_end[i], nodes+dim_end[i]*n_nodes,
                                 v_offset, u_offset,
                                 n_nodes, dim_end[i], dim_end[i+1]-dim_end[i]);
             }
-
             if (*_gpu_stop_flag)
                 break;
         }
