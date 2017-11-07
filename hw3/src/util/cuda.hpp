@@ -3,6 +3,7 @@
 
 #include <exception>
 #include <string>
+#include <algorithm>
 
 #ifdef USE_CUDA
 #include <cuda.h>

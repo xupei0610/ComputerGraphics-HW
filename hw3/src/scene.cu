@@ -1,5 +1,6 @@
 //#include <cuda_profiler_api.h>
 #include "scene.hpp"
+#include "util/cuda.hpp"
 #include "trace.cuh"
 
 using namespace px;
@@ -130,8 +131,6 @@ void rayCast(const bool *stop,
 
         lights[i] += tmp_l;
     }
-
-    __syncthreads();
 }
 
 __global__ void toColor(Light *input,
@@ -157,9 +156,8 @@ void Scene::renderGpu(int const &width, int const &height,
 
     _param->n_lights = _lights.size();
 
-    LightObj *pl[_param->n_lights];
-
-    for (auto &l : _lights) l->up2Gpu();
+	auto pl = new LightObj*[_param->n_lights];
+	for (auto &l : _lights) l->up2Gpu();
     _geometries->up2Gpu();
 
     auto i = 0;
@@ -171,7 +169,7 @@ void Scene::renderGpu(int const &width, int const &height,
     PX_CUDA_CHECK(cudaMemcpy(_param->lights, pl,
                              sizeof(LightObj *) * _param->n_lights,
                              cudaMemcpyHostToDevice));
-
+	delete[] pl;
 
     dim3 threads(PX_CUDA_THREADS_PER_BLOCK, 1, 1);
 

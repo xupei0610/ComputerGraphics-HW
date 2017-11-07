@@ -121,19 +121,39 @@ int main(int argc, char *argv[])
     while (stop_request == false && (started_rendering == false || scene->is_rendering))
     {
         if (scene->mode == Scene::ComputationMode::CPU)
-        std::cout << "\033[1K\r[Info] Rendering: "
+        std::cout <<
+#ifdef _MSC_VER
+			"\r"
+#else
+			"\033[1K\r"
+#endif
+			"[Info] Rendering: "
                   << scene->renderingProgress() << " / " << scene->dimension
                   << " (" << std::setprecision(2)
                   << (std::max(0, scene->renderingProgress()) * 100.0 /
                       scene->dimension)
                   << "%)" << std::flush;
         else
-            std::cout << "\033[1K\r[Info] Rendering..."  << std::flush;
+            std::cout <<
+#ifdef _MSC_VER
+			"\r"
+#else
+			"\033[1K\r"
+#endif
+			"[Info] Rendering..."  << std::flush;
     }
 
     if (stop_request == false)
     {
-        std::cout << "\033[1K\r[Info] Process time: " << scene->renderingTime() << "ms" << std::endl;
+        std::cout <<
+#ifdef _MSC_VER
+			"\r[Info] Rendering: "
+			<< scene->dimension << " / " << scene->dimension
+			<< " (100.00%)\n"
+#else
+			"\033[1K\r"
+#endif
+			"[Info] Process time: " << scene->renderingTime() << "ms" << std::endl;
     }
 
     if (t.joinable())

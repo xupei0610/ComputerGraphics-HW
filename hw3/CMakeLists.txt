@@ -4,7 +4,7 @@ project(hw3)
 
 option(USE_OPENMP "Use OpenMP or not." ON)
 option(USE_GUI "Use GUI or not" ON)
-#set(USE_GUI OFF)
+set(USE_GUI OFF)
 option(USE_CUDA "Use CUDA or not" ON)
 #set(USE_CUDA OFF)
 option(USE_JITTER "Use Jitter Sampling" OFF)
@@ -19,8 +19,12 @@ set(CMAKE_CXX_FLAGS_DEBUG "")
 set(CMAKE_C_FLAGS_RELEASE "")
 set(CMAKE_C_FLAGS_DEBUG "")
 
-set(EXE_NAME ${PROJECT_NAME})
+if (MSVC)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /FS")
+	set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} /O2 /FS")
+endif()
 
+set(EXE_NAME ${PROJECT_NAME})
 
 add_definitions("-DPREC=float")
 
@@ -43,7 +47,7 @@ if (USE_GUI)
     include(FindPkgConfig)
     pkg_search_module(SDL2 REQUIRED sdl2)
     include_directories(${SDL2_INCLUDE_DIRS})
-endif ()
+endif()
 
 if (USE_CUDA)
     find_package(CUDA 5.0.0 REQUIRED)
@@ -53,25 +57,12 @@ endif()
 
 if (USE_JITTER)
     add_definitions("-DJITTER_SAMPLING=${USE_JITTER}")
-endif ()
+endif()
 if (USE_ADAPTIVE)
     add_definitions("-DADAPTIVE_SAMPLING=${USE_ADAPTIVE}")
-endif ()
-
-# FIXME for IDE
-file(GLOB HEADER_FILES
-     ${PROJECT_SOURCE_DIR}/src/object/light/*.hpp
-     ${PROJECT_SOURCE_DIR}/src/object/material/*.hpp
-     ${PROJECT_SOURCE_DIR}/src/object/geometry/base_geometry.hpp
-     ${PROJECT_SOURCE_DIR}/src/object/geometry/*.hpp
-     ${PROJECT_SOURCE_DIR}/src/object/structure/*.hpp
-     ${PROJECT_SOURCE_DIR}/src/object/*.hpp
-     ${PROJECT_SOURCE_DIR}/src/*.hpp
-     ${PROJECT_SOURCE_DIR}/util/*.hpp
-     )
+endif()
 
 file(GLOB EXE_COMMON_SRC_FILES
-     ## TODO Put objects into dependent files
      ${PROJECT_SOURCE_DIR}/src/object/light/*.cu
      ${PROJECT_SOURCE_DIR}/src/object/material/*.cu
      ${PROJECT_SOURCE_DIR}/src/object/geometry/base_geometry.cpp
@@ -120,7 +111,8 @@ if (USE_CUDA)
         -O3
 #        --ptxas-options=-v
 #        -res-usage
-        )
+	    -cl-version=2017
+    )
     cuda_add_executable(${EXE_NAME}
                         ${HEADER_FILES}
                         ${EXE_COMMON_SRC_FILES}
@@ -130,8 +122,10 @@ if (USE_CUDA)
                         ${PROJECT_SOURCE_DIR}/src/main.cpp)
 else()
     set_source_files_properties(${EXE_COMMON_SRC_FILES} PROPERTIES LANGUAGE CXX)
-    add_definitions("-x c++")
-    add_executable(${EXE_NAME}
+    if (!MSVC)
+		add_definitions("-x c++")
+    endif()
+	add_executable(${EXE_NAME}
                    ${HEADER_FILES}
                    ${EXE_COMMON_SRC_FILES}
                    ${EXE_CPU_SRC_FILES}

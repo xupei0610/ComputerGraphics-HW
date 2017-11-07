@@ -180,8 +180,8 @@ void BVH::up2Gpu()
 
         BaseBVH bb(_vertex_min, _vertex_max);
 
-        GeometryObj *ptr[count];
-        bb._n = count;
+		auto ptr = new GeometryObj*[count];
+		bb._n = count;
         for (const auto &g : _geos)
         {
             if (g == nullptr)
@@ -200,7 +200,7 @@ void BVH::up2Gpu()
         bb._geos = _gpu_geos;
 
         PX_CUDA_CHECK(cudaMemcpy(_gpu_obj, &bb, sizeof(BaseBVH), cudaMemcpyHostToDevice));
-
+		delete[] ptr;
         _need_upload = false;
     }
 #endif

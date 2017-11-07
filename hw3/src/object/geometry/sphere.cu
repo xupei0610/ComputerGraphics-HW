@@ -19,7 +19,7 @@ GeometryObj *BaseSphere::hitCheck(void * const &obj,
 {
     auto o = reinterpret_cast<BaseSphere*>(obj);
 
-    auto oc = Vec3<double>(ray.original.x - o->_center.x,
+    auto oc = Vec3<PREC>(ray.original.x - o->_center.x,
                            ray.original.y - o->_center.y,
                            ray.original.z - o->_center.z);
     auto a = ray.direction.dot(ray.direction);

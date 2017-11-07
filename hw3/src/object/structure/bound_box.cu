@@ -131,8 +131,8 @@ void BoundBox::up2Gpu()
         }
 
         BaseBoundBox bb(_vertex_min, _vertex_max);
-
-        GeometryObj *ptr[count];
+		
+		auto ptr = new GeometryObj*[count];
         bb._n = count;
         for (const auto &g : _geos)
         {
@@ -157,9 +157,9 @@ void BoundBox::up2Gpu()
                         mat == nullptr ? nullptr : mat->devPtr(),
                         trans == nullptr ? nullptr : trans->devPtr());
 
-        PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(GeometryObj),
-                                 cudaMemcpyHostToDevice))
-
+		PX_CUDA_CHECK(cudaMemcpy(dev_ptr, &tmp, sizeof(GeometryObj),
+			cudaMemcpyHostToDevice))
+		delete[] ptr;
         _need_upload = false;
     }
 #endif
