@@ -18,9 +18,9 @@ CMake Compile Options:
   + `USE_JITTER=<n>`: enable Jitter supersampling, `n` is the number of samplings per pixel; default: `OFF`. No GPU support for Jitter supersampling due to performance reason.
   + `USE_ADAPATIVE`: enable adaptive supersampling. This function is done, but not so smart.  
 
-This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti and MacOS 10.12 with CUDA 9 and GT650M (it is an old laptop, XD).
+This code was tested under Ubuntu 16.04 with CUDA 8/9 and GTX1080 Ti, Windows 10 with CUDA 9 and GTX1080, and MacOS 10.12 with CUDA 9 and GT650M (it is an old laptop, XD).
 
-**Attention**: This code is not tested under Windows!! My Windows laptop broke last week. It is still on the way sending to the Product Service Center located in Texas.
+I strongly recommend not to compile this program using MSVC. It thoroughly is a physical and mental suffering to configure CMake + MSVC + CUDA + SDL. You may need to modify the `MSVC_CL_EXE` in the `CMakeLists.txt` file to set the host compiler correctly for CUDA. And, you may really want CUDA 9 to make things a little easier. And, you may need to manually setup the path of `SDL2` in the cmake file.
 
 ### Features List
 

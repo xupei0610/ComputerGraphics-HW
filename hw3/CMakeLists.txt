@@ -4,11 +4,13 @@ project(hw3)
 
 option(USE_OPENMP "Use OpenMP or not." ON)
 option(USE_GUI "Use GUI or not" ON)
-set(USE_GUI OFF)
+#set(USE_GUI OFF)
 option(USE_CUDA "Use CUDA or not" ON)
 #set(USE_CUDA OFF)
 option(USE_JITTER "Use Jitter Sampling" OFF)
 option(USE_ADAPTIVE "Use Adaptive Sampling" OFF)
+
+set(MSVC_CL_EXE "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64/CL.exe")
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
@@ -20,8 +22,8 @@ set(CMAKE_C_FLAGS_RELEASE "")
 set(CMAKE_C_FLAGS_DEBUG "")
 
 if (MSVC)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /FS")
-	set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} /O2 /FS")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /MT")
+    set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} /O2 /MT")
 endif()
 
 set(EXE_NAME ${PROJECT_NAME})
@@ -102,6 +104,9 @@ if (USE_GUI)
 endif()
 
 if (USE_CUDA)
+    if (MSVC)
+        set(CUDA_HOST_COMPILER MSVC_CL_EXE)
+    endif()
     set(CUDA_SEPARABLE_COMPILATION ON)
     set(CUDA_NVCC_FLAGS
         -std=c++11
@@ -111,7 +116,6 @@ if (USE_CUDA)
         -O3
 #        --ptxas-options=-v
 #        -res-usage
-	    -cl-version=2017
     )
     cuda_add_executable(${EXE_NAME}
                         ${HEADER_FILES}
