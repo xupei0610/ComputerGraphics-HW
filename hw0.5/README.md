@@ -21,7 +21,7 @@ This is a collection of several mini SDL+OpenGL demos.
   
   The above six programs are those provided.
   
-  + `ModelLoadNew`: a 3D model loader controllable by keyboard
+  + `ModelLoadNew <model_file>`: a 3D model loader controllable by keyboard
   
     + `1`: Phong shading
     + `2`: Blinn-Phong shading
