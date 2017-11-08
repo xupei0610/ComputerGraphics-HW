@@ -29,21 +29,26 @@ float timePast = 0;
 const GLchar* vertexSource =
   "#version 150 core\n"
   "in vec3 position;"
-//  "in vec3 inColor;"
-   "const vec3 inColor = vec3(0.f,0.7f,0.f);"
+  "in vec3 inColor;"
+  // "const vec3 inColor = vec3(0.f,0.7f,0.f);"
+  "const vec3 inlightDir = normalize(vec3(1,0,0));"  //we should really pass this in
   "in vec3 inNormal;"
   "out vec3 Color;"
   "out vec3 normal;"
   "out vec3 pos;"
+  "out vec3 eyePos;"
+  "out vec3 lightDir;"
   "uniform mat4 model;"
   "uniform mat4 view;"
   "uniform mat4 proj;"
   "void main() {"
   "   Color = inColor;"
   "   gl_Position = proj * view * model * vec4(position,1.0);"
-  "   pos = (model * vec4(position,1.0)).xyz;"
-  "   vec4 norm4 = transpose(inverse(model)) * vec4(inNormal,0.0);"  //Just model, than noramlize normal
-  "   normal = normalize(norm4.xyz);"
+  "   vec4 pos4 = (view * model * vec4(position,1.0));"
+  "   pos = pos4.xyz/pos4.w;"  //Convert vec4 pos to vec3 ... typically pos4.w and you don't need the divide
+  "   vec4 norm4 = transpose(inverse(view*model)) * vec4(inNormal,0.0);"  //OR don't use the inverse-Transpose ... but you'll have to normalize the normal
+  "   normal = norm4.xyz;"  //Convert the vec4 to a vec3 ... we don't need to normalize if the above line is correct
+  "   lightDir = (view * vec4(inlightDir,0)).xyz;"  //Transform light into to view space
   "}";
     
 const GLchar* fragmentSource =
@@ -51,18 +56,19 @@ const GLchar* fragmentSource =
   "in vec3 Color;"
   "in vec3 normal;"
   "in vec3 pos;"
+  "in vec3 eyePos;"
+  "in vec3 lightDir;"
   "out vec4 outColor;"
-  "const vec3 lightDir = normalize(vec3(1,1,1));"
   "const float ambient = .3;"
   "void main() {"
   "   vec3 diffuseC = Color*max(dot(lightDir,normal),0.0);"
-  "   vec3 ambC = Color*ambient;"
-  "   vec3 reflectDir = reflect(lightDir,normal);"
-  "   vec3 viewDir = normalize(-pos);" //We know the eye is at (0,0)!
+  "   vec3 ambC = Color*ambient;" 
+  "   vec3 reflectDir = reflect(-lightDir,normal);" 
+  "   vec3 viewDir = normalize(-pos);"  //We know the eye is at 0,0
   "   float spec = max(dot(reflectDir,viewDir),0.0);"
-  "   if (dot(lightDir,normal) <= 0.0)spec = 0;"
-  "   vec3 specC = vec3(1.0,1.0,1.0)*pow(spec,4);"
-  "   outColor = vec4(diffuseC+ambC+specC, 1.0);"
+  "   if (dot(lightDir,normal) <= 0.0) spec = 0;"
+  "   vec3 specC = vec3(.8,.8,.8)*pow(spec,4);"
+  "   outColor = vec4(ambC+diffuseC+specC, 1.0);"
   "}";
     
 bool fullscreen = false;
@@ -180,9 +186,9 @@ int main(int argc, char *argv[]){
 	  //Binds to VBO current GL_ARRAY_BUFFER 
 	glEnableVertexAttribArray(posAttrib);
 	
-//	GLint colAttrib = glGetAttribLocation(shaderProgram, "inColor");
-//	glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)(3*sizeof(float)));
-//	glEnableVertexAttribArray(colAttrib);
+	GLint colAttrib = glGetAttribLocation(shaderProgram, "inColor");
+	glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)(3*sizeof(float)));
+	glEnableVertexAttribArray(colAttrib);
 	
 	GLint normAttrib = glGetAttribLocation(shaderProgram, "inNormal");
 	glVertexAttribPointer(normAttrib, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)(5*sizeof(float)));
