@@ -167,6 +167,7 @@ public:
     int renderingTime();
 
     bool setComputationMode(ComputationMode const &mode);
+    bool setComputationMode(int const &device);
 
 protected:
     void renderCpu(int const &width, int const &height,

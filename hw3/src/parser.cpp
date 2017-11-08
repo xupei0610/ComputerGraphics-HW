@@ -505,19 +505,22 @@ std::unordered_map<std::string, IMAGE_FORMAT> Parser::parse(
         else if (param[0] == "mode")
         {
             PARAM_CHECK("mode", 1, param, ln)
-            std::transform(param[1].begin(), param[1].end(), param[1].begin(), tolower); // case non-sensitive
-            if (param[1] == "gpu")
-#ifdef USE_CUDA
-                scene->setComputationMode(Scene::ComputationMode::GPU);
+#ifndef USE_CUDA
+            std::cout << "[Warn] No GPU mode support. Ignore `mode` command at line " << ln << std::endl;
 #else
-                std::cout << "[Warn] No CUDA is supported. Ignore command `mode` at line " << ln << std::endl;
-#endif
-            else if (param[1] == "cpu")
+
+            std::transform(param[1].begin(), param[1].end(), param[1].begin(), tolower); // case non-sensitive
+            if (param[1] == "cpu")
                 scene->setComputationMode(Scene::ComputationMode::CPU);
+            else if (param[1] == "gpu")
+            {
+                scene->setComputationMode(Scene::ComputationMode::GPU);
+            }
             else
-                throw std::invalid_argument("[Error] Failed to parse `mode` at line " +
-                                            std::to_string(ln) + " (`cpu` or `gpu` expected, `" +
-                                            param[1] + "` provided)");
+            {
+                scene->setComputationMode(S2I(param[1]));
+            }
+#endif
         }
         else
         {

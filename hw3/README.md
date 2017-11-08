@@ -32,6 +32,12 @@ I strongly recommend not to compile this program using MSVC. It thoroughly is a 
 
   in the scene file to enable CPU computation.
 
+  Use
+
+    mode <device_id>
+
+  to set the device for computation. Device 0 will be used by default.
+
   Stack instead of recursion is used in the GPU code.
   
   Note: no fully support for the bound box structure. So far, the bound box structure is allowed to be put into another bound box such that a deep function call may be involved when using a bound box containing another one and cause the GPU kernel crashing. I increases the stack size limit of CUDA such that we usually do not need to worry about this problem.

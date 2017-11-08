@@ -226,6 +226,18 @@ bool Scene::setComputationMode(ComputationMode const &mode)
     return true;
 }
 
+bool Scene::setComputationMode(int const &device)
+{
+#ifdef USE_CUDA
+    if (device < 0)
+        _mode = ComputationMode::CPU;
+    else
+        PX_CUDA_CHECK(cudaSetDevice(device));
+    return true;
+#endif
+    return false;
+}
+
 void Scene::stopRendering()
 {
     if (_is_rendering)

@@ -1,5 +1,6 @@
-#material demo
 output_image ball_in_ball.bmp
+
+mode 0
 
 sampling_radius 2
 max_depth 10
