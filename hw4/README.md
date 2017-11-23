@@ -14,6 +14,10 @@ Dependencies: FreeType, GLFW, GLM, GLEW
 
 3rd Part libraries: SOIL, ASSIMP
 
+Tested under Ubuntu 16.04
+
+**There are some problems to run this program on MacOS.** I will fix this later.
+
 ## Introduction
 
 This program implements a simple 3D maze game. Player must find the existence of the maze. There is no hard time limit for each round. However, player will lose HP gradually and finally lose game if he does not find the existence in the soft time limit.
@@ -64,6 +68,8 @@ A very common texture found on the internet.
 #### Diffuse/Normal/Specular/Displacement/Parallel Mapping
 
 Diffuse, normal and specular mappings are used for every object rendering. Walls and floors are rendered using parallel mapping. Keys and doors are rendered using displacement mapping. UV mapping are generated using blender.
+
+All textures used are high-quality. Try higher resolution!
 
  <img src="./doc/fire_key.png" />
 
