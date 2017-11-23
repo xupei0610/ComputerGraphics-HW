@@ -36,6 +36,7 @@ public:
     // keepable ability
     static const int MAX_LOAD;
     static const int MAX_SLOTS;
+    static const bool HEADLIGHT;
 
     Camera cam;
     std::unordered_map<std::size_t, int> items;
@@ -65,9 +66,11 @@ public:
 
 #undef SCENE_GET_CURRENT_ACTION
 
-    inline const int &currentHp() const noexcept { return hp; }
+    inline const float &characterHp() const noexcept { return character_hp; }
+    inline const float &characterMaxHp() const noexcept { return character_max_hp; }
 
     inline const float &characterHeight() const noexcept {return character_height; }
+    inline const float &characterHalfHeight() const noexcept {return character_half_height; }
     inline const float &characterHalfSize() const noexcept {return character_half_size; }
     inline const float &jumpHeight() const noexcept {return jump_height; }
     inline const float &ascSpeed() const noexcept {return asc_speed; }
@@ -93,6 +96,7 @@ public:
     inline const float &sidestepRunCoef() const noexcept {return sidestep_run_coef;}
     inline const float &turnRunCoef() const noexcept {return turn_run_coef;}
 
+    inline const bool headLight() const noexcept {return head_light;}
     inline const bool &canFloat() const noexcept {return can_float;}
     inline const bool &canShoot() const noexcept {return can_shoot;}
 
@@ -100,6 +104,8 @@ public:
     bool collectItem(std::size_t const &item_id, int n);
     bool canCarry(std::size_t const &item_id, int n) const noexcept;
 
+    void setCharacterHp(float hp);
+    void setCharacterMaxHp(float hp);
     void setCharacterHeight(float h);
     void setCharacterHalfSize(float s);
     void setAscSpeed(float s);
@@ -110,7 +116,8 @@ public:
     void setTurnSpeed(float degree_sp);
     void setFloating(bool enable);
     void setShootable(bool enable);
-
+    void setHeadLight(bool enable);
+    
     ~Character() = default;
     Character &operator=(Character const &) = delete;
     Character &operator=(Character &&) = delete;
@@ -121,7 +128,6 @@ protected:
     int current_load;
     int max_load;
 
-    int hp;
     bool current_action[N_ACTIONS];
     bool is_ascending; // helper parameter for jump action;
     glm::vec3 move_dir;
@@ -142,7 +148,10 @@ protected:
 
     void characterYPosFix();
 
+    float character_hp;
+    float character_max_hp;
     float character_height;
+    float character_half_height;
     float character_half_size;
     float jump_height;
     float asc_speed;
@@ -155,6 +164,7 @@ protected:
     float backward_run_coef;
     float sidestep_run_coef;
     float turn_run_coef;
+    bool head_light;
 
     bool  can_float;
     bool  can_shoot;

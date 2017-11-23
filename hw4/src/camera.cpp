@@ -15,11 +15,13 @@ Camera::Camera()
       cam_up(CAM_UP[0], CAM_UP[1], CAM_UP[2]),
       cam_right(CAM_RIGHT[0], CAM_RIGHT[1], CAM_RIGHT[2]),
       yaw(-90), pitch(0),
-      fov(45.0f)
+      fov(45.0f), frozen(false)
 {}
 
 void Camera::init()
 {
+    frozen = false;
+
     updateProjMat();
     updateViewMat();
 }
@@ -47,8 +49,27 @@ void Camera::reset()
     init();
 }
 
+void Camera::freeze(bool enable)
+{
+    frozen = enable;
+}
+
+void Camera::setFov(float fov_deg)
+{
+    if (frozen) return;
+
+    fov = fov_deg;
+//    if (fov < 1.0f)
+//        fov = 1.0f;
+//    else if (fov > 45.0f)
+//        fov = 45.0f;
+    updateProjMat();
+}
+
 void Camera::zoom(float d_fov_degree)
 {
+    if (frozen) return;
+
     fov += d_fov_degree;
     if (fov < 1.0f)
         fov = 1.0f;
@@ -59,6 +80,8 @@ void Camera::zoom(float d_fov_degree)
 
 void Camera::updateYaw(float d_yaw)
 {
+    if (frozen) return;
+
     yaw += d_yaw;
     if (yaw > 360.0f)
         yaw -= 360.f;
@@ -82,6 +105,8 @@ void Camera::_updateCamDir()
 
 void Camera::updateAng(float d_yaw, float d_pitch)
 {
+    if (frozen) return;
+
     yaw += d_yaw;
     pitch += d_pitch;
 
@@ -100,6 +125,8 @@ void Camera::updateAng(float d_yaw, float d_pitch)
 
 void Camera::setAng(float y, float p)
 {
+    if (frozen) return;
+
     yaw = y;
     pitch = p;
 

@@ -37,6 +37,7 @@ protected:
 
     float fov;
 
+    bool frozen;
 public:
     Camera();
 
@@ -48,9 +49,12 @@ public:
     void init();
     void reset();
 
+    void freeze(bool enable);
+
     void updateProjMat();
     void updateViewMat();
 
+    void setFov(float fov_deg);
     void zoom(float d_fov_degree);
     void updateYaw(float d_yaw);
     void updateAng(float d_yaw, float d_pitch);

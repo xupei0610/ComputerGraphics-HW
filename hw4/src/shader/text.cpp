@@ -8,29 +8,13 @@
 
 using namespace px;
 
-const char *TextShader::VS = "#version 330 core\n"
-        "layout (location = 0) in vec4 v;"
-        "uniform mat4 proj;"
-        ""
-        "out vec2 t_coord;"
-        ""
-        "void main()"
-        "{"
-        "   gl_Position = proj * vec4(v.xy, 0.0, 1.0);"
-        "   t_coord = v.zw;"
-        "}";
+const char *TextShader::VS =
+#include "shader/glsl/text_shader.vs"
+;
 
-const char *TextShader::FS = "#version 330 core\n"
-        "in vec2 t_coord;"
-        "out vec4 color;"
-        ""
-        "uniform sampler2D text;"
-        "uniform vec4 text_color;"
-        ""
-        "void main()"
-        "{"
-        "   color = vec4(text_color.xyz, texture(text, t_coord).r*text_color.w);"
-        "}";
+const char *TextShader::FS =
+#include "shader/glsl/text_shader.fs"
+;
 
 const std::size_t TextShader::FONT_HEIGHT = 40;
 
@@ -52,6 +36,7 @@ TextShader::TextShader()
     glEnableVertexAttribArray(0);
 }
 
+#include <iostream>
 std::size_t TextShader::addFont(const unsigned char *data, std::size_t data_size)
 {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -61,13 +46,14 @@ std::size_t TextShader::addFont(const unsigned char *data, std::size_t data_size
     FT_Init_FreeType(&ft);
     FT_New_Memory_Face(ft, reinterpret_cast<const FT_Byte*>(data), data_size, 0, &face);
 
-    textures.push_back(std::array<unsigned int, 128>());
-    glGenTextures(128, textures.back().data());
+    textures.push_back(std::array<unsigned int, 95>());
+    glGenTextures(95, textures.back().data());
 
-    for (auto i = 0; i < 128; ++i)
+    FT_Set_Pixel_Sizes(face, 0,  _font_height);
+    for (auto i = 0; i < 95; ++i)
     {
-        auto e = FT_Load_Char(face, i, FT_LOAD_RENDER);
-        FT_Set_Pixel_Sizes(face, 0,  _font_height);
+        auto e =
+                FT_Load_Char(face, i+32, FT_LOAD_RENDER);
         if (e != 0) std::cout << "Err: " << e << std::endl;
         glBindTexture(GL_TEXTURE_2D, textures.back()[i]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -133,7 +119,9 @@ void TextShader::render(std::string const &text,
     auto width = 0.0f, height=0.0f;
     for (const auto &c: text)
     {
-        auto i = static_cast<std::size_t>(c);
+        auto i = c - 32;
+        if (i < 0 || i > 94)
+            continue;
         width += chars[i].advance * scale;
         if (chars[i].size_y > height)
         {
@@ -174,7 +162,9 @@ void TextShader::render(std::string const &text,
     glBindVertexArray(vao);
     for (const auto &c: text)
     {
-        auto i = static_cast<std::size_t>(c);
+        auto i = c - 32;
+        if (i < 0 || i > 94)
+            continue;
         auto xpos = xoff + x + chars[i].bearing_x * scale;
         auto ypos = yoff - (chars[i].size_y - chars[i].bearing_y) * scale;
         auto w = chars[i].size_x * scale;

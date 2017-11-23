@@ -29,38 +29,46 @@ if (APPLE)
     find_library(IOKIT_LIBRARY IOKit REQUIRED)
     find_library(COREVID_LIBRARY CoreVideo REQUIRED)
 endif()
+add_subdirectory(${CMAKE_SOURCE_DIR}/lib/assimp/)
+include_directories(${CMAKE_SOURCE_DIR}/lib/assimp/include)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 set(SOURCE_LIBRARIES
     ${CMAKE_THREAD_LIBS_INIT}
     ${FREETYPE_LIBRARIES}
     glfw
     ${GLEW_LIBRARIES}
     ${OPENGL_LIBRARIES}
-    ${COCOA_LIBRARY} ${IOKIT_LIBRARY} ${COREVID_LIBRARY})
+    ${COCOA_LIBRARY} ${IOKIT_LIBRARY} ${COREVID_LIBRARY}
+    assimp)
 
 # Setup Sources
 include_directories(${CMAKE_SOURCE_DIR}/asset)
 include_directories(${CMAKE_SOURCE_DIR}/src)
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-set(SOURCE_FILES
-    ${SOURCE_DIR}/timer.cpp
-    ${SOURCE_DIR}/item.cpp
-    ${SOURCE_DIR}/glfw.cpp
-    ${SOURCE_DIR}/shader/base_shader.cpp
-    ${SOURCE_DIR}/shader/text.cpp
-    ${SOURCE_DIR}/shader/rectangle.cpp
-    ${SOURCE_DIR}/option.cpp
-    ${SOURCE_DIR}/maze.cpp
-    ${SOURCE_DIR}/camera.cpp
-    ${SOURCE_DIR}/character.cpp
-    ${SOURCE_DIR}/scene.cpp
-    ${SOURCE_DIR}/app.cpp)
+file(GLOB SOURCE_FILES
+     ${SOURCE_DIR}/soil/*.c
+     ${SOURCE_DIR}/timer.cpp
+     ${SOURCE_DIR}/item.cpp
+     ${SOURCE_DIR}/glfw.cpp
+     ${SOURCE_DIR}/mesh.cpp
+     ${SOURCE_DIR}/shader/base_shader.cpp
+     ${SOURCE_DIR}/shader/text.cpp
+     ${SOURCE_DIR}/shader/rectangle.cpp
+     ${SOURCE_DIR}/shader/skybox.cpp
+     ${SOURCE_DIR}/item/key.cpp
+     ${SOURCE_DIR}/item/door.cpp
+     ${SOURCE_DIR}/option.cpp
+     ${SOURCE_DIR}/maze.cpp
+     ${SOURCE_DIR}/camera.cpp
+     ${SOURCE_DIR}/character.cpp
+     ${SOURCE_DIR}/scene.cpp
+     ${SOURCE_DIR}/app.cpp)
 
 add_executable(${EXE_NAME}
                ${SOURCE_FILES}
                ${SOURCE_DIR}/main.cpp)
 target_link_libraries(${EXE_NAME}
                       ${SOURCE_LIBRARIES})
-
 
 file(GLOB IDE_SUPPORT ${CMAKE_SOURCE_DIR}/src/*)
 add_library(ide ${IDE_SUPPORT})

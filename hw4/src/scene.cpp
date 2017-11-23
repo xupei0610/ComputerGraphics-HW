@@ -1,161 +1,59 @@
 #include "scene.hpp"
+#include "global.hpp"
 #include "camera.hpp"
 #include "shader/base_shader.hpp"
 #include "maze.hpp"
+#include "item/key.hpp"
+#include "item/door.hpp"
+#include "util/random.hpp"
 
-#include "resource.hpp"
+#include "soil/SOIL.h"
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#ifndef NDEBUGE
+#    include <iostream>
+#endif
+
 using namespace px;
 
-const char *VS = "#version 330 core\n"
-        "layout (location = 0) in vec3 v;"
-        "layout (location = 1) in vec2 v_tex_coord;"
-        "layout (location = 2) in vec3 v_norm;"
-        "layout (location = 3) in vec3 v_tangent;"
-        ""
-        "out vec2 tex_coords;" // texture coordinates
-        "out vec3 frag_pos;"
-        "out vec3 t_cam_pos;"
-        "out vec3 t_frag_pos;"
-        "out vec3 t_light_pos;"
-        "out vec3 t_light_dir;"
-        ""
-        "uniform mat4 model;"
-        "uniform mat4 view;"
-        "uniform mat4 proj;"
-        "uniform vec3 cam_pos;"
-        ""
-        "struct SpotLight"
-        "{"
-        "   vec3 pos;"
-        "   vec3 dir;"
-        "   float cutoff_outer;"
-        "   float cutoff_diff;"
-        "   "
-        "   vec3 ambient;"
-        "   vec3 diffuse;"
-        "   vec3 specular;"
-        ""
-        "   float coef_a0;"
-        "   float coef_a1;"
-        "   float coef_a2;"
-        "};"
-        ""
-        "uniform SpotLight light;"
-        ""
-        "struct Material"
-        "{"
-        "   sampler2D diffuse;"
-        "   sampler2D normal;"
-        "   sampler2D specular;"
-        "   sampler2D displace;"
-        "   float shininess;"
-        ""
-        "};"
-        ""
-        "uniform Material material;"
-        ""
-        "flat out int flag;"
-        "void main()"
-        "{"
-        "   tex_coords = v_tex_coord;"
-        ""
-        "   frag_pos = vec3(model * vec4(v, 1.f));"
-        ""
-        "   mat4 norm_mat = transpose(inverse(model));"
-        "   vec3 T = normalize((norm_mat * vec4(v_tangent, 0.f)).xyz);"
-        "   vec3 N = normalize((norm_mat * vec4(v_norm, 0.f)).xyz);"
-        "   T = normalize(T - dot(T, N) * N);"
-        "   vec3 B = cross(N, T);"
-        "   mat3 TBN = transpose(mat3(T, B, N));"
-        ""
-        "   t_cam_pos   = TBN * cam_pos;"
-        "   t_frag_pos  = TBN * frag_pos;"
-        "   t_light_pos = TBN * light.pos;" // headlight, light pos is the same with cam pos
-        "   t_light_dir = TBN * light.dir;"
-        ""
-        "   gl_Position = proj * view * model * vec4(v, 1.f);"
-        "}";
+const float Scene::DEFAULT_DISPLACE_AMP = 0.f;
+const float Scene::DEFAULT_DISPLACE_MID = .5f;
 
-const char *FS= "#version 330 core\n"
-        "out vec4 color;"
-        ""
-        "in vec2 tex_coords;"
-        "in vec3 t_cam_pos;"
-        "in vec3 t_frag_pos;"
-        "in vec3 t_light_pos;"
-        "in vec3 t_light_dir;"
-        ""
-        "struct SpotLight"
-        "{"
-        "   vec3 pos;"
-        "   vec3 dir;"
-        "   float cutoff_outer;"
-        "   float cutoff_diff;"
-        "   "
-        "   vec3 ambient;"
-        "   vec3 diffuse;"
-        "   vec3 specular;"
-        ""
-        "   float coef_a0;"
-        "   float coef_a1;"
-        "   float coef_a2;"
-        "};"
-        "uniform SpotLight light;"
-        ""
-        ""
-        "struct Material"
-        "{"
-        "   sampler2D diffuse;"
-        "   sampler2D normal;"
-        "   sampler2D specular;"
-        "   sampler2D displace;"
-        "   float shininess;"
-        ""
-        "};"
-        ""
-        "uniform Material material;"
-        "flat in int flag;"
-        ""
-        "const vec3 global_ambient = vec3(.05f, .05f, .05f);"
-        "void main() {"
-        "   if (flag == 1)"
-        "    {color = vec4(1, 0, 0,1);return;}"
-        ""
-        "   vec3 N = texture(material.normal, tex_coords).rgb;"
-        "   N = normalize(N * 2.f - 1.f);"
-        ""
-        "   vec3 obj_color = texture(material.diffuse, tex_coords).rgb;"
-        ""
-        "   vec3 ambient = light.ambient * obj_color;"                       // ambient
-        "   "
-        "   vec3 L = normalize(t_light_pos - t_frag_pos);"
-        "   vec3 diffuse =  max(dot(L, N), 0.f) * light.diffuse * obj_color;" // diffuse
-        ""
-        "   vec3 V = normalize(t_cam_pos - t_frag_pos);"
-//        "   vec3 R = reflect(-L, N);"
-        "   vec3 H = normalize(L + V);" // blinn phong
-        "   float spec = pow(max(dot(N, H), 0.f), material.shininess);"
-        "   vec3 specular = light.specular * spec * texture(material.specular, tex_coords).rgb;"    // specular
-        ""
-        "   float cosine = -dot(L, normalize(t_light_dir));"
-        "   float intensity = max(min((cosine - light.cutoff_outer)/light.cutoff_diff, 1), 0);"
-        "   "
-        "   float dist = length(t_light_pos - t_frag_pos);"
-        "   float atten = 1.f / (light.coef_a0 + light.coef_a1 * dist + light.coef_a2*dist*dist);"
-        ""
-        "   ambient  *= atten;"
-        "   diffuse  *= intensity * atten;"
-        "   specular *= intensity * atten;"
-        ""
-        "   color = vec4(global_ambient * obj_color + ambient + diffuse + specular, 1.f);"
-        "}";
+std::vector<unsigned char *> Scene::wall_textures;
+std::vector<std::pair<int, int> >  Scene::wall_texture_dim(5, {0, 0});
+std::vector<unsigned char *> Scene::floor_textures;
+std::vector<std::pair<int, int> >  Scene::floor_texture_dim(8, {0, 0});
+
+const char *Scene::VS =
+#include "shader/glsl/scene_shader.vs"
+;
+const char *Scene::FS =
+#include "shader/glsl/scene_shader.fs"
+;
+
+float floor_v[] = {
+        // coordinates     texture    norm            tangent
+        // x    y    z     u    v     x    y    z     x    y    z
+        0.f, 0.f, 1.f,  0.f, 1.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
+        0.f, 0.f, 0.f,  0.f, 0.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
+        1.f, 0.f, 0.f,  1.f, 0.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
+
+        0.f, 0.f, 1.f,  0.f, 1.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
+        1.f, 0.f, 0.f,  1.f, 0.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
+        1.f, 0.f, 1.f,  1.f, 1.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
+};
+float cube_v[11*6*4] = {0};
 
 Scene::Scene(Option &opt)
-    : opt(opt), character(), shader(nullptr), texture{0,0,0,0,0,0,0,0}, vao{0,0}, vbo{0,0}
+        : opt(opt), state(State::Over),
+          keys{item::MetalKey::create(), item::WoodKey::create(), item::WaterKey::create(),
+                item::FireKey::create(), item::EarthKey::create()},
+          doors{item::MetalDoor::create(), item::WoodDoor::create(), item::WaterDoor::create(),
+                item::FireDoor::create(), item::EarthDoor::create()},
+          shader(nullptr), skybox(nullptr),
+          texture{0}, vao{0}, vbo{0}, need_upload_data(false)
 {}
 
 Scene::~Scene()
@@ -164,6 +62,7 @@ Scene::~Scene()
     glDeleteBuffers(2, vbo);
     glDeleteTextures(8, texture);
     delete shader;
+    delete skybox;
 }
 
 void Scene::setState(State s)
@@ -177,85 +76,77 @@ void Scene::init()
         shader = new Shader(VS, FS);
 
     if (vao[0] == 0)
-        glGenVertexArrays(2, vao);
-    if (vbo[0] == 0)
-        glGenBuffers(2, vbo);
-    if (texture[0] == 0)
+    {
+        glGenVertexArrays(3, vao);
+        glGenBuffers(3, vbo);
         glGenTextures(8, texture);
+    }
 
     shader->use();
     glBindFragDataLocation(shader->pid(), 0, "color");
     glBindVertexArray(vao[0]);
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 11*sizeof(float), 0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 11*sizeof(float), (void *)(3*sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 11*sizeof(float), (void *)(5*sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 11*sizeof(float), (void *)(8*sizeof(float)));
-    glEnableVertexAttribArray(3);
+    ATTRIB_BIND_HELPER_WITH_TANGENT
 
     glBindVertexArray(vao[1]);
     glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 11*sizeof(float), 0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 11*sizeof(float), (void *)(3*sizeof(float)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 11*sizeof(float), (void *)(5*sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 11*sizeof(float), (void *)(8*sizeof(float)));
-    glEnableVertexAttribArray(3);
+    ATTRIB_BIND_HELPER_WITH_TANGENT
+
+    for (auto &i : keys)
+        i->init(shader);
+    for (auto &i : doors)
+        i->init(shader);
+
+    if (wall_textures.empty())
+    {
+        int ch;
+#define TEXTURE_LOAD_HELPER(filename_prefix, ext, width, height, target_container)   \
+        target_container.push_back(SOIL_load_image(ASSET_PATH "/texture/" filename_prefix "_d" ext, &width, &height, &ch, SOIL_LOAD_RGB)); \
+        target_container.push_back(SOIL_load_image(ASSET_PATH "/texture/" filename_prefix "_n" ext, &width, &height, &ch, SOIL_LOAD_RGB)); \
+        target_container.push_back(SOIL_load_image(ASSET_PATH "/texture/" filename_prefix "_s" ext, &width, &height, &ch, SOIL_LOAD_RGB));  \
+        target_container.push_back(SOIL_load_image(ASSET_PATH "/texture/" filename_prefix "_h" ext, &width, &height, &ch, SOIL_LOAD_RGB));
+
+#define WALL_TEXTURE_LOAD_HELPER(file, i)                                                                           \
+        TEXTURE_LOAD_HELPER(file, ".png", wall_texture_dim[i].first, wall_texture_dim[i].second, wall_textures)
+#define FLOOR_TEXTURE_LOAD_HELPER(file, i)                                                                           \
+        TEXTURE_LOAD_HELPER(file, ".png", floor_texture_dim[i].first, floor_texture_dim[i].second, floor_textures)
+
+        WALL_TEXTURE_LOAD_HELPER("wall1", 0)
+        WALL_TEXTURE_LOAD_HELPER("wall2", 1)
+        WALL_TEXTURE_LOAD_HELPER("wall4", 2)
+        WALL_TEXTURE_LOAD_HELPER("wall5", 3)
+        WALL_TEXTURE_LOAD_HELPER("wall6", 4)
+
+        FLOOR_TEXTURE_LOAD_HELPER("floor2", 0)
+        FLOOR_TEXTURE_LOAD_HELPER("floor3", 1)
+        FLOOR_TEXTURE_LOAD_HELPER("floor4", 2)
+        FLOOR_TEXTURE_LOAD_HELPER("floor5", 3)
+        FLOOR_TEXTURE_LOAD_HELPER("floor6", 4)
+        FLOOR_TEXTURE_LOAD_HELPER("floor7", 5)
+        FLOOR_TEXTURE_LOAD_HELPER("floor8", 6)
+
+#undef TEXTURE_LOAD_HELPER
+#undef WALL_TEXTURE_LOAD_HELPER
+#undef FLOOR_TEXTURE_LOAD_HELPER
+
+    }
+
+
+    if (skybox == nullptr)
+        skybox = new SkyBox(ASSET_PATH "/texture/skybox/right.jpg",
+                            ASSET_PATH "/texture/skybox/left.jpg",
+                            ASSET_PATH "/texture/skybox/top.jpg",
+                            ASSET_PATH "/texture/skybox/bottom.jpg",
+                            ASSET_PATH "/texture/skybox/back.jpg",
+                            ASSET_PATH "/texture/skybox/front.jpg");
 
 }
-float floor_v[] = {
-     // coordinates     texture    norm            tangent
-     // x    y    z     u    v     x    y    z     x    y    z
-        0.f, 0.f, 1.f,  0.f, 1.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
-        0.f, 0.f, 0.f,  0.f, 0.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
-        1.f, 0.f, 0.f,  1.f, 0.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
-
-        0.f, 0.f, 1.f,  0.f, 1.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
-        1.f, 0.f, 0.f,  1.f, 0.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
-        1.f, 0.f, 1.f,  1.f, 1.f,  0.f, 1.f, 0.f,  1.f, 0.f, 0.f,
-};
-float cube_v[] = {
-        0.f, 0.f, 1.f,  0.f, 0.f, -1.f, 0.f, 0.f,  0.f, 1.f, 0.f,
-        0.f, 0.f, 0.f,  1.f, 0.f, -1.f, 0.f, 0.f,  0.f, 1.f, 0.f,
-        0.f, 1.f, 0.f,  1.f, 1.f, -1.f, 0.f, 0.f,  0.f, 1.f, 0.f,
-        0.f, 0.f, 1.f,  0.f, 0.f, -1.f, 0.f, 0.f,  0.f, 1.f, 0.f,
-        0.f, 1.f, 0.f,  1.f, 1.f, -1.f, 0.f, 0.f,  0.f, 1.f, 0.f,
-        0.f, 1.f, 1.f,  0.f, 1.f, -1.f, 0.f, 0.f,  0.f, 1.f, 0.f,
-
-        1.f, 0.f, 1.f,  0.f, 0.f,  1.f, 0.f, 0.f,  0.f,-1.f, 0.f,
-        1.f, 0.f, 0.f,  1.f, 0.f,  1.f, 0.f, 0.f,  0.f,-1.f, 0.f,
-        1.f, 1.f, 0.f,  1.f, 1.f,  1.f, 0.f, 0.f,  0.f,-1.f, 0.f,
-        1.f, 0.f, 1.f,  0.f, 0.f,  1.f, 0.f, 0.f,  0.f,-1.f, 0.f,
-        1.f, 1.f, 0.f,  1.f, 1.f,  1.f, 0.f, 0.f,  0.f,-1.f, 0.f,
-        1.f, 1.f, 1.f,  0.f, 1.f,  1.f, 0.f, 0.f,  0.f,-1.f, 0.f,
-
-        0.f, 1.f, 0.f,  1.f, 1.f,  0.f, 0.f,-1.f,  0.f, 0.f,-1.f,
-        0.f, 0.f, 0.f,  1.f, 0.f,  0.f, 0.f,-1.f,  0.f, 0.f,-1.f,
-        1.f, 0.f, 0.f,  0.f, 0.f,  0.f, 0.f,-1.f,  0.f, 0.f,-1.f,
-        0.f, 1.f, 0.f,  1.f, 1.f,  0.f, 0.f,-1.f,  0.f, 0.f,-1.f,
-        1.f, 0.f, 0.f,  0.f, 0.f,  0.f, 0.f,-1.f,  0.f, 0.f,-1.f,
-        1.f, 1.f, 0.f,  0.f, 1.f,  0.f, 0.f,-1.f,  0.f, 0.f,-1.f,
-
-        0.f, 1.f, 1.f,  0.f, 1.f,  0.f, 0.f,-1.f,  0.f, 0.f, 1.f,
-        0.f, 0.f, 1.f,  0.f, 0.f,  0.f, 0.f,-1.f,  0.f, 0.f, 1.f,
-        1.f, 0.f, 1.f,  1.f, 0.f,  0.f, 0.f,-1.f,  0.f, 0.f, 1.f,
-        0.f, 1.f, 1.f,  0.f, 1.f,  0.f, 0.f,-1.f,  0.f, 0.f, 1.f,
-        1.f, 0.f, 1.f,  1.f, 0.f,  0.f, 0.f,-1.f,  0.f, 0.f, 1.f,
-        1.f, 1.f, 1.f,  1.f, 1.f,  0.f, 0.f,-1.f,  0.f, 0.f, 1.f
-};
-std::vector<float> wall_v;
-GLsizei wall_vs = 0;
 
 template<typename ...ARGS>
 void Scene::reset(ARGS &&...args)
 {
+
     maze.reset(std::forward<ARGS>(args)...);
-    state = State::Running;
 
     auto h = static_cast<float>(maze.height);
     auto w = static_cast<float>(maze.width);
@@ -264,6 +155,7 @@ void Scene::reset(ARGS &&...args)
     auto v = h;
     auto ws = (opt.cellSize() + opt.wallThickness()) * (w-1)/2 + opt.wallThickness();
     auto hs = (opt.cellSize() + opt.wallThickness()) * (h-1)/2 + opt.wallThickness();
+
     floor_v[25] =  u; floor_v[47] =  u; floor_v[58] =  u;
     floor_v[4]  =  v; floor_v[37] =  v; floor_v[59] =  v;
     floor_v[22] = ws; floor_v[44] = ws; floor_v[55] = ws;
@@ -281,12 +173,74 @@ void Scene::reset(ARGS &&...args)
 
         for (auto j = 0; j < w; ++j)
         {
-            if (!maze.isWall(j, i))
-                continue;
 
-            auto x0 = j/2*dl;
-            if (j%2 == 1) x0 += opt.wallThickness();
+            auto x0 = j/2*dl; if (j%2 == 1) x0 += opt.wallThickness();
             auto x1 = x0 + (j%2 == 0 ? opt.wallThickness() : opt.cellSize());
+
+
+            auto e = maze.at(j, i);
+            if (Maze::isKey(e))
+            {
+                auto index = -1;
+                if (e == Maze::METAL_KEY) index = 0;
+                else if (e == Maze::WOOD_KEY) index = 1;
+                else if (e == Maze::WATER_KEY) index = 2;
+                else if (e == Maze::FIRE_KEY) index = 3;
+                else if (e == Maze::EARTH_KEY) index = 4;
+                if (index > -1)
+                {
+                    auto x = 0.5f * (static_cast<float>(j + 1)*dl - opt.cellSize());
+                    auto y = 0.5f * (static_cast<float>(i + 1)*dl - opt.cellSize());
+                    keys[index]->place(glm::vec3(x, character.characterHeight(), y));
+                }
+                continue;
+            }
+            else if (Maze::isDoor(e))
+            {
+                auto index = -1;
+                if (e == Maze::METAL_DOOR) index = 0;
+                else if (e == Maze::WOOD_DOOR) index = 1;
+                else if (e == Maze::WATER_DOOR) index = 2;
+                else if (e == Maze::FIRE_DOOR) index = 3;
+                else if (e == Maze::EARTH_DOOR) index = 4;
+                if (index > -1)
+                {
+                    auto x = 0.5f * (static_cast<float>(j + 1)*dl - opt.cellSize());
+                    auto y = 0.5f * (static_cast<float>(i + 1)*dl - opt.cellSize());
+                    auto wid = x1-x0;
+                    auto hei = y1-y0;
+                    if (j == 0)
+                    {
+                        wid *= 0.25f;
+                        x -= 2.f*wid;
+                    }
+                    else if (j == w-1)
+                    {
+                        wid *= 0.25f;
+                        x += 2.f*wid;
+                    }
+                    else if (i == 0)
+                    {
+                        hei *= 0.25f;
+                        y -= 2.f*hei;
+                    }
+                    else if (i == h-1)
+                    {
+                        hei *= 0.25f;
+                        y += 2.f*hei;
+                    }
+                    doors[index]->place(glm::vec3(x, ch*0.5f, y));
+                    doors[index]->setHalfSize(glm::vec3(wid*0.5f, ch*0.5f, hei*0.5f));
+                }
+                continue;
+            }
+            else if (e == Maze::END_POINT)
+            {
+                continue;
+            }
+
+            if (!maze.isWall(e))
+                continue;
 
             auto count = 0;
             if (!maze.isWall(j-1, i))
@@ -373,7 +327,7 @@ void Scene::reset(ARGS &&...args)
         }
     }
 
-    wall_vs = static_cast<GLsizei>(wall_v.size())/11;
+    n_wall_v = wall_v.size()/11;
 
     auto x = (static_cast<float>(maze.player_x) + 1)*dl - opt.cellSize();
     auto y = (static_cast<float>(maze.player_y) + 1)*dl - opt.cellSize();
@@ -408,41 +362,120 @@ void Scene::reset(ARGS &&...args)
     else //if (d[i] == 8)
         character.reset(x*0.5f, character.characterHeight(), y*0.5f, 45.0f);
 
-    // loading textures
     character.clearBag();
+    character.setCharacterHp(500.f);
 
+    need_upload_data = true;
 
-    auto a = new unsigned char[1024*1024*3];
-    for (auto i = 0; i < 1024 * 1024 * 3; ++i)
-    {
-        a[i] = 0;
-    }
-    i = 0;
-//    i = rd() % N_FLOOR_TEXTURES;
-    glBindVertexArray(vao[0]);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(floor_v), floor_v, GL_STATIC_DRAW);
-    TEXTURE_BIND_HELPER(texture[0], 0, GL_REPEAT, GL_LINEAR, FLOOR_TEXTURE_DIM[i*2], FLOOR_TEXTURE_DIM[i*2+1], FLOOR_TEXTURES[i*4],   shader->pid(), "material.diffuse");
-    TEXTURE_BIND_HELPER(texture[1], 1, GL_REPEAT, GL_LINEAR, FLOOR_TEXTURE_DIM[i*2], FLOOR_TEXTURE_DIM[i*2+1], FLOOR_TEXTURES[i*4+1], shader->pid(), "material.normal");
-    TEXTURE_BIND_HELPER(texture[2], 2, GL_REPEAT, GL_LINEAR, FLOOR_TEXTURE_DIM[i*2], FLOOR_TEXTURE_DIM[i*2+1], FLOOR_TEXTURES[i*4+2], shader->pid(), "material.specular")
-    TEXTURE_BIND_HELPER(texture[3], 3, GL_REPEAT, GL_LINEAR, FLOOR_TEXTURE_DIM[i*2], FLOOR_TEXTURE_DIM[i*2+1], FLOOR_TEXTURES[i*4+3], shader->pid(), "material.displace");
+    std::list<Item*> tmp;
+    for (auto & k : keys)
+        tmp.push_front(k);
+    for (auto & d : doors)
+        tmp.push_back(d);
+    interact_objs.swap(tmp);
 
-//    i = rd() % N_WALL_TEXTURES;
-    glBindVertexArray(vao[1]);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*wall_v.size(), wall_v.data(), GL_STATIC_DRAW);
-    TEXTURE_BIND_HELPER(texture[4], 0, GL_REPEAT, GL_LINEAR, WALL_TEXTURE_DIM[i*2], WALL_TEXTURE_DIM[i*2+1], WALL_TEXTURES[i*4],   shader->pid(), "material.diffuse");
-    TEXTURE_BIND_HELPER(texture[5], 1, GL_REPEAT, GL_LINEAR, WALL_TEXTURE_DIM[i*2], WALL_TEXTURE_DIM[i*2+1], WALL_TEXTURES[i*4+1], shader->pid(), "material.normal");
-    TEXTURE_BIND_HELPER(texture[6], 2, GL_REPEAT, GL_LINEAR, WALL_TEXTURE_DIM[i*2], WALL_TEXTURE_DIM[i*2+1], WALL_TEXTURES[i*4+2], shader->pid(), "material.specular");
-    TEXTURE_BIND_HELPER(texture[7], 3, GL_REPEAT, GL_LINEAR, WALL_TEXTURE_DIM[i*2], WALL_TEXTURE_DIM[i*2+1], WALL_TEXTURES[i*4+3], shader->pid(), "material.displace");
-
-    need_update_vbo_data = true;
+    state = State::Running;
 
 #ifndef NDEBUG
-    std::cout << maze.map << std::endl;
+    std::cout << "\n" << maze.map << std::endl;
 #endif
 }
 
+void Scene::uploadData()
+{
+    if (!need_upload_data)
+        return;
+
+    auto i = static_cast<int>(std::floor((rnd() + 1) * 0.5f * (floor_textures.size()/4)));
+    glBindVertexArray(vao[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(floor_v), floor_v, GL_STATIC_DRAW);
+    TEXTURE_BIND_HELPER(texture[0], 0, GL_RGB,
+                        GL_REPEAT, GL_LINEAR, floor_texture_dim[i].first, floor_texture_dim[i].second, floor_textures[i*4],   shader->pid(), "material.diffuse");
+    TEXTURE_BIND_HELPER(texture[1], 1, GL_RGB,
+                        GL_REPEAT, GL_LINEAR, floor_texture_dim[i].first, floor_texture_dim[i].second, floor_textures[i*4+1], shader->pid(), "material.normal");
+    TEXTURE_BIND_HELPER(texture[2], 2, GL_RGB,
+                        GL_REPEAT, GL_LINEAR, floor_texture_dim[i].first, floor_texture_dim[i].second, floor_textures[i*4+2], shader->pid(), "material.specular")
+    TEXTURE_BIND_HELPER(texture[6], 3, GL_RGB,
+                        GL_REPEAT, GL_LINEAR, floor_texture_dim[i].first, floor_texture_dim[i].second, floor_textures[i*4+3], shader->pid(), "material.displace")
+
+    i = static_cast<int>(std::floor((rnd() + 1) * 0.5f * (wall_textures.size()/4)));
+    glBindVertexArray(vao[1]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*wall_v.size(), wall_v.data(), GL_STATIC_DRAW);
+    TEXTURE_BIND_HELPER(texture[3], 0, GL_RGB,
+                        GL_REPEAT, GL_LINEAR, wall_texture_dim[i].first, wall_texture_dim[i].second, wall_textures[i*4],   shader->pid(), "material.diffuse");
+    TEXTURE_BIND_HELPER(texture[4], 1, GL_RGB,
+                        GL_REPEAT, GL_LINEAR, wall_texture_dim[i].first, wall_texture_dim[i].second, wall_textures[i*4+1], shader->pid(), "material.normal");
+    TEXTURE_BIND_HELPER(texture[5], 2, GL_RGB,
+                        GL_REPEAT, GL_LINEAR, wall_texture_dim[i].first, wall_texture_dim[i].second, wall_textures[i*4+2], shader->pid(), "material.specular");
+    TEXTURE_BIND_HELPER(texture[7], 3, GL_RGB,
+                        GL_REPEAT, GL_LINEAR, wall_texture_dim[i].first, wall_texture_dim[i].second, wall_textures[i*4+3], shader->pid(), "material.displace")
+
+    shader->use();
+    shader->set("headlight.ambient", glm::vec3(.6f, .5f, .3f));
+    shader->set("headlight.diffuse", glm::vec3(.5f, .4f, .25f));
+    shader->set("headlight.specular", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("headlight.coef_a0", 1.f);
+    shader->set("headlight.coef_a1", .09f);
+    shader->set("headlight.coef_a2", .032f);
+    shader->set("global_ambient", glm::vec3(.1f, .1f, .1f));
+
+    float x, y, z;
+    keys[0]->position(x, y, z);
+    shader->set("pointlight[0].pos", glm::vec3(x, y, z));
+    shader->set("pointlight[0].ambient", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("pointlight[0].diffuse", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("pointlight[0].specular", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("pointlight[0].coef_a0", 0.f);
+    shader->set("pointlight[0].coef_a0", 0.f);
+    shader->set("pointlight[0].coef_a1", 0.f);
+    shader->set("pointlight[0].coef_a2", 2.f);
+
+    keys[1]->position(x, y, z);
+    shader->set("pointlight[1].pos", glm::vec3(x, y, z));
+    shader->set("pointlight[1].ambient", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("pointlight[1].coef_a0", 0.f);
+    shader->set("pointlight[1].coef_a1", 0.f);
+    shader->set("pointlight[1].coef_a2", 2.f);
+
+    keys[2]->position(x, y, z);
+    shader->set("pointlight[2].pos", glm::vec3(x, y, z));
+    shader->set("pointlight[2].ambient", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("pointlight[2].coef_a0", 0.f);
+    shader->set("pointlight[2].coef_a1", 0.f);
+    shader->set("pointlight[2].coef_a2", 2.f);
+
+    keys[3]->position(x, y, z);
+    shader->set("pointlight[3].pos", glm::vec3(x, y, z));
+    shader->set("pointlight[3].ambient", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("pointlight[3].coef_a0", 0.f);
+    shader->set("pointlight[3].coef_a1", 0.f);
+    shader->set("pointlight[3].coef_a2", 2.f);
+
+    keys[4]->position(x, y, z);
+    shader->set("pointlight[4].pos", glm::vec3(x, y, z));
+    shader->set("pointlight[4].ambient", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("pointlight[4].coef_a0", 0.f);
+    shader->set("pointlight[4].coef_a1", 0.f);
+    shader->set("pointlight[4].coef_a2", 2.f);
+
+    need_upload_data = false;
+}
+
+void Scene::turnOffHeadLight()
+{
+    shader->use();
+    shader->set("headlight.cutoff_outer", std::numeric_limits<float>::max());
+    shader->set("headlight.cutoff_diff", std::numeric_limits<float>::max());
+}
+
+void Scene::turnOnHeadLight()
+{
+    shader->use();
+    shader->set("headlight.cutoff_outer", 0.9537f);
+    shader->set("headlight.cutoff_diff", 0.0226f);
+}
 template void Scene::reset(Map const &);
 template void Scene::reset(Maze const &);
 template void Scene::reset(std::size_t const &, std::size_t const &);
@@ -453,38 +486,40 @@ void Scene::render()
 //    glEnable(GL_CULL_FACE);
 //    glCullFace(GL_BACK);
 //    glFrontFace(GL_CCW);
+
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
     glClearColor(.2f, .3f, .3f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    uploadData();
+
     shader->use();
 
-    if (need_update_vbo_data)
-    {
-        need_update_vbo_data = false;
-
-        shader->set("light.cutoff_outer", 0.9537f);
-        shader->set("light.cutoff_diff", 0.0226f);
-        shader->set("light.ambient", glm::vec3(.5f, .5f, .5f));
-        shader->set("light.diffuse", glm::vec3(.1f, .1f, .1f));
-        shader->set("light.specular", glm::vec3(.0f, .0f, .0f));
-        shader->set("light.coef_a0", 1.f);
-        shader->set("light.coef_a1", .09f);
-        shader->set("light.coef_a2", .032f);
-    }
-
+    if (character.headLight())
+        turnOnHeadLight();
+    else
+        turnOffHeadLight();
 
     shader->set("view", character.cam.viewMat());
     shader->set("proj", character.cam.projMat());
-    shader->set("model", glm::mat4());
+    shader->set("model", Item::IDENTITY_MODEL_MAT);
     shader->set("cam_pos", character.cam.cam_pos);
-    shader->set("light.pos", character.cam.cam_pos);
-    shader->set("light.dir", character.cam.cam_dir);
+    auto x = character.cam.cam_pos;
+    x.y += character.characterHeight()*0.2f;
+    shader->set("headlight.pos", x);
+    shader->set("headlight.dir", character.cam.cam_dir);
+
+    shader->set("use_tangent", 1);
+    shader->set("material.parallel_height", 0.0025f);
+    shader->set("material.shininess", 32.f);
+    shader->set("material.ambient", glm::vec3(1.f, 1.f, 1.f));
+    shader->set("material.displace_amp", DEFAULT_DISPLACE_AMP);
+    shader->set("material.displace_mid", DEFAULT_DISPLACE_MID);
 
     // render floor
     glBindVertexArray(vao[0]);
-    shader->set("material.shininess", 32.f);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture[0]);
     glActiveTexture(GL_TEXTURE1);
@@ -492,39 +527,123 @@ void Scene::render()
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, texture[2]);
     glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, texture[3]);
+    glBindTexture(GL_TEXTURE_2D, texture[6]);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     // render walls
     glBindVertexArray(vao[1]);
-    shader->set("material.shininess", 32.f);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture[4]);
+    glBindTexture(GL_TEXTURE_2D, texture[3]);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, texture[5]);
+    glBindTexture(GL_TEXTURE_2D, texture[4]);
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, texture[6]);
+    glBindTexture(GL_TEXTURE_2D, texture[5]);
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, texture[7]);
-    glDrawArrays(GL_TRIANGLES, 0, wall_vs);
+    glDrawArrays(GL_TRIANGLES, 0, n_wall_v);
+
+    shader->set("material.parallel_height", 0.f);
+
+//     render objs
+    for (auto &k : interact_objs)
+        k->render(shader, character.cam.viewMat(), character.cam.projMat());
+
+    skybox->render(character.cam.viewMat(), character.cam.projMat());
 }
 
 bool Scene::run(float dt)
 {
+
+
 #ifndef NDEBUG
     bool moved = false;
 #endif
-    if (state == State::Running)
+    if (state == State::Win)
+    {
+        shader->use();
+        shader->set("global_ambient", glm::vec3(1.f, 1.f, 1.f));
+        shader->set("pointlight[0].coef_a2", 0.f);
+        shader->set("pointlight[1].coef_a2", 0.f);
+        shader->set("pointlight[2].coef_a2", 0.f);
+        shader->set("pointlight[3].coef_a2", 0.f);
+        shader->set("pointlight[4].coef_a2", 0.f);
+        turnOffHeadLight();
+
+        auto e = maze.at(maze.player_x, maze.player_y);
+        auto index = -1;
+        if (e == Maze::METAL_DOOR) index = 0;
+        else if (e == Maze::WOOD_DOOR) index = 1;
+        else if (e == Maze::WATER_DOOR) index = 2;
+        else if (e == Maze::FIRE_DOOR) index = 3;
+        else if (e == Maze::EARTH_DOOR) index = 4;
+
+        if (index == -1)
+            return false;
+
+        auto dl = opt.cellSize()+opt.wallThickness();
+
+        character.cam.setFov(45.f);
+
+        auto px = maze.player_x;
+        auto py = maze.player_y;
+        if (maze.player_x == 0)
+        {
+            px = 1;
+            character.cam.setAng(-180, 20);
+        }
+        else if (maze.player_x == maze.width-1)
+        {
+            px = maze.width - 2;
+            character.cam.setAng(0, 20);
+        }
+        else if (maze.player_y == 0)
+        {
+            py = 1;
+            character.cam.setAng(-90, 20);
+        }
+        else if (maze.player_y == maze.height-1)
+        {
+            py = maze.height - 2;
+            character.cam.setAng(90, 20);
+        }
+
+        character.cam.cam_pos.x =
+                0.5*((static_cast<float>(px) + 1)*dl - opt.cellSize());
+        character.cam.cam_pos.z =
+                0.5*((static_cast<float>(py) + 1)*dl - opt.cellSize());
+
+        character.cam.freeze(true);
+
+        float _, y, __;
+        doors[index]->position(_, y, __);
+
+        if (y + opt.cellHeight()*0.5 < 0)
+        {
+            character.cam.freeze(false);
+            return false;
+        }
+        character.cam.updateViewMat();
+
+        doors[index]->place(glm::vec3(_, y + -opt.cellHeight()*0.005f, __));
+    }
+    else
+    {
+        character.setCharacterHp(
+                character.characterHp() - dt * opt.damageAmp());
 #ifndef NDEBUG
         moved =
 #endif
-            moveWithCollisionCheck(character.makeAction(dt));
+                moveWithCollisionCheck(character, character.makeAction(dt));
 
-    // TODO game over moive
-//    else ...
-
-    character.cam.updateViewMat();
+        character.cam.updateViewMat();
+        if (character.characterHp() < 0)
+        {
+            state = State::Lose;
+            return false;
+        }
+    }
+    for (auto &k : interact_objs)
+        k->update(dt);
 
 #ifndef NDEBUG
     if (moved)
@@ -539,13 +658,12 @@ bool Scene::run(float dt)
               << std::flush;
 #endif
 
-    // TODO modify the following line for game over movie
-    return state == State::Running ? true : false;
+    return true;
 }
 
-bool Scene::moveWithCollisionCheck(glm::vec3 span)
+bool Scene::moveWithCollisionCheck(Character &character, glm::vec3 span)
 {
-    auto moved = false;
+    auto need_reload_map = false;
     auto dl = opt.cellSize()+opt.wallThickness();
     while (span.x != 0.f || span.z != 0.f)
     {
@@ -555,115 +673,253 @@ bool Scene::moveWithCollisionCheck(glm::vec3 span)
             break;
         }
 
-        if (character.collectItem(maze.collect(maze.player_x, maze.player_y), 1))
-            maze.clear(maze.player_x, maze.player_y);
+        // cell coordinate
+        auto x = maze.player_x;
+        auto y = maze.player_y;
+        // bound of current cell
+        auto x0 = x/2*dl; if (x%2 == 1) x0 += opt.wallThickness();
+        auto x1 = x0 + (x%2 == 0 ? opt.wallThickness() : opt.cellSize());
+        auto z0 = y/2*dl; if (y%2 == 1) z0 += opt.wallThickness();
+        auto z1 = z0 + (y%2 == 0 ? opt.wallThickness() : opt.cellSize());
 
-        if (character.hasItem(maze.keyFor(maze.player_x, maze.player_y)))
+        // character location
+        auto new_pos_x = character.cam.cam_pos.x;
+        auto new_pos_z = character.cam.cam_pos.z;
+
+        // if unable to move the adj. cell, then move at most to the edge of the adj. cell
+        if (span.x > 0.f && maze.isWall(x+1, y))
+        {
+            new_pos_x = std::min(x1 - character.characterHalfSize(),
+                                               new_pos_x + span.x);
+            span.x = 0.f;
+        }
+        if (span.x < 0.f && maze.isWall(x-1, y))
+        {
+            new_pos_x = std::max(x0 + character.characterHalfSize(),
+                                               new_pos_x + span.x);
+            span.x = 0.f;
+        }
+        if (span.z > 0.f && maze.isWall(x, y+1))
+        {
+            new_pos_z = std::min(z1 - character.characterHalfSize(),
+                                 new_pos_z + span.z);
+            span.z = 0.f;
+        }
+        if (span.z < 0.f && maze.isWall(x, y-1))
+        {
+            new_pos_z = std::max(z0 + character.characterHalfSize(),
+                                 new_pos_z + span.z);
+            span.z = 0.f;
+        }
+
+        auto will_move_left = false, will_move_right = false;
+        auto will_move_up   = false, will_move_down  = false;
+        if (span.x > 0.f)
+        {   // can and is moving toward the right cell
+            if (new_pos_x + span.x < x1)
+            {   // if just move inside the current cell
+                new_pos_x += span.x; span.x = 0.f;
+            }
+            else
+            {   // move to the edge of the adj. cell
+                will_move_right = true;
+                span.x += new_pos_x - x1;
+                new_pos_x = x1;
+            }
+
+        }
+        else if (span.x < 0.f)
+        {
+            if (new_pos_x + span.x > x0)
+            {
+                new_pos_x += span.x; span.x = 0.f;
+            }
+            else
+            {
+                will_move_left = true;
+                span.x += new_pos_x - x0;
+                new_pos_x = x0;
+            }
+        }
+        if (span.z > 0.f)
+        {
+            if (new_pos_z + span.z < z1)
+            {
+                new_pos_z += span.z; span.z = 0.f;
+            }
+            else
+            {
+                will_move_down = true;
+                span.z += new_pos_z - z1;
+                new_pos_z = z1;
+            }
+
+        }
+        else if (span.z < 0.f)
+        {
+            if (new_pos_z + span.z > z0)
+            {
+                new_pos_z += span.z;
+                span.z = 0.f;
+            }
+            else
+            {
+                will_move_up = true;
+                span.z += new_pos_z - z0;
+                new_pos_z = z0;
+            }
+        }
+
+        bool move_false = false;
+        float item_x, item_y, item_z, size_x, size_y, size_z;
+        auto player_y = character.cam.cam_pos.y - character.characterHalfHeight();
+        for (auto it = interact_objs.begin(); it != interact_objs.end();)
+        {
+            (*it)->position(item_x, item_y, item_z);
+            (*it)->halfSize(size_x, size_y, size_z);
+
+            if (std::abs(item_x - new_pos_x) > std::abs(size_x + character.characterHalfSize()) ||
+                std::abs(item_y - player_y) > std::abs(size_y + character.characterHalfHeight()) ||
+                std::abs(item_z - new_pos_z) > std::abs(size_z + character.characterHalfSize()))
+            {
+                ++it;
+                continue;
+            }
+
+            // TODO collision would fail if the character moves toooo far during one trick
+            //      but normally, this should not happen
+
+            if ((*it)->attribute.collectible)
+            {
+                auto id = (*it)->attribute.id();
+                character.collectItem(id, 1);
+                if (id == item::MetalKey::itemInfo().id())
+                {
+                    maze.collect(Maze::METAL_KEY);
+                    int x, y;
+                    float dx, dy, dz;
+                    doors[0]->position(dx, dy, dz);
+                    maze.getLoc(Maze::METAL_DOOR, x, y);
+                    if (x == 0) dx += opt.wallThickness();
+                    else if (x == maze.width-1) dx -= opt.wallThickness();
+                    else if (y == 0) dz += opt.wallThickness();
+                    else dz -= opt.wallThickness();
+                    shader->use();
+                    shader->set("pointlight[0].pos", glm::vec3(dx, dy, dz));
+                    shader->set("pointlight[0].coef_a2", 0.075f);
+                    need_reload_map = true;
+                }
+                else if (id == item::WoodKey::itemInfo().id())
+                {
+                    maze.collect(Maze::WOOD_KEY);
+                    int x, y;
+                    float dx, dy, dz;
+                    doors[1]->position(dx, dy, dz);
+                    maze.getLoc(Maze::WOOD_DOOR, x, y);
+                    if (x == 0) dx += opt.wallThickness();
+                    else if (x == maze.width) dx -= opt.wallThickness();
+                    else if (y == 0) dz += opt.wallThickness();
+                    else dz -= opt.wallThickness();
+                    shader->use();
+                    shader->set("pointlight[1].pos", glm::vec3(dx, dy, dz));
+                    shader->set("pointlight[1].coef_a2", 0.075f);
+                    need_reload_map = true;
+                }
+                else if (id == item::WaterKey::itemInfo().id())
+                {
+                    maze.collect(Maze::WATER_KEY);
+                    int x, y;
+                    float dx, dy, dz;
+                    doors[2]->position(dx, dy, dz);
+                    maze.getLoc(Maze::WATER_DOOR, x, y);
+                    if (x == 0) dx += opt.wallThickness();
+                    else if (x == maze.width-1) dx -= opt.wallThickness();
+                    else if (y == 0) dz += opt.wallThickness();
+                    else dz -= opt.wallThickness();
+                    shader->use();
+                    shader->set("pointlight[2].pos", glm::vec3(dx, dy, dz));
+                    shader->set("pointlight[2].coef_a2", 0.075f);
+                    need_reload_map = true;
+                }
+                else if (id == item::FireKey::itemInfo().id())
+                {
+                    maze.collect(Maze::FIRE_KEY);
+                    int x, y;
+                    float dx, dy, dz;
+                    doors[3]->position(dx, dy, dz);
+                    maze.getLoc(Maze::FIRE_DOOR, x, y);
+                    if (x == 0) dx += opt.wallThickness();
+                    else if (x == maze.width-1) dx -= opt.wallThickness();
+                    else if (y == 0) dz += opt.wallThickness();
+                    else dz -= opt.wallThickness();
+                    shader->use();
+                    shader->set("pointlight[3].pos", glm::vec3(dx, dy, dz));
+                    shader->set("pointlight[3].coef_a2", 0.075f);
+                    need_reload_map = true;
+                }
+                else if (id == item::EarthKey::itemInfo().id())
+                {
+                    maze.collect(Maze::EARTH_KEY);
+                    int x, y;
+                    float dx, dy, dz;
+                    doors[4]->position(dx, dy, dz);
+                    maze.getLoc(Maze::EARTH_DOOR, x, y);
+                    if (x == 0) dx += opt.wallThickness();
+                    else if (x == maze.width-1) dx -= opt.wallThickness();
+                    else if (y == 0) dz += opt.wallThickness();
+                    else dz -= opt.wallThickness();
+                    shader->use();
+                    shader->set("pointlight[4].pos", glm::vec3(dx, dy, dz));
+                    shader->set("pointlight[4].coef_a2", 0.075f);
+                    need_reload_map = true;
+                }
+
+                it = interact_objs.erase(it);
+                continue;
+            }
+            move_false = true;
+
+            ++it;
+        }
+
+        if (move_false)
+        {
+
+            break;
+        }
+        // update character pos
+        character.cam.cam_pos.x = new_pos_x;
+        character.cam.cam_pos.z = new_pos_z;
+        if (maze.canWin(x, y))
         {
             state = State::Win;
             break;
         }
-        if (character.currentHp() < 0)
+
+        // update character cell
+        if (will_move_left)
         {
-            state = State::Lose;
-            break;
+            need_reload_map = true;
+            maze.moveLeft();
+        }
+        else if (will_move_right)
+        {
+            need_reload_map = true;
+            maze.moveRight();
         }
 
-        auto x0 = maze.player_x/2*dl;
-        if (maze.player_x%2 == 1) x0 += opt.wallThickness();
-        auto x1 = x0 + (maze.player_x%2 == 0 ? opt.wallThickness() : opt.cellSize());
-
-        auto z0 = maze.player_y/2*dl;
-        if (maze.player_y%2 == 1) z0 += opt.wallThickness();
-        auto z1 = z0 + (maze.player_y%2 == 0 ? opt.wallThickness() : opt.cellSize());
-
-        auto dx = (span.x > 0.f ? (x1 - character.cam.cam_pos.x) : (x0 - character.cam.cam_pos.x))/span.x;
-        auto dz = (span.z > 0.f ? (z1 - character.cam.cam_pos.z) : (z0 - character.cam.cam_pos.z))/span.z;
-
-        if (span.x != 0.f)
+        if (will_move_up)
         {
-            if (span.x > 0.f && !maze.canMoveRight())
-            {
-                character.cam.cam_pos.x = std::min(x1 - character.characterHalfSize(),
-                                                   character.cam.cam_pos.x + span.x);
-                span.x = 0.f;
-            }
-            else if (span.x < 0.f && !maze.canMoveLeft())
-            {
-                character.cam.cam_pos.x = std::max(x0 + character.characterHalfSize(),
-                                                   character.cam.cam_pos.x + span.x);
-                span.x = 0.f;
-            }
+            need_reload_map = true;
+            maze.moveUp();
         }
-        if (span.z != 0.f)
+        else if (will_move_down)
         {
-            if (span.z > 0.f && !maze.canMoveDown())
-            {
-                character.cam.cam_pos.z = std::min(z1 - character.characterHalfSize(),
-                                                   character.cam.cam_pos.z + span.z);
-                span.z = 0.f;
-            }
-            else if (span.z < 0.f && !maze.canMoveUp())
-            {
-                character.cam.cam_pos.z = std::max(z0 + character.characterHalfSize(),
-                                                   character.cam.cam_pos.z + span.z);
-                span.z = 0.f;
-            }
+            need_reload_map = true;
+            maze.moveDown();
         }
 
-        if ((span.z == 0.f || dx < dz) && span.x != 0.f)
-        {
-            if (dx >= 1.0)
-            {
-                character.cam.cam_pos.x += span.x;
-                span.x = 0.f;
-            }
-            else
-            {
-                if (span.x > 0.f)
-                    maze.moveRight();
-                else
-                    maze.moveLeft();
-                moved = true;
-                if (span.x > 0.f)
-                {
-                    span.x += character.cam.cam_pos.x - x1;
-                    character.cam.cam_pos.x = x1;
-                }
-                else if (span.x < 0.f)
-                {
-                    span.x += character.cam.cam_pos.x - x0;
-                    character.cam.cam_pos.x = x0;
-                }
-            }
-        }
-        else if (span.z != 0.f)
-        {
-            if (dz >= 1.0)
-            {
-                character.cam.cam_pos.z += span.z;
-                span.z = 0.f;
-            }
-            else
-            {
-                if (span.z > 0.f)
-                    maze.moveDown();
-                else
-                    maze.moveUp();
-                moved = true;
-                if (span.z > 0.f)
-                {
-                    span.z += character.cam.cam_pos.z - z1;
-                    character.cam.cam_pos.z = z1;
-                }
-                else if (span.z < 0.f)
-                {
-                    span.z += character.cam.cam_pos.z - z0;
-                    character.cam.cam_pos.z = z0;
-                }
-            }
-        }
     }
 
-    return moved;
+    return need_reload_map;
 }

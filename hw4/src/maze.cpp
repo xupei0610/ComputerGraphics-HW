@@ -9,7 +9,23 @@
 
 using namespace px;
 
-std::vector<std::size_t> Maze::keys_id;
+const char Maze::METAL_KEY = 'a'; const char Maze::METAL_DOOR = 'A';
+const char Maze::WOOD_KEY  = 'b'; const char Maze::WOOD_DOOR  = 'B';
+const char Maze::WATER_KEY = 'c'; const char Maze::WATER_DOOR = 'C';
+const char Maze::FIRE_KEY  = 'd'; const char Maze::FIRE_DOOR  = 'D';
+const char Maze::EARTH_KEY = 'e'; const char Maze::EARTH_DOOR = 'E';
+
+const char Maze::END_POINT = '$';
+const char Maze::PLAYER = '@';
+const char Maze::EMPTY_SLOT = ' ';
+
+std::vector<std::pair<Key, Door> > Maze::KEYS = {
+        {METAL_KEY, METAL_DOOR},
+        {WOOD_KEY,  WOOD_DOOR},
+        {WATER_KEY, WATER_DOOR},
+        {FIRE_KEY,  FIRE_DOOR},
+        {EARTH_KEY, EARTH_DOOR},
+};
 
 struct Wall
 {
@@ -176,12 +192,10 @@ Map Maze::gen(std::size_t width, std::size_t height)
         map.player_x = id*2 + 1;
         map.player_y = head ? 1 : h+h-1;
     }
-//    map.player_x = 1;
-//    map.player_y = 1;
-//    map.at[(w+w+2)] = 'a';
-//    map.at[(w+w+2)*2] = 'b';
+    map.player_x = 1;
+    map.player_y = 1;
     auto tar = map.player_y * (w+w+2) + map.player_x;
-    map.at[tar] = '@';
+    map.at[tar] = PLAYER;
 
     if (row)
     {
@@ -197,9 +211,10 @@ Map Maze::gen(std::size_t width, std::size_t height)
     head = !head;
     tar = row ? (head ? (id*2+1) * (w+w+2) : (id*2+2) * (w+w+2) - 2)
               : (head ? (id*2+1) : h*2 * (w+w+2) + (id*2+1));
-    map.at[tar] = '$';
+    map.at[tar] = END_POINT;
 
-    for (auto i = 0; i < 5; ++i)
+    for (auto & k : Maze::KEYS)
+//    for (auto i = 0; i < 5; ++i)
     {
         do
         {
@@ -210,8 +225,9 @@ Map Maze::gen(std::size_t width, std::size_t height)
                       : (head ? w+w+2 + (id*2+1) : (h*2-1) * (w+w+2) + (id*2+1));
 
         }
-        while (map.at[tar] != ' ');
-        map.at[tar] = 97 + i;
+        while (map.at[tar] != EMPTY_SLOT);
+        map.at[tar] = k.first;
+        map.keys[k.first] = std::make_pair(tar % (w+w+2), tar/(w+w+2));
 
         row = !row;
         do
@@ -221,8 +237,9 @@ Map Maze::gen(std::size_t width, std::size_t height)
             tar = row ? (head ? (id*2+1) * (w+w+2) : (id*2+2) * (w+w+2) - 2)
                       : (head ? (id*2+1) : h*2 * (w+w+2) + (id*2+1));
         }
-        while (map.at[tar] == '$' || (map.at[tar] > 64 && map.at[tar] < 'F'));
-        map.at[tar] = 65 + i;
+        while (map.at[tar] == END_POINT || !Maze::isWall(map.at[tar]));
+        map.at[tar] = k.second;
+        map.doors[k.second] = std::make_pair(tar % (w+w+2), tar/(w+w+2));
     }
 
     delete maze;
@@ -236,52 +253,42 @@ bool Maze::isWall(char e)
          || e == '=' || e == '/' || e == '\\'|| e == '~' || e == '+';
 }
 
-bool Maze::isEndPoint(char e)
-{
-    return e == '$';
-}
-
 bool Maze::isDoor(char e)
 {
-    return e > 64 && e < 70;
+    for (const auto &k : KEYS)
+    {
+        if (e == k.second)
+            return true;
+    }
+    return false;
 }
 
-void Maze::regItems()
+bool Maze::isKey(char e)
 {
-    static bool registered = false;
-    if (!registered)
+    for (const auto &k : KEYS)
     {
-        keys_id.push_back(Bag::regItem("Metal Key", "", 0, false, true));
-        keys_id.push_back(Bag::regItem("Wood Key",  "", 0, false, true));
-        keys_id.push_back(Bag::regItem("Water Key", "", 0, false, true));
-        keys_id.push_back(Bag::regItem("Fire Key",  "", 0, false, true));
-        keys_id.push_back(Bag::regItem("Earth Key",  "", 0, false, true));
-        registered = true;
+        if (e == k.first)
+            return true;
     }
+    return false;
 }
 
 Maze::Maze()
         : map(maze.at), height(maze.height), width(maze.width),
           player_x(maze.player_x), player_y(maze.player_y)
-{
-    Maze::regItems();
-}
+{}
 
 Maze::Maze(Map const &map)
     : maze(map),
       map(maze.at), height(maze.height), width(maze.width),
       player_x(maze.player_x), player_y(maze.player_y)
-{
-    Maze::regItems();
-}
+{}
 
 Maze::Maze(std::size_t const &width, std::size_t const &height)
     : maze(Maze::gen(width, height)),
       map(maze.at), height(maze.height), width(maze.width),
       player_x(maze.player_x), player_y(maze.player_y)
-{
-    Maze::regItems();
-}
+{}
 
 void Maze::reset(Map const &m)
 {
@@ -295,6 +302,18 @@ void Maze::reset(Maze const &m)
 void Maze::reset(std::size_t const &width, std::size_t const &height)
 {
     maze = Maze::gen(width, height);
+//
+//    maze.at[1] = METAL_KEY;
+//    maze.at[2] = WOOD_KEY;
+//    maze.at[3] = WATER_KEY;
+//    maze.at[4] = FIRE_KEY;
+//    maze.at[5] = EARTH_KEY;
+//    collect(METAL_KEY);
+//    collect(WOOD_KEY);
+//    collect(WATER_KEY);
+//    collect(FIRE_KEY);
+//    collect(EARTH_KEY);
+
 }
 
 bool Maze::isWall(int x, int y)
@@ -308,7 +327,7 @@ bool Maze::isEndPoint(int x, int y)
 {
     if (x < 0 || x >= static_cast<int>(width) || y < 0 || y >= static_cast<int>(height))
         return false;
-    return Maze::isEndPoint(at(x, y));
+    return at(x, y) == END_POINT;
 }
 
 bool Maze::isDoor(int x, int y)
@@ -321,11 +340,6 @@ bool Maze::isDoor(int x, int y)
 bool Maze::isWall(std::size_t const &index)
 {
     return Maze::isWall(operator[](index));
-}
-
-bool Maze::isEndPoint(std::size_t const &index)
-{
-    return Maze::isEndPoint(operator[](index));
 }
 
 bool Maze::isDoor(std::size_t const &index)
@@ -353,30 +367,60 @@ bool Maze::canMoveDown()
     return !Maze::isWall(player_x, player_y+1);
 }
 
-std::size_t Maze::collect(int x, int y)
+bool Maze::canWin(int x, int y)
 {
+    if (isEndPoint(x, y))
+        return true;
+
+    if (maze.collection.empty())
+        return false;
+
     auto e = at(x, y);
-    if (e > 96 && e < 102)
-        return keys_id[e-97];
-    return 0;
+    for (const auto &p : KEYS)
+    {
+        if (e == p.second)
+        {
+            for (const auto &i : maze.collection)
+            {
+                if (i == p.first)
+                    return true;
+            }
+        }
+    }
+    return false;
 }
 
-std::size_t Maze::keyFor(int x, int y)
+void Maze::collect(char key)
 {
-    auto e = at(x, y);
-    if (e > 64 && e < 70)
-        return keys_id[e-65];
-    return 0;
+    if (Maze::isKey(key))
+    {
+        maze.collection.push_back(key);
+        clear(maze.keys[key].first, maze.keys[key].second);
+    }
+}
+
+void Maze::getLoc(Door d, int &x, int &y)
+{
+    auto it = maze.doors.find(d);
+    if (it == maze.doors.end())
+    {
+        x = -1; y = -1;
+    }
+    else
+    {
+        x = it->second.first;
+        y = it->second.second;
+    }
 }
 
 void Maze::portal(int x, int y)
 {
     if (at(player_x, player_y) == '@')
         at(player_x, player_y) = ' ';
-    maze.player_x = x;
-    maze.player_y = y;
+    maze.player_x = x < 0 ? 0 : x < maze.width ? x : maze.width - 1;
+    maze.player_y = y < 0 ? 0 : y < maze.height ? y : maze.height - 1;
     auto & e = at(player_x, player_y);
-    if (Maze::isWall(e) || e == ' ')
+    if (e == ' ')
         at(x, y) = '@';
 }
 

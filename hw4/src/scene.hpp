@@ -1,15 +1,19 @@
 #ifndef PX_CG_SCENE_HPP
 #define PX_CG_SCENE_HPP
 
+#include <list>
 #include <string>
 #include "maze.hpp"
+#include "item.hpp"
 #include "character.hpp"
 #include "shader/base_shader.hpp"
+#include "shader/skybox.hpp"
 
 namespace px {
 
 class Scene;
 }
+
 
 class px::Scene
 {
@@ -25,6 +29,12 @@ public:
     Maze maze;
     Character character;
 
+    static const float DEFAULT_DISPLACE_AMP;
+    static const float DEFAULT_DISPLACE_MID;
+    static const char * FS;
+    static const char * VS;
+    static const char * LAMP_FS;
+    static const char * LAMP_VS;
 public:
     Scene(Option &opt);
 
@@ -36,6 +46,9 @@ public:
     inline const State &gameState() const noexcept { return state; }
     bool run(float dt);
 
+    inline const bool &needUploadData() const noexcept {return need_upload_data; }
+    void uploadData();
+
     [[noreturn]]
     void err(std::string const & msg);
 
@@ -44,12 +57,28 @@ public:
     Scene &operator=(Scene &&) = default;
 
 protected:
-    State state;
-    Shader *shader;
+    void turnOnHeadLight();
+    void turnOffHeadLight();
 
-    unsigned int texture[8], vao[2], vbo[2];
-    bool need_update_vbo_data;
-    bool moveWithCollisionCheck(glm::vec3 span);
+    static std::vector<unsigned char *> wall_textures;
+    static std::vector<std::pair<int, int> > wall_texture_dim;
+    static std::vector<unsigned char *> floor_textures;
+    static std::vector<std::pair<int, int> > floor_texture_dim;
+
+    State state;
+    std::vector<Item*> keys;
+    std::vector<Item*> doors;
+    std::list<Item*> interact_objs;
+
+    std::vector<float> wall_v;;
+    int n_wall_v;
+
+    Shader *shader;
+    SkyBox *skybox;
+
+    unsigned int texture[8], vao[3], vbo[3];
+    bool need_upload_data;
+    bool moveWithCollisionCheck(Character &character, glm::vec3 span);
 };
 
 #endif

@@ -2,17 +2,23 @@
 #define PX_CG_MAZE_HPP
 
 #include <vector>
+#include <unordered_map>
 #include <string>
 
 namespace px {
+typedef char Key;
+typedef char Door;
 
 struct Map
 {
     std::string at;
-    std::size_t width;
-    std::size_t height;
+    int width;
+    int height;
     int player_x;
     int player_y;
+    std::vector<Key> collection;
+    std::unordered_map<Key, std::pair<int, int> > keys;
+    std::unordered_map<Door, std::pair<int, int> > doors;
 };
 
 
@@ -59,21 +65,32 @@ bool isEndPoint(char e);
 class px::Maze
 {
 protected:
-    static std::vector<std::size_t> keys_id;
-    static void regItems();
+    static std::vector<std::pair<Key, Door> > KEYS;
     Map maze;
 
 public:
+
+    static const char METAL_KEY, METAL_DOOR;
+    static const char WOOD_KEY, WOOD_DOOR;
+    static const char WATER_KEY, WATER_DOOR;
+    static const char FIRE_KEY, FIRE_DOOR;
+    static const char EARTH_KEY, EARTH_DOOR;
+
+    static const char END_POINT;
+    static const char EMPTY_SLOT;
+    static const char PLAYER;
+
+
     const std::string &map;
-    const std::size_t &height;
-    const std::size_t &width;
+    const int &height;
+    const int &width;
     const int &player_x;
     const int &player_y;
 public:
     static Map gen(std::size_t width, std::size_t height);
     static bool isWall(char e);
-    static bool isEndPoint(char e);
     static bool isDoor(char e);
+    static bool isKey(char e);
 
     Maze();
     Maze(Map const &map);
@@ -85,7 +102,6 @@ public:
 
     bool isWall(std::size_t const &index);
     bool isWall(int x, int y);
-    bool isEndPoint(std::size_t const &index);
     bool isEndPoint(int x, int y);
     bool isDoor(std::size_t const &index);
     bool isDoor(int x, int y);
@@ -94,8 +110,9 @@ public:
     bool canMoveUp();
     bool canMoveDown();
 
-    std::size_t collect(int x, int y);
-    std::size_t keyFor(int x, int y);
+    void collect(char key);
+    bool canWin(int x, int y);
+    void getLoc(Door d, int &x, int &y);
 
     void portal(int x, int y);
     void moveRight();

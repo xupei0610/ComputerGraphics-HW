@@ -86,7 +86,6 @@ void App::setLvl(int lvl)
 
 void App::restart()
 {
-    static GLFWwindow * loader_win = nullptr;
     is_pausing = true;
     togglePause();
     scene.setState(Scene::State::Over);
@@ -95,24 +94,16 @@ void App::restart()
     _game_gen_request = true;
     if (_game_gen_thread == nullptr)
     {
-        if (loader_win == nullptr)
-        {
-            glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-            loader_win = glfwCreateWindow(1, 1, "", nullptr, window);
-        }
         _game_gen_thread = new std::thread([&](){
-            glfwMakeContextCurrent(loader_win);
             while (_game_stop_request == false)
             {
                 if (_game_gen_request)
                 {
                     scene.reset(std::min(20+4*_lvl, 39), std::min(5+1*_lvl, 10));
+                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
                     _game_gen_request = false;
-                    timer.restart();
                 }
             }
-            glfwDestroyWindow(loader_win);
-            loader_win = nullptr;
         });
     }
 }
@@ -136,12 +127,13 @@ void App::updateWindowSize()
 {
     if (window)
     {
+        int w, h;
+        glfwGetWindowSize(window, &w, &h);
         glfwGetFramebufferSize(window,
                                &scene.character.cam.width,
                                &scene.character.cam.height);
         glViewport(0, 0, scene.character.cam.width, scene.character.cam.height);
         scene.character.cam.updateProjMat();
-
         _center_x = scene.character.cam.width / 2.0f;
         _center_y = scene.character.cam.height / 2.0f;
     }
@@ -208,7 +200,7 @@ void App::toggleFullscreen()
         glfwSetWindowMonitor(window, nullptr,
                              (v->width - _width)/2, (v->height - _height)/2,
                              _width, _height, GL_DONT_CARE);
-        updateWindowSize();
+        glfwSetWindowSize(window, _width, _height);
         _full_screen = false;
     }
     else
@@ -230,6 +222,13 @@ void App::processEvents()
         scene.character.activateAction(Action::Run, true);
     else
         scene.character.activateAction(Action::Run, false);
+
+    static auto head_light_key_pressed = false;
+    if (action[static_cast<int>(Action::ToggleHeadLight)] == false && head_light_key_pressed == true)
+    {
+        scene.character.activateAction(Action::ToggleHeadLight, true);
+    }
+    head_light_key_pressed = action[static_cast<int>(Action::ToggleHeadLight)];
 
     if (action[static_cast<int>(Action::MoveForward)] &&
             action[static_cast<int>(Action::MoveBackward)] == false)
@@ -327,8 +326,7 @@ void App::click(int button, int action)
             }
             else if (scene.gameState() == Scene::State::Running)
             {
-                if (_on_resume)
-                    togglePause();
+                if (_on_resume) togglePause();
                 else if (_on_restart) restart();
                 else if (_on_option) _on_option_screen = true;
                 else if (_on_quit) glfwSetWindowShouldClose(window, 1);
@@ -396,6 +394,7 @@ void App::keyCallback(GLFWwindow* window, int key, int scancode, int action, int
     else KEY_CALLBACK(Action::TurnRight)
     else KEY_CALLBACK(Action::Jump)
     else KEY_CALLBACK(Action::Run)
+    else KEY_CALLBACK(Action::ToggleHeadLight)
 
 #undef KEY_CALLBACK
 }
@@ -408,13 +407,18 @@ void App::init()
 
     // init window
     if (window) glfwDestroyWindow(window);
-    auto m = glfwGetPrimaryMonitor();
+//    auto m = glfwGetPrimaryMonitor();
+    int ms;
+    auto mt = glfwGetMonitors(&ms);
+    auto m = mt[1];
     auto v = glfwGetVideoMode(m);
     window = glfwCreateWindow(v->width, v->height, _title.data(), m, nullptr);
 //    window = glfwCreateWindow(_width, _height, _title.data(), nullptr, nullptr);
     if (!window) err("Failed to initialize window.");
-    _full_screen = true;
+//    _full_screen = true;
 //    toggleFullscreen();
+    _full_screen = false;
+    updateWindowSize();
 
     // init OpenGL
     glfwMakeContextCurrent(window);
@@ -431,11 +435,11 @@ void App::init()
 //    glfwSetScrollCallback(window, &App::scrollCallback);
     glfwSetFramebufferSizeCallback(window, &App::windowSizeCallback);
 
-
     initShaders();
-    scene.init();
 
-    // restart
+    launchScreen();
+
+    scene.init();
     restart();
 }
 
@@ -447,13 +451,17 @@ bool App::run()
     if (glfwWindowShouldClose(window))
         return false;
 
-    if (is_pausing == false)
+    if (_game_gen_request)
     {
-        if (_game_gen_request)
-        {
-            loadingScreen();
-        }
-        else if (scene.run(timeGap()))
+        loadingScreen();
+    }
+    else if (is_pausing)
+    {
+        pauseScene();
+    }
+    else
+    {
+        if (scene.run(timeGap()))
         {
             scene.render();
             gameGUI();
@@ -463,10 +471,6 @@ bool App::run()
         {
             togglePause();
         }
-    }
-    else
-    {
-        pauseScene();
     }
     return true;
 }
@@ -539,7 +543,6 @@ void App::pauseScene()
 
 void App::loadingScreen()
 {
-    glfwMakeContextCurrent(window);
     glClearColor(0.f, 0.f, 0.f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -572,6 +575,33 @@ void App::loadingScreen()
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::Center);
     glfwSwapBuffers(window);
+
+    if (_game_gen_request == false && scene.needUploadData())
+    {
+        scene.uploadData();
+        timer.restart();
+    }
+}
+
+void App::launchScreen()
+{
+    glClearColor(0.f, 0.f, 0.f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    text_shader->render("a  portal  to",
+                        _center_x, _center_y-20, 0.6f,
+                        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+                        Anchor::Center);
+    text_shader->render("........",
+                        _center_x, _center_y+20, 0.6f,
+                        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+                        Anchor::Center);
+    text_shader->render("somewhere",
+                        _center_x, _center_y+60, 0.4f,
+                        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+                        Anchor::Center);
+
+    glfwSwapBuffers(window);
 }
 
 void App::gameGUI()
@@ -592,18 +622,22 @@ void App::gameGUI()
                         10, 70, .4f,
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::LeftTop);
-    text_shader->render("Life:" + std::to_string(scene.character.currentHp()),
+    text_shader->render("Life:" + std::to_string(static_cast<int>(scene.character.characterHp())),
                         10, 100, .4f,
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::LeftTop);
     auto p = 130;
     for (auto const &i: scene.character.items)
     {
-        text_shader->render(Bag::searchItem(i.first).name,
-                            10, p, .4f,
-                            glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
-                            Anchor::LeftTop);
-        p += 30;
+        auto & item = Item::lookup(i.first);
+        if (item.id() != 0)
+        {
+            text_shader->render(item.name,
+                                10, p, .4f,
+                                glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+                                Anchor::LeftTop);
+            p += 30;
+        }
     }
 }
 
@@ -615,6 +649,7 @@ void App::genGameScene()
 void App::genNextLvl()
 {
     _lvl += 1;
+    opt.setDamageAmp(_lvl*1.2f);
     genGameScene();
 }
 

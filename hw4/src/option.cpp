@@ -5,13 +5,16 @@ using namespace px;
 const float Option::CELL_SIZE = 5.0f;
 const float Option::CELL_HEIGHT = 5.0f;
 const float Option::WALL_THICKNESS = 2.5f;
+const float Option::DAMAGE_AMP = 1.f;
 
 const bool Option::INVERT_Y = true;
 const float Option::MOUSE_SEN = 0.05f;
 
 
 Option::Option()
-    : cell_size(CELL_SIZE), cell_height(CELL_HEIGHT), wall_thickness(WALL_THICKNESS),
+    : cell_size(CELL_SIZE), cell_height(CELL_HEIGHT),wall_thickness(WALL_THICKNESS),
+
+      damage_amp(DAMAGE_AMP),
 
       mouse_sensitivity(MOUSE_SEN), invert_y(INVERT_Y)
 {}
@@ -29,6 +32,11 @@ void Option::setCellHeight(float h)
 void Option::setWallThickness(float w)
 {
     wall_thickness = w;
+}
+
+void Option::setDamageAmp(float da)
+{
+    damage_amp = da;
 }
 
 void Option::setMouseSensitivity(float s)

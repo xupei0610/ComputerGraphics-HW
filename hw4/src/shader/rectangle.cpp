@@ -4,62 +4,13 @@
 
 using namespace px;
 
-const char *RectangleShader::VS = "#version 330 core\n"
-        "layout (location = 0) in vec2 v;"
-        "layout (location = 1) in vec2 tex_coords_in;"
-        ""
-        "out vec2 tex_coords;"
-        "flat out int use_texture;"
-        ""
-        "uniform int use_tex;"
-        "uniform mat4 proj;"
-        ""
-        "void main()"
-        "{"
-        "   gl_Position = proj * vec4(v, 0.0, 1.0);"
-        "   tex_coords = tex_coords_in;"
-        "   use_texture = use_tex;"
-        "}";
+const char *RectangleShader::VS =
+#include "shader/glsl/orth_rectangle_with_gaussian.vs"
+;
 
-const char *RectangleShader::FS = "#version 330 core\n"
-        "out vec4 color;"
-        ""
-        "uniform vec4 rect_color;"
-        "uniform sampler2D texture1;"
-        "in vec2 tex_coords;"
-        ""
-        "flat in int use_texture;"
-        "const float offset = 1.0/512;"
-        "const vec2 offsets[9] = vec2[]("
-        "        vec2(-offset, offset),"
-        "        vec2(0.0f,    offset),"
-        "        vec2(offset,  offset),"
-        "        vec2(-offset, 0.0f),"
-        "        vec2(0.0f,    0.0f),"
-        "        vec2(offset,  0.0f),"
-        "        vec2(-offset, -offset),"
-        "        vec2(0.0f,    -offset),"
-        "        vec2(offset,  -offset)"
-        "    );"
-        "const float kernel[9] = float[]("
-        "    0.0625, 0.125, 0.0625,"
-        "    0.125,  0.25,  0.125,"
-        "    0.0625, 0.125, 0.0625"
-        ");"
-        "void main()"
-        "{"
-        "   if (use_texture == 1)"
-        "   {"
-        "       vec3 fin_col = vec3(0.0f);"
-        "       for(int i = 0; i < 9; i++)"
-        "           fin_col += vec3(texture2D(texture1, tex_coords.st + offsets[i]) * kernel[i]);"
-        "       color = vec4(mix(fin_col, rect_color.xyz, rect_color.w), 1.0);"
-        "   }"
-        "   else"
-        "   {"
-        "       color = rect_color;"
-        "   }"
-        "}";
+const char *RectangleShader::FS =
+#include "shader/glsl/orth_rectangle_with_gaussian.fs"
+;
 
 RectangleShader::RectangleShader()
     : Shader(VS, FS), vao(0), vbo(0)

@@ -99,6 +99,7 @@ public:
     void gameGUI();
     void pauseScene();
     void loadingScreen();
+    void launchScreen();
     void genNextLvl();
     void genGameScene();
 

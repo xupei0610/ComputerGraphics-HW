@@ -8,7 +8,7 @@
 
 namespace px {
 
-#define N_ACTIONS 9
+#define N_ACTIONS 10
 enum class Action : unsigned int
 {
     Pause = 0,
@@ -20,7 +20,8 @@ enum class Action : unsigned int
     TurnLeft = 5,
     TurnRight = 6,
     Jump = 7,
-    Run = 8
+    Run = 8,
+    ToggleHeadLight = 9
 };
 
 static constexpr
@@ -35,7 +36,8 @@ std::array<decltype(GLFW_KEY_0), N_ACTIONS> KEYBOARD_SHORTCUTS = {
         GLFW_KEY_Q,   // TurnLeft = 5,
         GLFW_KEY_E,   // TurnRight = 6
         GLFW_KEY_SPACE,     // Jump = 7
-        GLFW_KEY_LEFT_SHIFT // Run = 8, Modifier
+        GLFW_KEY_LEFT_SHIFT, // Run = 8, Modifier
+        GLFW_KEY_F // ToggleHeadLight = 9
 };
 
 class Option;
@@ -48,6 +50,7 @@ public:
     static const float CELL_SIZE;
     static const float CELL_HEIGHT;
     static const float WALL_THICKNESS;
+    static const float DAMAGE_AMP;
 
     // game options
     static const float MOUSE_SEN;
@@ -77,6 +80,7 @@ public:
     inline const float &cellSize() const noexcept {return cell_size; }
     inline const float &cellHeight() const noexcept {return cell_height; }
     inline const float &wallThickness() const noexcept {return wall_thickness; }
+    inline const float &damageAmp() const noexcept {return damage_amp;}
 
     inline const bool &invertY() const noexcept {return invert_y;}
     inline const float &mouseSensitivity() const noexcept {return mouse_sensitivity;}
@@ -85,6 +89,7 @@ public:
     void setCellSize(float s);
     void setCellHeight(float h);
     void setWallThickness(float w);
+    void setDamageAmp(float damage_amp);
 
     void setInvertY(bool enable);
     void setMouseSensitivity(float s);
@@ -101,6 +106,7 @@ protected:
     float cell_size;
     float cell_height;
     float wall_thickness;
+    float damage_amp;
 
     float mouse_sensitivity;
     bool  invert_y;

@@ -55,7 +55,7 @@ public:
     bool activateFont(std::size_t index);
 
 protected:
-    std::vector<std::array<unsigned, 128> > textures;
+    std::vector<std::array<unsigned, 95> > textures;
     std::vector<Character> chars;
     unsigned int vao, vbo;
 

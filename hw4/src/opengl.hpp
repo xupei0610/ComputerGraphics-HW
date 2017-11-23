@@ -8,8 +8,6 @@ namespace px
 class OpenGLError;
 }
 
-#include <iostream>
-
 class px::OpenGLError : public std::exception
 {
 
