@@ -12,6 +12,7 @@ else()
 endif()
 
 set(CMAKE_VERBOSE_MAKEFILE TRUE)
+set(CMAKE_MACOSX_RPATH 0)
 
 # Setup Dependencies
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
@@ -70,6 +71,4 @@ add_executable(${EXE_NAME}
 target_link_libraries(${EXE_NAME}
                       ${SOURCE_LIBRARIES})
 
-file(GLOB IDE_SUPPORT ${CMAKE_SOURCE_DIR}/src/*)
-add_library(ide ${IDE_SUPPORT})
 

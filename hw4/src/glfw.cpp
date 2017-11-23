@@ -2,7 +2,7 @@
 
 using namespace px;
 
-void errorCallback(int code, const char *description)
+void glfw::errorCallback(int code, const char *description)
 {
     // TODO a more friendly error prompt
     throw GLFWError("GLFW Error: " + std::string(description) +
@@ -13,7 +13,7 @@ void glfw::init()
 {
     if (!glfwInit())
         throw std::runtime_error("Failed to initialize GLFW.");
-    glfwSetErrorCallback(errorCallback);
+    glfwSetErrorCallback(glfw::errorCallback);
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);

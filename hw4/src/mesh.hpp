@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include <memory>
+#include <vector>
 
 #include <assimp/mesh.h>
 #include <assimp/postprocess.h>

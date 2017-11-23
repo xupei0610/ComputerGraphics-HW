@@ -22,7 +22,6 @@ int main()
     auto t = std::thread([&]{
         auto w = px::App::getInstance();
         w->init();
-
         while(w->run() && stop_request == false);
     });
 

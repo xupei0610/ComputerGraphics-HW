@@ -1,6 +1,7 @@
 #ifndef PX_CG_GLFW_HPP
 #define PX_CG_GLFW_HPP
 
+#include <string>
 #include <stdexcept>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -13,6 +14,7 @@ namespace glfw {
 
 void init();
 void terminate();
+void errorCallback(int code, const char *description);
 
 }}
 

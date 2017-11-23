@@ -133,6 +133,7 @@ void App::updateWindowSize()
                                &scene.character.cam.width,
                                &scene.character.cam.height);
         glViewport(0, 0, scene.character.cam.width, scene.character.cam.height);
+
         scene.character.cam.updateProjMat();
         _center_x = scene.character.cam.width / 2.0f;
         _center_y = scene.character.cam.height / 2.0f;
@@ -404,13 +405,10 @@ void App::init()
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
     glfwWindowHint(GLFW_SAMPLES, 4);
-
+    
     // init window
     if (window) glfwDestroyWindow(window);
-//    auto m = glfwGetPrimaryMonitor();
-    int ms;
-    auto mt = glfwGetMonitors(&ms);
-    auto m = mt[1];
+    auto m = glfwGetPrimaryMonitor();
     auto v = glfwGetVideoMode(m);
     window = glfwCreateWindow(v->width, v->height, _title.data(), m, nullptr);
 //    window = glfwCreateWindow(_width, _height, _title.data(), nullptr, nullptr);
