@@ -25,7 +25,7 @@ enum class Action : unsigned int
 };
 
 static constexpr
-std::array<decltype(GLFW_KEY_0), N_ACTIONS> KEYBOARD_SHORTCUTS = {
+    std::array<decltype(GLFW_KEY_0), N_ACTIONS> KEYBOARD_SHORTCUTS = {{
         // system related
         GLFW_KEY_ESCAPE,    // Pause = 0,
         // game control related
@@ -38,7 +38,7 @@ std::array<decltype(GLFW_KEY_0), N_ACTIONS> KEYBOARD_SHORTCUTS = {
         GLFW_KEY_SPACE,     // Jump = 7
         GLFW_KEY_LEFT_SHIFT, // Run = 8, Modifier
         GLFW_KEY_F // ToggleHeadLight = 9
-};
+    }};
 
 class Option;
 }

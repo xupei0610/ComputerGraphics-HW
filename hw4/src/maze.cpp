@@ -192,8 +192,8 @@ Map Maze::gen(std::size_t width, std::size_t height)
         map.player_x = id*2 + 1;
         map.player_y = head ? 1 : h+h-1;
     }
-    map.player_x = 1;
-    map.player_y = 1;
+//    map.player_x = 1;
+//    map.player_y = 1;
     auto tar = map.player_y * (w+w+2) + map.player_x;
     map.at[tar] = PLAYER;
 
@@ -242,7 +242,7 @@ Map Maze::gen(std::size_t width, std::size_t height)
         map.doors[k.second] = std::make_pair(tar % (w+w+2), tar/(w+w+2));
     }
 
-    delete maze;
+    delete [] maze;
 
     return map;
 }
