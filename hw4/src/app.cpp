@@ -43,7 +43,7 @@ App::App()
                 if (_game_gen_request)
                 {
                     scene.reset(std::min(20+4*_lvl, 39), std::min(5+1*_lvl, 10));
-//                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
                     _game_gen_request = false;
                 }
             }
@@ -183,7 +183,7 @@ void App::togglePause()
     if (is_pausing)
     {
         is_pausing = false;
-//        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         mouse_detected = false;
         time_gap = -1;
         timer.resume();
@@ -220,6 +220,9 @@ void App::toggleFullscreen()
         glfwSetWindowMonitor(window, m, 0, 0, v->width, v->height, GL_DONT_CARE);
         _full_screen = true;
     }
+
+    updateWindowSize();
+    updateFrameBufferSize();
 }
 void App::processEvents()
 {
@@ -426,7 +429,9 @@ void App::init(bool window_mode)
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+#ifndef DISABLE_MULTISAMPLE
     glfwWindowHint(GLFW_SAMPLES, 4);
+#endif
 
     // init window
     if (window_mode)
@@ -448,7 +453,9 @@ void App::init(bool window_mode)
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) err("Failed to initialize GLEW.");
     glEnable(GL_DEPTH_TEST);
+#ifndef DISABLE_MULTISAMPLE
     glEnable(GL_MULTISAMPLE);
+#endif
 
     updateWindowSize();
     updateFrameBufferSize();

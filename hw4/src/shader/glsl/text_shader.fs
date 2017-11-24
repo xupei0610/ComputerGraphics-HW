@@ -1,4 +1,4 @@
-"#version 410 core\n"
+"#version 330 core\n"
  "in vec2 t_coord;"
  "out vec4 color;"
  ""

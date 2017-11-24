@@ -10,13 +10,13 @@ This is the script for HW4 of Fundamentals of Computer Graphics I.
     make
     ./hw4
 
+To use `-DDISABLE_MULTISAMPLE` with `cmake` command to disable multisampling.
+
 Dependencies: FreeType, GLFW, GLM, GLEW
 
 3rd Part libraries: SOIL, ASSIMP
 
-Tested under Ubuntu 16.04
-
-**There are some problems to run this program on MacOS.** I will fix this later.
+Tested under Ubuntu 16.04 and Mac OS 10.12. Retia Display supported.
 
 ## Introduction
 

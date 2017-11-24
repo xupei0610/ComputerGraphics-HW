@@ -1,4 +1,4 @@
-"#version 410 core\n"
+"#version 330 core\n"
 "layout (location = 0) in vec2 v;"
 "layout (location = 1) in vec2 tex_coords_in;"
 ""

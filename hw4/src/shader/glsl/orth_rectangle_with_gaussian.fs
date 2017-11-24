@@ -1,4 +1,4 @@
-"#version 410 core\n"
+"#version 330 core\n"
 "out vec4 color;"
 ""
 "uniform vec4 rect_color;"
