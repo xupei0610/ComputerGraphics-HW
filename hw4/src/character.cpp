@@ -8,7 +8,7 @@ using namespace px;
 const float Character::CHARACTER_HEIGHT = 0.5f;
 const float Character::CHARACTER_HALF_SIZE = 0.2f;
 const float Character::JUMP_HEIGHT = 2.5f*Character::CHARACTER_HEIGHT;
-const float Character::ASC_SP = 1.5f * Character::JUMP_HEIGHT;
+const float Character::ASC_SP = 1.25f * Character::JUMP_HEIGHT;
 const float Character::DROP_SP = 1.75f * Character::JUMP_HEIGHT;
 const float Character::FORWARD_SP = 4.0f;
 const float Character::BACKWARD_SP = 1.0f;

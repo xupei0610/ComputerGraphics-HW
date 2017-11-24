@@ -19,13 +19,14 @@ int main()
 
     px::glfw::init();
 
-    auto t = std::thread([&]{
+//    auto t = std::thread([&]{
         auto w = px::App::getInstance();
-        w->init();
-        while(w->run() && stop_request == false);
-    });
+        w->init(true);
 
-    t.join();
+        while(w->run() && stop_request == false);
+//    });
+
+//    t.join();
 
     px::glfw::terminate();
     return 0;

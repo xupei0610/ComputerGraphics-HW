@@ -83,7 +83,6 @@ SkyBox::~SkyBox()
     glDeleteTextures(1, &texture);
 }
 
-#include <iostream>
 void SkyBox::init()
 {
     if (vao == 0)

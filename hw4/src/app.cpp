@@ -35,8 +35,20 @@ App::App()
       window(nullptr), text_shader(nullptr), rectangle_shader(nullptr),
       font_size(40), half_pause_scene_font_size(8.0f),
       fbo(0), bto(0), rbo(0),
-      _title(WIN_TITLE), _game_gen_thread(nullptr)
-{};
+      _title(WIN_TITLE),
+      _game_stop_request(false), _game_gen_request(false),
+      _game_gen_thread(new std::thread([&](){
+            while (_game_stop_request == false)
+            {
+                if (_game_gen_request)
+                {
+                    scene.reset(std::min(20+4*_lvl, 39), std::min(5+1*_lvl, 10));
+//                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    _game_gen_request = false;
+                }
+            }
+        }))
+{}
 
 App::~App()
 {
@@ -47,7 +59,7 @@ App::~App()
     glDeleteRenderbuffers(1, &rbo);
     glfwDestroyWindow(window);
     _game_stop_request = true;
-    if (_game_gen_thread->joinable())
+    if (_game_gen_thread != nullptr && _game_gen_thread->joinable())
         _game_gen_thread->join();
 }
 
@@ -92,20 +104,6 @@ void App::restart()
     std::memset(action, 0, sizeof(action));
     _lvl = 1;
     _game_gen_request = true;
-    if (_game_gen_thread == nullptr)
-    {
-        _game_gen_thread = new std::thread([&](){
-            while (_game_stop_request == false)
-            {
-                if (_game_gen_request)
-                {
-                    scene.reset(std::min(20+4*_lvl, 39), std::min(5+1*_lvl, 10));
-                    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                    _game_gen_request = false;
-                }
-            }
-        });
-    }
 }
 
 void App::initShaders()
@@ -176,7 +174,7 @@ void App::togglePause()
     if (is_pausing)
     {
         is_pausing = false;
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+//        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         mouse_detected = false;
         time_gap = -1;
         timer.resume();
@@ -226,9 +224,7 @@ void App::processEvents()
 
     static auto head_light_key_pressed = false;
     if (action[static_cast<int>(Action::ToggleHeadLight)] == false && head_light_key_pressed == true)
-    {
         scene.character.activateAction(Action::ToggleHeadLight, true);
-    }
     head_light_key_pressed = action[static_cast<int>(Action::ToggleHeadLight)];
 
     if (action[static_cast<int>(Action::MoveForward)] &&
@@ -400,22 +396,28 @@ void App::keyCallback(GLFWwindow* window, int key, int scancode, int action, int
 #undef KEY_CALLBACK
 }
 
-void App::init()
+void App::init(bool window_mode)
 {
+    if (window) glfwDestroyWindow(window);
+
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
     glfwWindowHint(GLFW_SAMPLES, 4);
-    
+
     // init window
-    if (window) glfwDestroyWindow(window);
-    auto m = glfwGetPrimaryMonitor();
-    auto v = glfwGetVideoMode(m);
-    window = glfwCreateWindow(v->width, v->height, _title.data(), m, nullptr);
-//    window = glfwCreateWindow(_width, _height, _title.data(), nullptr, nullptr);
+    if (window_mode)
+    {
+        window = glfwCreateWindow(_width, _height, _title.data(), nullptr, nullptr);
+        _full_screen = false;
+    }
+    else
+    {
+        auto m = glfwGetPrimaryMonitor();
+        auto v = glfwGetVideoMode(m);
+        window = glfwCreateWindow(v->width, v->height, _title.data(), m, nullptr);
+        _full_screen = true;
+    }
     if (!window) err("Failed to initialize window.");
-//    _full_screen = true;
-//    toggleFullscreen();
-    _full_screen = false;
     updateWindowSize();
 
     // init OpenGL
@@ -434,9 +436,7 @@ void App::init()
     glfwSetFramebufferSizeCallback(window, &App::windowSizeCallback);
 
     initShaders();
-
     launchScreen();
-
     scene.init();
     restart();
 }

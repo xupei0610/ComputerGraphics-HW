@@ -70,7 +70,7 @@ public:
     [[noreturn]]
     void err(std::string const &msg);
 
-    void init();
+    void init(bool window_mode = false);
     bool run();
     void restart();
     void togglePause();
@@ -154,9 +154,9 @@ private:
     bool _on_resume, _on_restart, _on_option, _on_quit;
     bool _on_option_screen;
 
-    std::thread *_game_gen_thread;
     std::atomic<bool> _game_stop_request;
     std::atomic<bool> _game_gen_request;
+    std::thread *_game_gen_thread;
 };
 
 #endif

@@ -145,7 +145,6 @@ void Scene::init()
 template<typename ...ARGS>
 void Scene::reset(ARGS &&...args)
 {
-
     maze.reset(std::forward<ARGS>(args)...);
 
     auto h = static_cast<float>(maze.height);
@@ -375,7 +374,6 @@ void Scene::reset(ARGS &&...args)
     interact_objs.swap(tmp);
 
     state = State::Running;
-
 #ifndef NDEBUG
     std::cout << "\n" << maze.map << std::endl;
 #endif

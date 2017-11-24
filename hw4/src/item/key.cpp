@@ -105,16 +105,19 @@ void item::Key::render(Shader *shader, glm::mat4 const &view, glm::mat4 const &p
 
 void item::Key::update(float dt)
 {
+    model = glm::translate(IDENTITY_MODEL_MAT, pos);
 #ifdef GLM_FORCE_RADIANS
     rot += dt*0.013f;
     if (rot > 6.2830f) rot-=6.2830f;
-    model = glm::rotate(glm::translate(model, pos), , Y_AXIS);
+    if (rot < -6.2830f) rot+=6.2830f;
+    model = glm::rotate(model, rot, Y_AXIS);
 #else
-    rot += dt*.75f;
+    rot += dt*.5f;
     if (rot > 360) rot-=360;
     else if (rot < -360) rot += 360;
-    model = glm::scale(glm::rotate(glm::translate(IDENTITY_MODEL_MAT, pos), rot, Y_AXIS), scale);
+    model = glm::rotate(model, rot, Y_AXIS);
 #endif
+    model = glm::scale(model, scale);
 
 }
 
