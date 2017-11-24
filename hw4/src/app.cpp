@@ -127,14 +127,23 @@ void App::updateWindowSize()
     {
         int w, h;
         glfwGetWindowSize(window, &w, &h);
+        _center_x = w * 0.5f;
+        _center_y = h * 0.5f;
+    }
+}
+
+void App::updateFrameBufferSize()
+{
+    if (window)
+    {
         glfwGetFramebufferSize(window,
                                &scene.character.cam.width,
                                &scene.character.cam.height);
         glViewport(0, 0, scene.character.cam.width, scene.character.cam.height);
 
         scene.character.cam.updateProjMat();
-        _center_x = scene.character.cam.width / 2.0f;
-        _center_y = scene.character.cam.height / 2.0f;
+        _frame_center_x = scene.character.cam.width * 0.5f;
+        _frame_center_y = scene.character.cam.height * 0.5f;
     }
 }
 
@@ -182,6 +191,8 @@ void App::togglePause()
     else
     {
         timer.pause();
+        _on_resume = false; _on_restart = false; _on_option = false; _on_quit = false;
+        _on_resume = false; _on_restart = false; _on_option = false; _on_quit = false;
         is_pausing = true;
         renderScene();
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -259,38 +270,47 @@ void App::scroll(float, float y_offset)
 
 void App::cursor(float x_pos, float y_pos)
 {
-    if (is_pausing)
-    {
-        _on_resume = false; _on_restart = false; _on_option = false; _on_quit = false;
-        _on_resume = false; _on_restart = false; _on_option = false; _on_quit = false;
-        if (x_pos > _center_x - half_pause_scene_font_size*(_on_option_screen ? 12.0f : 6.0f) &&
-                x_pos < _center_x + half_pause_scene_font_size*(_on_option_screen ? 12.0f : 6.0f))
+    if (is_pausing || _game_gen_request)
+    {   // gui mode
+
+        // for H-DPI monitor
+        if (_center_x != _frame_center_x)
+            x_pos *= _frame_center_x / _center_x;
+        if (_center_y != _frame_center_y)
+            y_pos *= _frame_center_y / _center_y;
+
+        if (is_pausing)
         {
-            if (y_pos > _center_y - 20 - half_pause_scene_font_size && y_pos < _center_y - 20 + half_pause_scene_font_size)
+            _on_resume = false; _on_restart = false; _on_option = false; _on_quit = false;
+            _on_resume = false; _on_restart = false; _on_option = false; _on_quit = false;
+            if (x_pos > _frame_center_x - half_pause_scene_font_size*(_on_option_screen ? 12.0f : 6.0f) &&
+                x_pos < _frame_center_x + half_pause_scene_font_size*(_on_option_screen ? 12.0f : 6.0f))
             {
-                _on_resume = true;
+                if (y_pos > _frame_center_y - 20 - half_pause_scene_font_size && y_pos < _frame_center_y - 20 + half_pause_scene_font_size)
+                {
+                    _on_resume = true;
+                }
+                else if (y_pos > _frame_center_y + 20 - half_pause_scene_font_size && y_pos < _frame_center_y + 20 + half_pause_scene_font_size)
+                {
+                    _on_restart = true;
+                }
+                else if (y_pos > _frame_center_y + 60 - half_pause_scene_font_size && y_pos < _frame_center_y + 60 + half_pause_scene_font_size)
+                {
+                    _on_option = true;
+                }
+                else if (y_pos > _frame_center_y + 100 - half_pause_scene_font_size && y_pos < _frame_center_y + 100 + half_pause_scene_font_size)
+                {
+                    _on_quit = true;
+                }
             }
-            else if (y_pos > _center_y + 20 - half_pause_scene_font_size && y_pos < _center_y + 20 + half_pause_scene_font_size)
-            {
-                _on_restart = true;
-            }
-            else if (y_pos > _center_y + 60 - half_pause_scene_font_size && y_pos < _center_y + 60 + half_pause_scene_font_size)
-            {
-                _on_option = true;
-            }
-            else if (y_pos > _center_y + 100 - half_pause_scene_font_size && y_pos < _center_y + 100 + half_pause_scene_font_size)
+        }
+        else // if (_game_gen_request)
+        {
+            _on_quit = false;
+            if (y_pos > _frame_center_y + 100 - half_pause_scene_font_size && y_pos < _frame_center_y + 100 + half_pause_scene_font_size)
             {
                 _on_quit = true;
             }
-        }
-        return;
-    }
-    else if (_game_gen_request)
-    {
-        _on_quit = false;
-        if (y_pos > _center_y + 100 - half_pause_scene_font_size && y_pos < _center_y + 100 + half_pause_scene_font_size)
-        {
-            _on_quit = true;
         }
         return;
     }
@@ -352,6 +372,10 @@ void App::click(int button, int action)
 void App::windowSizeCallback(GLFWwindow *, int width, int height)
 {
     instance->updateWindowSize();
+}
+void App::frameBufferSizeCallback(GLFWwindow *, int width, int height)
+{
+    instance->updateFrameBufferSize();
 }
 
 void App::scrollCallback(GLFWwindow *, double x_offset, double y_offset)
@@ -418,7 +442,6 @@ void App::init(bool window_mode)
         _full_screen = true;
     }
     if (!window) err("Failed to initialize window.");
-    updateWindowSize();
 
     // init OpenGL
     glfwMakeContextCurrent(window);
@@ -427,6 +450,9 @@ void App::init(bool window_mode)
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_MULTISAMPLE);
 
+    updateWindowSize();
+    updateFrameBufferSize();
+
     // setup callback fns
 //    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
     glfwSetKeyCallback(window, &App::keyCallback);
@@ -434,6 +460,7 @@ void App::init(bool window_mode)
     glfwSetCursorPosCallback(window, &App::cursorPosCallback);
 //    glfwSetScrollCallback(window, &App::scrollCallback);
     glfwSetFramebufferSizeCallback(window, &App::windowSizeCallback);
+    glfwSetFramebufferSizeCallback(window, &App::frameBufferSizeCallback);
 
     initShaders();
     launchScreen();
@@ -485,42 +512,42 @@ void App::pauseScene()
         if (_on_option_screen)
         {
             text_shader->render("option",
-                                _center_x, _center_y-100, 1.0f,
+                                _frame_center_x, _frame_center_y-100, 1.0f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
             text_shader->render("fullscreen",
-                                _center_x, _center_y-20, _on_resume ? 0.6f : 0.4f,
+                                _frame_center_x, _frame_center_y-20, _on_resume ? 0.6f : 0.4f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
             text_shader->render(std::string("Y axis: ") + (opt.invertY() ? "non-inverted" : "inverted"),
-                                _center_x, _center_y+20, _on_restart ? 0.6f : 0.4f,
+                                _frame_center_x, _frame_center_y+20, _on_restart ? 0.6f : 0.4f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
             text_shader->render("back",
-                                _center_x, _center_y+60, _on_option ? 0.6f : 0.4f,
+                                _frame_center_x, _frame_center_y+60, _on_option ? 0.6f : 0.4f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
         }
         else
         {
             text_shader->render("pausss...iiing",
-                                _center_x, _center_y-100, 1.0f,
+                                _frame_center_x, _frame_center_y-100, 1.0f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
             text_shader->render("resume",
-                                _center_x, _center_y-20, _on_resume ? 0.6f : 0.4f,
+                                _frame_center_x, _frame_center_y-20, _on_resume ? 0.6f : 0.4f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
             text_shader->render("restart",
-                                _center_x, _center_y+20, _on_restart ? 0.6f : 0.4f,
+                                _frame_center_x, _frame_center_y+20, _on_restart ? 0.6f : 0.4f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
             text_shader->render("option",
-                                _center_x, _center_y+60, _on_option ? 0.6f : 0.4f,
+                                _frame_center_x, _frame_center_y+60, _on_option ? 0.6f : 0.4f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
             text_shader->render("quit",
-                                _center_x, _center_y+100, _on_quit ? 0.6f : 0.4f,
+                                _frame_center_x, _frame_center_y+100, _on_quit ? 0.6f : 0.4f,
                                 glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                                 Anchor::Center);
         }
@@ -528,11 +555,11 @@ void App::pauseScene()
     else
     {   // show game over scene
         text_shader->render(scene.gameState() == Scene::State::Win ? "win" : "loooooose",
-                            _center_x, _center_y-100, 1.0f,
+                            _frame_center_x, _frame_center_y-100, 1.0f,
                             glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                             Anchor::Center);
         text_shader->render("continue",
-                            _center_x, _center_y-20, _on_resume ? 0.6f : 0.4f,
+                            _frame_center_x, _frame_center_y-20, _on_resume ? 0.6f : 0.4f,
                             glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                             Anchor::Center);
     }
@@ -561,15 +588,15 @@ void App::loadingScreen()
     for (auto i = 0; i < count; ++i)
         ss << " .";
     text_shader->render("load",
-                        _center_x, _center_y-20, 0.6f,
+                        _frame_center_x, _frame_center_y-20, 0.6f,
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::Center);
     text_shader->render(ss.str(),
-                        _center_x, _center_y+20, 0.6f,
+                        _frame_center_x, _frame_center_y+20, 0.6f,
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::Center);
     text_shader->render("quit",
-                        _center_x, _center_y+100, _on_quit ? 0.6f : 0.4f,
+                        _frame_center_x, _frame_center_y+100, _on_quit ? 0.6f : 0.4f,
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::Center);
     glfwSwapBuffers(window);
@@ -587,15 +614,15 @@ void App::launchScreen()
     glClear(GL_COLOR_BUFFER_BIT);
 
     text_shader->render("a  portal  to",
-                        _center_x, _center_y-20, 0.6f,
+                        _frame_center_x, _frame_center_y-20, 0.6f,
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::Center);
     text_shader->render("........",
-                        _center_x, _center_y+20, 0.6f,
+                        _frame_center_x, _frame_center_y+20, 0.6f,
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::Center);
     text_shader->render("somewhere",
-                        _center_x, _center_y+60, 0.4f,
+                        _frame_center_x, _frame_center_y+60, 0.4f,
                         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
                         Anchor::Center);
 

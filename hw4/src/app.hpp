@@ -59,6 +59,8 @@ private:
     int _width;
     float _center_y;
     float _center_x;
+    float _frame_center_y;
+    float _frame_center_x;
 
 public:
     Option opt;
@@ -108,6 +110,7 @@ protected:
     ~App();
 
     void updateWindowSize();
+    void updateFrameBufferSize();
     void updateTimeGap();
 
     static void keyCallback(GLFWwindow *, int key, int scancode, int action, int mods);
@@ -115,6 +118,7 @@ protected:
     static void scrollCallback(GLFWwindow *, double x_offset, double y_offset);
     static void cursorPosCallback(GLFWwindow *, double x_pos, double y_pos);
     static void windowSizeCallback(GLFWwindow *window, int width, int height);
+    static void frameBufferSizeCallback(GLFWwindow *window, int width, int height);
 
     void initShaders();
 

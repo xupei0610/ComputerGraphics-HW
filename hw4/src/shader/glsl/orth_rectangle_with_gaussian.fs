@@ -29,7 +29,7 @@
 "   {"
 "       vec3 fin_col = vec3(0.0f);"
 "       for(int i = 0; i < 9; i++)"
-"           fin_col += vec3(texture2D(texture1, tex_coords.st + offsets[i]) * kernel[i]);"
+"           fin_col += vec3(texture(texture1, tex_coords.st + offsets[i]) * kernel[i]);"
 "       color = vec4(mix(fin_col, rect_color.xyz, rect_color.w), 1.0);"
 "   }"
 "   else"
