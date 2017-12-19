@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
-project(hw4)
-set(EXE_NAME hw4)
+project(final)
+set(EXE_NAME final)
 
 # Setup Comipler Flags
 set(CMAKE_CXX_STANDARD 11)

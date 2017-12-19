@@ -174,7 +174,7 @@ void Scene::gen(ARGS &&...args)
     maze.reset(std::forward<ARGS>(args)...);
     objs.clear();
 
-    auto threshold = 2 * (1 - 30.f / ((maze.height - 1) * (maze.width - 1) * 0.25f)) - 1;
+    auto threshold = 1 + 2 * 30.f / ((maze.height - 1) * (maze.width - 1) * 0.25f);
 
     auto h = static_cast<float>(maze.height);
     auto w = static_cast<float>(maze.width);
@@ -647,7 +647,6 @@ bool Scene::run(float dt)
     auto movement = moveWithCollisionCheck(cam.eye,
                                               glm::vec3(character.characterHalfSize(), character.characterHalfHeight(), character.characterHalfSize()),
                                               character.makeAction(dt), nullptr);
-
 
     if (!character.isAscending())
     {

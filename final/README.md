@@ -1,6 +1,6 @@
-# HW4
+# Final
 
-This is the script for HW4 of Fundamentals of Computer Graphics I.
+This is the final project for Fundamentals of Computer Graphics I.
 
 ## Usage
 
@@ -8,7 +8,7 @@ This is the script for HW4 of Fundamentals of Computer Graphics I.
     cd build
     cmake ..
     make
-    ./hw4
+    ./final
 
 To use `-DDISABLE_MULTISAMPLE` with `cmake` command to disable multisampling.
 
@@ -20,132 +20,62 @@ Tested under Ubuntu 16.04 and Mac OS 10.12. Retia Display supported.
 
 ## Introduction
 
-This program implements a simple 3D maze game. Player must find the existence of the maze. There is no hard time limit for each round. However, player will lose HP gradually and finally lose game if he does not find the existence in the soft time limit.
+This project is the extendation of HW4. This project focuses more on the implementation of deferred rendering. Two main features are implemented: **deferred rendering** with bumping and displacement mapping; and **shootable light balls** whose movement follows basic physical rules.
 
-In a maze, there are five keys and five doors. They are five elements that the world is comprised of: Metal, Wood, Water, Fire and Earth.
+## Deferred Rendering
 
- <img src="./doc/keys.png" />
+The performance of deferred rendering is amazing. The following shows a scene with hundreds of randomly moving light balls drawn by deferred rendering.
 
- <img src="./doc/doors.png" />
+<img src="./doc/lights2.gif" />
 
- <img src="./doc/keys_doors.png" />
+<img src="./doc/lights.png" />
 
-The in-game scenario is much dark. Player has a flashlight, which can be turned on/off by `F` key. Player can move using `w` and `s` for forward and backward and `a` and `d` for left and right sidestepping. The speed of walking forward and backward is different. Player can hold `shift` to run when not walking backward and can jumpy by `space` key. View direction is controlled by mouse motion. All of these is just like normal first person game.
+The followings show the scence in game. Light balls floating in the air and move slowly and randomly, like fireflies.
 
-Besides for the five doors, there is also a back door in the maze. Player can directly go to next level through that door and do not need to collect any special item.
+<img src="./doc/lights3.png" />
 
-This game has a very simple on-screen GUI which indicates the basic game information. During game, press `esc` to pause game. 
+<img src="./doc/lights4.png" />
 
-A grid-based method is used to detect collision. No collision bug found so far.
+<img src="./doc/lights5.png" />
 
-## Trick
+<img src="./doc/lights6.png" />
 
-There is a trick to go through mazes. Mazes are generated using an invariant version of Prim's MST algorithm such that all cells in a maze are reachable and that no circle path exists. Therefore, the player can go through the maze by simply keeping walking along a side of walls. The maze can become much harder by randomly removing some walls after generated.
+<img src="./doc/lights7.png" />
 
-## Features
+The floating light balls are allowed to go through walls. The effect when they go through walls looks very good.
 
-Some CG knowledge related freatures are listed below.
+<img src="./doc/lights8.gif" />
 
-#### Multiple Lights
+In the game scene, all objects are rendered by diffuse, normal, specular and displacement/fieldheight mapping. Before introduction of deferred rendering, all these mappings are finished in tangent space for convenience. With deferred rendering, all these mappings have to be finished in the world or view coordinates; otherwise, we have to pass the tangent-bitangent-normal matrix through buffers for the sake of transfering the light and view position into the tangent space. Our choice in the project is to convert all things into the world frame such that the amount of computation reduces largely when rendering lights.
 
-Besides the headlight located at the camera position, there is a point light at the center of each of the five key balls. Once the player collects any of them, then a lamp located right before the corresponding door will be lighted. (They are just the same point light but change the position and intensity.) This may help the player to find out the door sometime.
+After the introduction of deferred rendering, the process of rendering scence can be splitted into three parts:
 
-The headlight is not exactly at the position of the camera but a little higher, which makes the light eara looks not a real circle and more normally.
+1. render objects normally with the head light and store material(diffuse, specular), position, and normal attributes per pixel into framebuffers;
+2. render lights for each pixel based on the attributes passed by framebuffers;
+3. render objects not influenced by light, e.g. light source objects and the sky box.
 
-<img src="./doc/headlight.png" />
+## Shootable Light Balls
 
+Besides that they are projected by the player, the shootable light balls has another important feature, that are different to the floating light balls: their movement follows the basic physical rules. They could fall down, could slide, could bounce, and could lose velocity during movement.
 
-#### Smooth Jump
+<img src="./doc/shoot.gif" />
 
-There are lots of excllent games that handle `jump` very awesomely. But, I think the `jump` I implements is not bad. The player has a little different ascending and descending speed. And, ascending and descending are finished `gradually` during multiple tricks. The player cannot change the movement direction during jumping but can move mouse to look at different directions. The player are allowed to performance continuous jumping by holding `space` key.
+<img src="./doc/shoot2.gif" />
 
-#### Sky Box
+<img src="./doc/shoot3.gif" />
 
-A very common texture found on the internet.
+<img src="./doc/shoot4.png" />
 
-<img src="./doc/skybox.png" />
+## Deferred Rendering with Post Processing
 
-#### Diffuse/Normal/Specular/Displacement/Parallel Mapping
+In the pause screen, the current scene is convolved with a Gaussian kernel and used as the background. 
 
-Diffuse, normal and specular mappings are used for every object rendering. Walls and floors are rendered using parallel mapping. Keys and doors are rendered using displacement mapping. UV mapping are generated using blender.
+<img src="./doc/post.png" />
 
-All textures used are high-quality. Try higher resolution!
+## Additional Work
 
- <img src="./doc/fire_key.png" />
+A simple animation effect, when the player opens a door.
 
-#### Realtime CG Moive
-
-A very simple movie you will see, if you reach any of the five doors with the corresponding key.
-
-#### GUI
-
-A very simple GUI with a pause screen and loading screen. Scene before pausing will be rendered into buffers such that the pause screen has a Gaussian blurred scene as background.
-
-<img src="./doc/pause.png" />
-
-<img src="./doc/option.png" />
-
-## Gallery
-
-A Light in the Dark
-
-<img src="./doc/light.png" />
-
-Water Spirit Ball
-
-<img src="./doc/water_key.png" />
-
-Metal Spirit Ball
-
-<img src="./doc/metal_key.png" />
-
-Fire Spirit Ball
-
-<img src="./doc/fire_key2.png" />
-
-Lighted Door (have got the key for the door)
-
-<img src="./doc/light_door.png" />
-
-
-Unlighted Door (not get the key yet)
-
-<img src="./doc/unlighte_door.png" />
-
-Another Lighted Door
-
-<img src="./doc/light_door2.png" />
-
-
-The Backdoor
-
-<img src="./doc/backdoor.png" />
-
-Failed Parallel Mapping
-
-<img src="./doc/parallel_mapping_fail.png" />
-
-
-Some Details
-
-<img src="./doc/details.png" />
-
-<img src="./doc/details2.png" />
-
-<img src="./doc/details3.png" />
-
-<img src="./doc/details4.png" />
-
-<img src="./doc/details5.png" />
-
-
-## Video Demo
-
-https://youtu.be/xlU0dKPmWVQ
-
-
-## Copyright Declaration
-
-There are some copyrighted texture files included in this homework. If anyone has intention to collect or use these files, please visit https://3dtextures.me/ but not directly download them in this repository.
+<img src="./doc/animation.gif" />
 
 

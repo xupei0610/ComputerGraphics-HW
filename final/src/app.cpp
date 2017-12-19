@@ -392,6 +392,7 @@ bool App::run()
 
         default:
             state = State::Pausing;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             menu.render(this);
     }
 
