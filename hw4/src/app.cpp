@@ -13,6 +13,7 @@ using namespace px;
 const int App::WIN_HEIGHT = 480;
 const int App::WIN_WIDTH  = 640;
 const char *App::WIN_TITLE = "OpenGL 3D Game Demo - by Pei Xu";
+App *App::instance = nullptr;
 
 const unsigned char TITLE_FONT_DATA[] = {
 #include "font/North_to_South.dat"
@@ -21,7 +22,6 @@ const unsigned char LEFTSIDE_PROMPT_FONT_DATA[] = {
 #include "font/The_Brooklyn_Bold_Demo.dat"
 };
 
-static App *instance = nullptr;
 
 App* App::getInstance()
 {
@@ -81,6 +81,7 @@ void App::setSize(int width, int height)
     {
         glfwSetWindowSize(window, _width, _height);
         updateWindowSize();
+        updateFrameBufferSize();
     }
 }
 
@@ -224,6 +225,7 @@ void App::toggleFullscreen()
     updateWindowSize();
     updateFrameBufferSize();
 }
+
 void App::processEvents()
 {
     glfwPollEvents();
@@ -466,7 +468,7 @@ void App::init(bool window_mode)
     glfwSetMouseButtonCallback(window, &App::mouseCallback);
     glfwSetCursorPosCallback(window, &App::cursorPosCallback);
 //    glfwSetScrollCallback(window, &App::scrollCallback);
-    glfwSetFramebufferSizeCallback(window, &App::windowSizeCallback);
+    glfwSetWindowSizeCallback(window, &App::windowSizeCallback);
     glfwSetFramebufferSizeCallback(window, &App::frameBufferSizeCallback);
 
     initShaders();

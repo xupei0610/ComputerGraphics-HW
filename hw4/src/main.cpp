@@ -1,5 +1,4 @@
 #include "glfw.hpp"
-#include "scene.hpp"
 #include "app.hpp"
 
 //#ifndef __APPLE__
@@ -8,7 +7,7 @@
 //#include <csignal>
 //#endif
 
-std::atomic<bool> stop_request;
+//std::atomic<bool> stop_request;
 
 int main()
 {
@@ -27,7 +26,7 @@ int main()
         auto w = px::App::getInstance();
         w->init(false);
 
-        while(w->run() && stop_request == false);
+        while(w->run());// && stop_request == false);
 
 //#ifndef __APPLE__
 //    });

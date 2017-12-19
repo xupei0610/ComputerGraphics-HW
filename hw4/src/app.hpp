@@ -5,7 +5,6 @@
 #include <atomic>
 #include <string>
 #include <stdexcept>
-#include <atomic>
 
 #include "timer.hpp"
 #include "glfw.hpp"
@@ -123,6 +122,8 @@ protected:
     void initShaders();
 
 protected:
+    static App * instance;
+
     Timer timer;
     GLFWwindow * window;
     bool mouse_detected;

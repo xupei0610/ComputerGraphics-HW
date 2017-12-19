@@ -145,17 +145,10 @@ void Camera::setAng(float y, float p)
 
 void Camera::updateProjMat()
 {
-#ifdef GLM_FORCE_RADIANS
     proj = glm::perspectiveFov(glm::radians(fov),
                                static_cast<float>(width),
                                static_cast<float>(height),
-                               0.1f, 25.0f);
-#else
-    proj = glm::perspectiveFov(fov,
-                               static_cast<float>(width),
-                               static_cast<float>(height),
                                0.1f, 150.0f);
-#endif
 }
 
 void Camera::updateViewMat()

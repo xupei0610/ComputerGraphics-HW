@@ -58,8 +58,8 @@ Scene::Scene(Option &opt)
 
 Scene::~Scene()
 {
-    glDeleteVertexArrays(2, vao);
-    glDeleteBuffers(2, vbo);
+    glDeleteVertexArrays(3, vao);
+    glDeleteBuffers(3, vbo);
     glDeleteTextures(8, texture);
     delete shader;
     delete skybox;
