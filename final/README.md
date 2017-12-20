@@ -56,14 +56,14 @@ With the introduction of deferred rendering, the process of rendering scence can
 
 In the game, the light balls and skybox are rendered in step 3 while the walls and floor are rendered in step 1.
 
-An optional process is to postprocess the output of the above processes before we output the scene to the screen. In that case, we put the output of the above three provessess into a framebuffer and then postprocess the data stored in the buffer just like to process an image.
+An optional process is to postprocess the output of the above processes before we output the scene to the screen. In that case, we put the output of the above three processess into a framebuffer and then postprocess the data stored in the buffer just like to process an image.
 
 A further improvement is to compute the lighting volume or say the effective lighting radius firstly such that we can just skip it when calculating lighting for those objects who are too far from the light source.
 
 
 ## Shootable Light Balls
 
-Besides that they are projected by the player, the shootable light balls has another important feature, that is different to the floating light balls shown above: they are rigid bodies. Their movement follows basic physical rules. They could collide with other rigid bodies, could fall down, could slide, could bounce, and could lose velocity during movement due to fricition or collision with non-rigid body, the air.
+Besides that they are projected by the player, the shootable light balls have another important feature, that is different to the floating light balls shown above: they are rigid bodies. Their movement follows basic physical rules. They could collide with other rigid bodies, could fall down, could slide, could bounce, and could lose velocity during movement due to fricition or collision with non-rigid body, the air.
 
 <img src="./doc/shoot.gif" />
 
@@ -73,7 +73,7 @@ Besides that they are projected by the player, the shootable light balls has ano
 
 <img src="./doc/shoot4.png" />
 
-We can see that after collision, the casted light balls would not sticky to or go through the walls. When hitting the wall, they would directly fall down along the wall, or bounce to another direction depending on their mass and  movement trail and velocity before hitting. Similarly, when hitting the floor, the balls would stop movement immediately or after some sliding. No matter what direction at which a light ball is projected, it would fall down finally due to gravity and stop movement finally due to resistance caused by fricition or collision with air.
+We can see that after collision, the casted light balls would not sticky to or go through the walls. When hitting the wall, they would directly fall down along the wall, or bounce to another direction depending on their mass and  movement trail and velocity before hitting. Similarly, when hitting the floor, the balls would stop movement immediately or after some sliding. No matter what direction at which a light ball is projected originally, it would fall down finally due to gravity and stop movement finally due to resistance caused by fricition or collision with air.
 
 This system is a little complex although it is quite simpler compared to physical engines. All objects have their own mass, velocity, acceleration, motion direction, coefficient of fricition and some other physical attributes. They would interact with other objects during directly or indirectly contact, the objects including the character controlled by the player, although the character is not drawn during rendering. On the other hand, this is a game. It is allowed to appear some objects that do not follow the rules of the real world. Therefore, objects in the game would have some supernatrual attributes, e.g. zero or even negative mass, no real body and the like.
 
