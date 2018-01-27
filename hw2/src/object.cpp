@@ -279,6 +279,7 @@ void Camera::setDirection(Direction const &d, Direction const &u)
     _d = d;
     _u = u;
     _r = d.cross(u);
+    _u = _r.cross(d);
 }
 
 BaseObject::BaseObject(std::shared_ptr<BaseMaterial> const &material)
